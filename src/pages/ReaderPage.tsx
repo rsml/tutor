@@ -272,18 +272,16 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
         </div>
       </header>
 
-      {/* Back button — below header, larger, translucent */}
-      <div className="shrink-0 px-6 pt-3">
+      {/* Content + chat panel in horizontal flex */}
+      <div className="relative flex flex-1 overflow-hidden">
+        {/* Back button — overlays top-left of content area */}
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-content-muted/50 transition-colors hover:text-content-muted"
+          className="absolute left-6 top-3 z-20 inline-flex items-center gap-1.5 p-2 text-content-muted/50 transition-colors hover:text-content-muted"
         >
           <ArrowLeft className="size-5" />
         </button>
-      </div>
 
-      {/* Content + chat panel in horizontal flex */}
-      <div className="flex flex-1 overflow-hidden">
         {/* Content area with edge tap zones */}
         <div className="relative flex-1 overflow-hidden">
           {/* Left tap zone — previous chapter */}
@@ -313,11 +311,11 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
           {/* Scrollable chapter content */}
           <main
             ref={scrollRef}
-            className="h-full overflow-y-auto"
+            className="h-full overflow-y-auto pt-12"
           >
             <article ref={articleRef} style={{ fontSize: `${fontSize}px` }}>
               {phase === 'reading' && (
-                <div className="mx-auto max-w-2xl px-8 pt-6 pb-24">
+                <div className="mx-auto max-w-2xl px-8 pb-24">
                   {chapterLoading ? (
                     <div className="flex items-center gap-2 pt-12 text-content-muted">
                       <Loader2 className="size-4 animate-spin" />
@@ -325,7 +323,7 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
                     </div>
                   ) : chapterContent ? (
                     <>
-                      <div className="prose prose-neutral dark:prose-invert max-w-none leading-[1.8] text-content-secondary">
+                      <div className="reader-prose">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{chapterContent}</ReactMarkdown>
                       </div>
                       {isOnLastGenerated && (
@@ -364,9 +362,9 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
               )}
 
               {phase === 'generating' && (
-                <div className="mx-auto max-w-2xl px-8 pt-6 pb-24">
+                <div className="mx-auto max-w-2xl px-8 pb-24">
                   {streamingContent ? (
-                    <div className="prose prose-neutral dark:prose-invert max-w-none leading-[1.8] text-content-secondary">
+                    <div className="reader-prose">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingContent}</ReactMarkdown>
                     </div>
                   ) : (
