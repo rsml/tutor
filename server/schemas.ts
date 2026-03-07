@@ -230,6 +230,7 @@ export const SuggestBookBodySchema = AiRequestSchema.extend({
         })),
         attempts: z.array(z.object({
           score: z.number(),
+          timestamp: z.string().optional(),
           answers: z.array(z.object({
             selectedAnswer: z.number(),
             correct: z.boolean(),

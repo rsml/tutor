@@ -96,7 +96,7 @@ async function buildProfileContext(): Promise<string> {
       skillParts.push('Adjust depth — skip basics for strong areas, explain fundamentals for weak areas')
       parts.push(`Prior knowledge:\n${skillParts.join('\n')}`)
     } else {
-      parts.push('Prior knowledge unknown — do not assume prior knowledge')
+      parts.push('No explicit skill ratings provided — infer prior knowledge from the reader background above')
     }
 
     return parts.join('\n')
@@ -116,8 +116,8 @@ function formatSkillProgress(result: import('../services/book-store.js').SkillPr
 
   for (const skill of skills) {
     const pct = skill.totalWeight > 0 ? Math.round((skill.completedWeight / skill.totalWeight) * 100) : 0
-    const bookList = skill.books.map(b => `${b.title} (${b.completed ? 'completed' : 'in progress'})`).join(', ')
-    lines.push(`${skill.name}: ${pct}% mastery — taught by: ${bookList}`)
+    const bookList = skill.books.map(b => `${b.title} (${b.completed ? 'completed' : 'in progress'}${b.lastActivityAt ? `, last: ${b.lastActivityAt.split('T')[0]}` : ''})`).join(', ')
+    lines.push(`${skill.name}: ${pct}% mastery${skill.lastActivityAt ? ` (last activity: ${skill.lastActivityAt.split('T')[0]})` : ''} — taught by: ${bookList}`)
 
     const weak = skill.subskills.filter(s => s.totalWeight > 0 && (s.completedWeight / s.totalWeight) < 0.5)
     const strong = skill.subskills.filter(s => s.totalWeight > 0 && (s.completedWeight / s.totalWeight) >= 0.5)
@@ -721,6 +721,7 @@ Write this chapter now.`,
 
     const allBooks = await store.listBooks()
     const profileContext = await buildProfileContext()
+    const profileUpdatedAt = await store.getProfileUpdatedAt()
     const skillProgress = await store.getSkillProgress()
     const skillProgressContext = formatSkillProgress(skillProgress)
 
@@ -728,6 +729,7 @@ Write this chapter now.`,
     for (const book of allBooks) {
       const parts = [`"${book.title}" — Topic: ${book.prompt.slice(0, 200)}`]
       parts.push(`Status: ${book.status}, Chapters: ${book.generatedUpTo}/${book.totalChapters}`)
+      parts.push(`Started: ${book.createdAt}, Last activity: ${book.updatedAt}`)
 
       if (book.rating) parts.push(`Rating: ${book.rating}/5`)
 
@@ -754,17 +756,21 @@ Write this chapter now.`,
         let totalQuestions = 0
         const weakAreas: string[] = []
 
+        let latestTimestamp: string | undefined
         for (const [, ch] of chapters) {
           const latest = ch.attempts[ch.attempts.length - 1]
           if (!latest) continue
           totalCorrect += latest.score
           totalQuestions += ch.questions.length
+          if (latest.timestamp && (!latestTimestamp || latest.timestamp > latestTimestamp)) {
+            latestTimestamp = latest.timestamp
+          }
           latest.answers.forEach((a, i) => {
             if (!a.correct) weakAreas.push(ch.questions[i].question)
           })
         }
         if (totalQuestions > 0) {
-          parts.push(`Client quiz: ${totalCorrect}/${totalQuestions}`)
+          parts.push(`Client quiz: ${totalCorrect}/${totalQuestions}${latestTimestamp ? ` (latest: ${latestTimestamp.split('T')[0]})` : ''}`)
         }
         if (weakAreas.length > 0) {
           parts.push(`Weak areas (client): ${weakAreas.slice(0, 5).join('; ')}`)
@@ -789,26 +795,28 @@ Write this chapter now.`,
           details: z.string().describe('Additional context and focus areas for the book (2-3 sentences)'),
           reasoning: z.string().describe('Brief explanation of why this topic was suggested based on the learning gaps (1-2 sentences)'),
         }),
-        prompt: `You are a learning advisor. Based on this reader's three layers of learning data — ranked by freshness — suggest ONE book topic they should study next.
+        prompt: `You are a learning advisor. Based on this reader's learning data — organized as an evidence hierarchy — suggest ONE book topic they should study next.
 
-=== LAYER 1: SELF-REPORTED PROFILE (potentially stale — what the reader *thinks* they know) ===
-${profileContext || 'No profile available.'}
+=== LAYER 1: LEARNER PROFILE (baseline identity + preferences) ===
+${profileContext || 'No profile available.'}${profileUpdatedAt ? `\nProfile last updated: ${profileUpdatedAt.split('T')[0]}` : ''}
 
-=== LAYER 2: QUIZ PERFORMANCE (more recent — what they actually got right/wrong) ===
+Note: The profile was accurate when written. Trust it proportionally to recency — a profile updated last week carries more weight than one updated a year ago. Durable facts (career role, domain expertise) remain reliable regardless of age; skill self-assessments may drift over time but were true when recorded.
+
+=== LAYER 2: QUIZ PERFORMANCE (direct observation of knowledge) ===
 ${bookSummaries.length > 0 ? bookSummaries.map((s, i) => `${i + 1}. ${s}`).join('\n\n') : 'No books or quiz data yet.'}
 
-=== LAYER 3: SKILL MASTERY FROM BOOKS (most current — ground truth from completed content) ===
+=== LAYER 3: SKILL MASTERY FROM BOOKS (content completion tracking) ===
 ${skillProgressContext || 'No skill mastery data yet.'}
 
 === SYNTHESIS INSTRUCTIONS ===
-1. Start with Layer 3 (skill mastery) as ground truth — low completion % = verified gap worth targeting
-2. Cross-reference Layer 2 (quiz scores) — poor scores confirm struggle areas that need reinforcement
-3. Use Layer 1 (self-reported profile) for context only — self-assessment may not match reality
-4. Identify perception gaps — if a skill is self-rated high (Layer 1) but mastery is low (Layer 3), that's a blind spot — prioritize it
+1. Always trust the profile as true when it was written — use the "Profile last updated" date to gauge how much the learner may have changed since then
+2. When Layers 2+3 have data: use as primary evidence, but still respect the profile — it provides context (role, goals, preferences) that quiz/book data cannot
+3. When Layers 2+3 are empty: the profile is the best available evidence; do NOT default to "assume no knowledge"
+4. When evidence conflicts with profile: quiz/book data shows current state, profile shows prior state — the learner has changed (grown or revealed a gap); weight the more recent data accordingly
 5. Look for natural progressions — partial completion of a skill suggests a complementary next topic
 6. Never suggest a topic they already have a book for
 7. Keep the topic specific and relevant to their role/goals (not "Programming" but "Event-Driven Architecture in Node.js")
-8. The details should explain what the book should focus on and why it's a good next step given their verified skill gaps`,
+8. The details should explain what the book should focus on and why it's a good next step given their learning data`,
       })
 
       return result.object

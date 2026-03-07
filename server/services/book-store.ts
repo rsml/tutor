@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, readdir, rm, lstat, rename } from 'node:fs/promises'
+import { readFile, writeFile, mkdir, readdir, rm, lstat, rename, stat } from 'node:fs/promises'
 import { join, dirname } from 'node:path'
 import { existsSync } from 'node:fs'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
@@ -59,6 +59,15 @@ export async function getProfile(): Promise<LearningProfile> {
 export async function saveProfile(profile: LearningProfile): Promise<void> {
   LearningProfileSchema.parse(profile)
   await writeYaml(join(booksDir(), 'learning-profile.yml'), profile)
+}
+
+export async function getProfileUpdatedAt(): Promise<string | null> {
+  try {
+    const stats = await stat(join(booksDir(), 'learning-profile.yml'))
+    return stats.mtime.toISOString()
+  } catch {
+    return null
+  }
 }
 
 // --- Book CRUD ---
@@ -196,7 +205,8 @@ export interface SkillProgressResult {
     name: string
     totalWeight: number
     completedWeight: number
-    books: Array<{ bookId: string; title: string; weight: number; completed: boolean }>
+    lastActivityAt?: string
+    books: Array<{ bookId: string; title: string; weight: number; completed: boolean; lastActivityAt?: string }>
     subskills: Array<{ name: string; totalWeight: number; completedWeight: number }>
   }>
 }
@@ -213,7 +223,7 @@ export async function getSkillProgress(): Promise<SkillProgressResult> {
     name: string
     totalWeight: number
     completedWeight: number
-    books: Array<{ bookId: string; title: string; weight: number; completed: boolean }>
+    books: Array<{ bookId: string; title: string; weight: number; completed: boolean; lastActivityAt?: string }>
     subskills: Map<string, { name: string; totalWeight: number; completedWeight: number }>
   }>()
 
@@ -234,11 +244,17 @@ export async function getSkillProgress(): Promise<SkillProgressResult> {
     totalChapters += chapCount
 
     let bookCompletedChapters = 0
+    let bookLastActivity: string | undefined
     for (let i = 1; i <= chapCount; i++) {
-      if (progress.chapters[String(i)]?.completed) {
+      const ch = progress.chapters[String(i)]
+      if (ch?.completed) {
         bookCompletedChapters++
+        if (ch.completedAt && (!bookLastActivity || ch.completedAt > bookLastActivity)) {
+          bookLastActivity = ch.completedAt
+        }
       }
     }
+    if (!bookLastActivity) bookLastActivity = book.updatedAt
     completedChapters += bookCompletedChapters
     const bookComplete = bookCompletedChapters === chapCount
 
@@ -263,6 +279,7 @@ export async function getSkillProgress(): Promise<SkillProgressResult> {
         title: book.title,
         weight: skill.weight,
         completed: bookComplete,
+        lastActivityAt: bookLastActivity,
       })
     }
 
@@ -286,10 +303,15 @@ export async function getSkillProgress(): Promise<SkillProgressResult> {
     }
   }
 
-  const skills = Array.from(skillMap.values()).map(s => ({
-    ...s,
-    subskills: Array.from(s.subskills.values()),
-  }))
+  const skills = Array.from(skillMap.values()).map(s => {
+    const bookDates = s.books.map(b => b.lastActivityAt).filter(Boolean) as string[]
+    const lastActivityAt = bookDates.length > 0 ? bookDates.sort().pop() : undefined
+    return {
+      ...s,
+      lastActivityAt,
+      subskills: Array.from(s.subskills.values()),
+    }
+  })
 
   return {
     stats: { totalBooks, completedBooks, totalChapters, completedChapters },
