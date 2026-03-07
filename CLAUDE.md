@@ -28,6 +28,8 @@ AI-generated books tailored to Ross's learning style. Books are generated chapte
 | Language | TypeScript (strict) |
 | Package manager | pnpm |
 | Frontend | React 19 + Vite |
+| UI components | shadcn/ui (base-nova style) + CVA + cn() |
+| State management | Redux Toolkit (`@reduxjs/toolkit` + `react-redux`) |
 | Styling | Tailwind CSS v4 |
 | Markdown rendering | `react-markdown` + `remark-gfm` + `rehype-highlight` |
 | Backend | Fastify |
@@ -82,8 +84,12 @@ ai-books/
 │   │   └── ProgressBar.tsx
 │   ├── hooks/
 │   │   └── useScrollProgress.ts
-│   └── lib/
-│       └── api.ts                  # Fetch wrapper for backend
+│   ├── lib/
+│   │   ├── api.ts                  # Fetch wrapper for backend
+│   │   └── utils.ts                # cn() helper (shadcn)
+│   └── store.ts                    # Redux Toolkit store
+├── components.json                 # shadcn/ui config
+├── index.html                      # Vite entry
 ├── vite.config.ts
 └── vitest.config.ts
 ```
@@ -133,3 +139,25 @@ pnpm dev               # Vite on port 5173
 - YAML for all metadata, Markdown for chapter content
 - Vercel AI SDK (`ai` package) for all AI calls — prefer `generateObject()` for structured output
 - Tests colocated with source files (`*.test.ts`)
+- Path aliases: `@src/*` → `src/*`, `@server/*` → `server/*`
+
+## UI / Frontend Design
+
+### Desktop-First Design
+- Optimize for 1280–2560px desktop resolutions — no mobile-first layouts
+- Keyboard-first navigation with shortcuts everywhere (use `lucide-react` icons + `<kbd>`)
+- Horizontal layouts: sidebars, resizable panels (shadcn `ResizablePanelGroup`), command palettes (`cmdk`)
+- Fluid typography/spacing for large screens: `text-3xl` → `text-4xl` on `lg`, `container mx-auto max-w-7xl`
+- Minimum layout target: `min-width: 1024px`
+
+### shadcn/ui + Tailwind v4
+- Use CVA for component variants, `cn()` for class merging, CSS variables from theme
+- Respect system dark mode via `prefers-color-scheme` + manual toggle with shadcn theme provider
+- Build using composition: small shadcn-extended primitives first (e.g., `<AppSidebar />`, `<ResizablePanelGroup orientation="horizontal">`), then compose pages
+- Use CVA to add custom variants (e.g., button with `glass`, `command`)
+- Keep logic out of UI files — prefer hooks + context
+
+### Visual Aesthetic
+- Clean, minimal aesthetic inspired by Raycast, Linear, Obsidian
+- Subtle glassmorphism on floating panels: `backdrop-blur-md bg-background/80 border-border/50`
+- Custom window chrome: no default browser titlebar; implement draggable region with `-webkit-app-region: drag`
