@@ -183,14 +183,23 @@
     accent-color: var(--color-border-focus);
   }
   body {
-    @apply text-foreground;
+    @apply text-foreground select-none;
     background-color: var(--color-surface-base);
-    background-image:
-      url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E"),
-      radial-gradient(ellipse 100% 60% at 50% 33%, var(--ambient-glow), transparent 70%);
-    background-size: 200px, 100% 100%;
-    background-repeat: repeat, no-repeat;
-    background-attachment: fixed, fixed;
+    background-image: radial-gradient(ellipse 100% 60% at 50% 33%, var(--ambient-glow), transparent 100%);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+  }
+  /* Re-enable selection only on prose content */
+  article p,
+  article h1,
+  article h2,
+  article h3,
+  article li,
+  article blockquote,
+  article strong,
+  article em {
+    user-select: text;
+    cursor: text;
   }
   ::selection {
     @apply bg-border-focus/20 text-content-primary;

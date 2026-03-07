@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import { BookCard } from '@src/components/BookCard'
+import { NoiseOverlay } from '@src/components/NoiseOverlay'
 import { SettingsMenu } from '@src/components/SettingsMenu'
 import { WizardModal } from '@src/components/WizardModal'
 import { ReaderPage } from '@src/pages/ReaderPage'
@@ -30,6 +31,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen flex-col text-content-primary">
+      <NoiseOverlay />
       {/* Header — glassmorphism */}
       <header
         className="relative flex h-12 shrink-0 items-center justify-between border-b border-border-default/50 bg-surface-base/80 px-4 backdrop-blur-md"

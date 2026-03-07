@@ -1,3 +1,5 @@
+import { NoiseOverlay } from '@src/components/NoiseOverlay'
+
 function stringToHue(str: string): number {
   let hash = 0
   for (let i = 0; i < str.length; i++) {
@@ -27,6 +29,7 @@ export function BookCard({ title, chaptersRead, totalChapters, onClick }: BookCa
         }}
       >
         <div className="relative flex h-full flex-col items-center justify-center p-5">
+          <NoiseOverlay opacity={0.5} position="absolute" />
           <div className="h-px w-8 bg-white/30" />
           <h3 className="mt-3 mb-3 text-center text-base leading-snug font-semibold text-white/90">
             {title}
