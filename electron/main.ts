@@ -150,27 +150,32 @@ ipcMain.handle('storage:remove', async (_event, key: string) => {
 
 // --- API Key secure storage (safeStorage) ---
 
-const apiKeyFile = path.join(dataDir, 'api-key.enc')
+function apiKeyFile(provider?: string): string {
+  const suffix = provider ? `-${provider}` : ''
+  return path.join(dataDir, `api-key${suffix}.enc`)
+}
 
-ipcMain.handle('apiKey:save', async (_event, key: string) => {
+ipcMain.handle('apiKey:save', async (_event, key: string, provider?: string) => {
   await ensureDataDir()
   const encrypted = safeStorage.encryptString(key)
-  await writeFile(apiKeyFile, encrypted)
+  await writeFile(apiKeyFile(provider), encrypted)
 })
 
-ipcMain.handle('apiKey:load', async () => {
-  if (!existsSync(apiKeyFile)) return null
+ipcMain.handle('apiKey:load', async (_event, provider?: string) => {
+  const file = apiKeyFile(provider)
+  if (!existsSync(file)) return null
   try {
-    const encrypted = await readFile(apiKeyFile)
+    const encrypted = await readFile(file)
     return safeStorage.decryptString(encrypted)
   } catch {
     return null
   }
 })
 
-ipcMain.handle('apiKey:remove', async () => {
-  if (existsSync(apiKeyFile)) {
-    await rm(apiKeyFile)
+ipcMain.handle('apiKey:remove', async (_event, provider?: string) => {
+  const file = apiKeyFile(provider)
+  if (existsSync(file)) {
+    await rm(file)
   }
 })
 

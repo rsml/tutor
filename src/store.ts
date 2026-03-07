@@ -2,6 +2,7 @@ import { combineReducers, configureStore, createSlice, type PayloadAction } from
 import { useDispatch, useSelector } from 'react-redux'
 import { persistStore, persistReducer, createTransform, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER } from 'redux-persist'
 import storage from 'redux-persist/lib/storage'
+import type { ProviderId } from '@src/lib/providers'
 
 interface ReadingProgressState {
   positions: Record<string, number>
@@ -24,9 +25,18 @@ const readingProgressSlice = createSlice({
 
 export const { setChapterPosition } = readingProgressSlice.actions
 
-interface SettingsState {
+interface ProviderConfig {
   apiKey: string | null
   model: string
+}
+
+interface SettingsState {
+  // Legacy fields (ignored after migration)
+  apiKey?: string | null
+  model?: string
+  // Multi-provider
+  activeProvider: ProviderId
+  providers: Record<ProviderId, ProviderConfig>
   fontSize: number
   textureEnabled: boolean
   textureOpacity: number
@@ -35,18 +45,25 @@ interface SettingsState {
 const settingsSlice = createSlice({
   name: 'settings',
   initialState: {
-    apiKey: null,
-    model: 'claude-sonnet-4-20250514',
+    activeProvider: 'anthropic',
+    providers: {
+      anthropic: { apiKey: null, model: 'claude-sonnet-4-20250514' },
+      openai: { apiKey: null, model: 'gpt-4o' },
+      google: { apiKey: null, model: 'gemini-2.0-flash' },
+    },
     fontSize: 16,
     textureEnabled: true,
     textureOpacity: 1,
   } as SettingsState,
   reducers: {
-    setApiKey(state, action: PayloadAction<string | null>) {
-      state.apiKey = action.payload
+    setActiveProvider(state, action: PayloadAction<ProviderId>) {
+      state.activeProvider = action.payload
     },
-    setModel(state, action: PayloadAction<string>) {
-      state.model = action.payload
+    setProviderApiKey(state, action: PayloadAction<{ provider: ProviderId; apiKey: string | null }>) {
+      state.providers[action.payload.provider].apiKey = action.payload.apiKey
+    },
+    setProviderModel(state, action: PayloadAction<{ provider: ProviderId; model: string }>) {
+      state.providers[action.payload.provider].model = action.payload.model
     },
     setFontSize(state, action: PayloadAction<number>) {
       state.fontSize = action.payload
@@ -60,9 +77,20 @@ const settingsSlice = createSlice({
   },
 })
 
-export const { setApiKey, setModel, setFontSize, setTextureEnabled, setTextureOpacity } = settingsSlice.actions
-export const selectApiKey = (state: RootState) => state.settings.apiKey
-export const selectModel = (state: RootState) => state.settings.model
+export const {
+  setActiveProvider,
+  setProviderApiKey,
+  setProviderModel,
+  setFontSize,
+  setTextureEnabled,
+  setTextureOpacity,
+} = settingsSlice.actions
+
+// Derived selectors — return active provider's key/model
+export const selectApiKey = (state: RootState) => state.settings.providers[state.settings.activeProvider]?.apiKey ?? null
+export const selectModel = (state: RootState) => state.settings.providers[state.settings.activeProvider]?.model ?? ''
+export const selectActiveProvider = (state: RootState) => state.settings.activeProvider
+export const selectProviders = (state: RootState) => state.settings.providers
 export const selectFontSize = (state: RootState) => state.settings.fontSize
 export const selectTextureEnabled = (state: RootState) => state.settings.textureEnabled
 export const selectTextureOpacity = (state: RootState) => state.settings.textureOpacity
@@ -81,17 +109,42 @@ const electronStorage = window.electronAPI?.storageGet
     }
   : storage
 
-// Strip apiKey from settings before persisting — it's stored encrypted via safeStorage
-const stripApiKeyTransform = createTransform(
-  (inbound: SettingsState) => ({ ...inbound, apiKey: null }),
-  (outbound: SettingsState) => outbound,
+// Strip all API keys from providers before persisting — stored encrypted via safeStorage
+const stripApiKeysTransform = createTransform(
+  (inbound: SettingsState) => ({
+    ...inbound,
+    apiKey: undefined,
+    model: undefined,
+    providers: {
+      anthropic: { ...inbound.providers.anthropic, apiKey: null },
+      openai: { ...inbound.providers.openai, apiKey: null },
+      google: { ...inbound.providers.google, apiKey: null },
+    },
+  }),
+  (outbound: SettingsState) => {
+    // Migrate legacy single apiKey/model to anthropic provider
+    if (outbound.apiKey && !outbound.providers) {
+      return {
+        ...outbound,
+        activeProvider: 'anthropic' as ProviderId,
+        providers: {
+          anthropic: { apiKey: null, model: outbound.model || 'claude-sonnet-4-20250514' },
+          openai: { apiKey: null, model: 'gpt-4o' },
+          google: { apiKey: null, model: 'gemini-2.0-flash' },
+        },
+        apiKey: undefined,
+        model: undefined,
+      }
+    }
+    return outbound
+  },
   { whitelist: ['settings'] },
 )
 
 const persistConfig = {
   key: 'tutor',
   storage: electronStorage,
-  transforms: [stripApiKeyTransform],
+  transforms: [stripApiKeysTransform],
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

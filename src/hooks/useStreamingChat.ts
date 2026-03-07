@@ -8,11 +8,12 @@ export interface ChatMessage {
 interface UseStreamingChatOptions {
   apiKey: string | null
   model: string
+  provider: string
   chapterContent: string
   selectedText: string
 }
 
-export function useStreamingChat({ apiKey, model, chapterContent, selectedText }: UseStreamingChatOptions) {
+export function useStreamingChat({ apiKey, model, provider, chapterContent, selectedText }: UseStreamingChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
@@ -36,6 +37,7 @@ export function useStreamingChat({ apiKey, model, chapterContent, selectedText }
         body: JSON.stringify({
           apiKey,
           model,
+          provider,
           chapterContent,
           selectedText,
           userMessage,
@@ -80,7 +82,7 @@ export function useStreamingChat({ apiKey, model, chapterContent, selectedText }
       setIsStreaming(false)
       abortRef.current = null
     }
-  }, [apiKey, model, chapterContent, selectedText, messages, isStreaming])
+  }, [apiKey, model, provider, chapterContent, selectedText, messages, isStreaming])
 
   const clearMessages = useCallback(() => {
     abortRef.current?.abort()

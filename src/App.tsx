@@ -7,7 +7,8 @@ import { SettingsMenu } from '@src/components/SettingsMenu'
 import { WizardModal } from '@src/components/WizardModal'
 import { CreationView } from '@src/components/CreationView'
 import { ReaderPage } from '@src/pages/ReaderPage'
-import { useAppSelector, useAppDispatch, setApiKey, selectApiKey, selectFontSize } from '@src/store'
+import { useAppSelector, useAppDispatch, setProviderApiKey, selectApiKey, selectFontSize } from '@src/store'
+import { PROVIDER_IDS } from '@src/lib/providers'
 
 interface Book {
   id: string
@@ -43,11 +44,18 @@ export default function App() {
   const fontSize = useAppSelector(selectFontSize)
 
   useEffect(() => {
+    // Load API keys for all providers from secure storage
+    for (const provider of PROVIDER_IDS) {
+      window.electronAPI?.loadApiKey(provider).then(key => {
+        if (key) {
+          dispatch(setProviderApiKey({ provider, apiKey: key }))
+        }
+      })
+    }
+    // Also try loading legacy key (no provider suffix) into anthropic
     window.electronAPI?.loadApiKey().then(key => {
       if (key) {
-        dispatch(setApiKey(key))
-      } else if (apiKey) {
-        window.electronAPI?.saveApiKey(apiKey)
+        dispatch(setProviderApiKey({ provider: 'anthropic', apiKey: key }))
       }
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps

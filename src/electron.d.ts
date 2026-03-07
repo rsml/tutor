@@ -3,9 +3,9 @@ interface ElectronAPI {
   storageGet: (key: string) => Promise<string | null>
   storageSet: (key: string, value: string) => Promise<void>
   storageRemove: (key: string) => Promise<void>
-  saveApiKey: (key: string) => Promise<void>
-  loadApiKey: () => Promise<string | null>
-  removeApiKey: () => Promise<void>
+  saveApiKey: (key: string, provider?: string) => Promise<void>
+  loadApiKey: (provider?: string) => Promise<string | null>
+  removeApiKey: (provider?: string) => Promise<void>
 }
 
 interface Window {

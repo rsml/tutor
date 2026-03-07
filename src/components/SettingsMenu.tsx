@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Settings, Sun, Moon, Monitor, Key, Type, Layers } from 'lucide-react'
+import { Settings, Sun, Moon, Monitor, Type, Layers, Check } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import {
   Dialog,
@@ -25,21 +25,19 @@ import {
   useAppDispatch,
   useAppSelector,
   selectApiKey,
-  selectModel,
+  selectActiveProvider,
+  selectProviders,
   selectFontSize,
   selectTextureEnabled,
   selectTextureOpacity,
-  setApiKey,
-  setModel,
+  setActiveProvider,
+  setProviderApiKey,
+  setProviderModel,
   setFontSize,
   setTextureEnabled,
   setTextureOpacity,
 } from '@src/store'
-
-const MODELS = [
-  { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet' },
-  { value: 'claude-opus-4-20250514', label: 'Claude Opus' },
-]
+import { PROVIDERS, PROVIDER_IDS, type ProviderId } from '@src/lib/providers'
 
 const FONT_SIZES = [12, 13, 14, 15, 16, 17, 18, 20, 22]
 const DEFAULT_FONT_SIZE = 16
@@ -54,13 +52,15 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
   const { theme, setTheme } = useTheme()
   const dispatch = useAppDispatch()
   const apiKey = useAppSelector(selectApiKey)
-  const model = useAppSelector(selectModel)
+  const activeProvider = useAppSelector(selectActiveProvider)
+  const providers = useAppSelector(selectProviders)
   const fontSize = useAppSelector(selectFontSize)
   const textureEnabled = useAppSelector(selectTextureEnabled)
   const textureOpacity = useAppSelector(selectTextureOpacity)
+
   const [internalDialogOpen, setInternalDialogOpen] = useState(false)
+  const [dialogProvider, setDialogProvider] = useState<ProviderId>(activeProvider)
   const [keyInput, setKeyInput] = useState('')
-  const [selectedModel, setSelectedModel] = useState(model)
 
   const dialogOpen = internalDialogOpen || (apiKeyDialogOpen ?? false)
   const setDialogOpen = (open: boolean) => {
@@ -68,39 +68,50 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
     if (!open) onApiKeyDialogClose?.()
   }
 
-  // Initialize inputs when dialog opens externally
   useEffect(() => {
     if (apiKeyDialogOpen) {
-      setKeyInput(apiKey ?? '')
-      setSelectedModel(model)
+      setDialogProvider(activeProvider)
+      setKeyInput(providers[activeProvider]?.apiKey ?? '')
     }
   }, [apiKeyDialogOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const openDialog = () => {
-    setKeyInput(apiKey ?? '')
-    setSelectedModel(model)
+    setDialogProvider(activeProvider)
+    setKeyInput(providers[activeProvider]?.apiKey ?? '')
     setDialogOpen(true)
+  }
+
+  const handleSelectDialogProvider = (id: ProviderId) => {
+    setDialogProvider(id)
+    setKeyInput(providers[id]?.apiKey ?? '')
   }
 
   const handleSave = async () => {
     const trimmed = keyInput.trim()
     if (trimmed) {
-      await window.electronAPI?.saveApiKey(trimmed)
+      await window.electronAPI?.saveApiKey(trimmed, dialogProvider)
     }
-    dispatch(setApiKey(trimmed || null))
-    dispatch(setModel(selectedModel))
+    dispatch(setProviderApiKey({ provider: dialogProvider, apiKey: trimmed || null }))
+    dispatch(setActiveProvider(dialogProvider))
     setDialogOpen(false)
   }
 
   const handleRemove = async () => {
-    await window.electronAPI?.removeApiKey()
-    dispatch(setApiKey(null))
+    await window.electronAPI?.removeApiKey(dialogProvider)
+    dispatch(setProviderApiKey({ provider: dialogProvider, apiKey: null }))
     setKeyInput('')
     setDialogOpen(false)
   }
 
+  const activeDef = PROVIDERS[activeProvider]
+  const activeModel = providers[activeProvider]?.model
+  const activeModelLabel = activeDef.models.find(m => m.value === activeModel)?.label ?? activeModel
+
   const fontSizeIndex = FONT_SIZES.indexOf(fontSize)
   const defaultIndex = FONT_SIZES.indexOf(DEFAULT_FONT_SIZE)
+
+  const dialogDef = PROVIDERS[dialogProvider]
+  const dialogConfig = providers[dialogProvider]
 
   return (
     <>
@@ -123,15 +134,43 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="end" sideOffset={6} className="min-w-[220px]">
+          {/* Provider / API Key */}
           <DropdownMenuItem onClick={openDialog} className="whitespace-nowrap">
-            <Key className="size-4" />
-            API Key
+            <span className="size-4 flex items-center justify-center text-[10px] font-bold text-content-muted">
+              {activeDef.label.slice(0, 2).toUpperCase()}
+            </span>
             {apiKey ? (
-              <span className="ml-auto text-xs text-content-muted">Set</span>
+              <>
+                {activeDef.name}
+                <span className="ml-auto text-xs text-content-muted">{activeModelLabel}</span>
+              </>
             ) : (
-              <span className="ml-auto text-xs text-status-warn">Missing</span>
+              <>
+                AI Provider
+                <span className="ml-auto text-xs text-status-warn">Not set</span>
+              </>
             )}
           </DropdownMenuItem>
+
+          {/* Quick model switch for active provider */}
+          {apiKey && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Model</DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  value={activeModel}
+                  onValueChange={v => dispatch(setProviderModel({ provider: activeProvider, model: v }))}
+                >
+                  {activeDef.models.map(m => (
+                    <DropdownMenuRadioItem key={m.value} value={m.value}>
+                      {m.label}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuGroup>
+            </>
+          )}
 
           <DropdownMenuSeparator />
 
@@ -232,16 +271,47 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
         </DropdownMenuContent>
       </DropdownMenu>
 
+      {/* Provider settings dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>API Key</DialogTitle>
+            <DialogTitle>AI Provider</DialogTitle>
             <DialogDescription>
-              Enter your Anthropic API key for AI-powered chat features. Your key is stored locally and never sent to our servers.
+              Select your AI provider and enter your API key.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-2">
+          {/* Provider tabs */}
+          <div className="flex gap-1.5">
+            {PROVIDER_IDS.map(id => {
+              const def = PROVIDERS[id]
+              const hasKey = !!providers[id]?.apiKey
+              const isSelected = dialogProvider === id
+              const isActive = activeProvider === id && hasKey
+              return (
+                <button
+                  key={id}
+                  onClick={() => handleSelectDialogProvider(id)}
+                  className={`relative flex-1 rounded-lg border px-3 py-2.5 text-center transition-colors ${
+                    isSelected
+                      ? 'border-border-focus bg-surface-muted text-content-primary'
+                      : 'border-border-default text-content-muted hover:border-border-focus/50 hover:text-content-secondary'
+                  }`}
+                >
+                  <div className="text-xs font-semibold">{def.name}</div>
+                  <div className="text-[10px] text-content-muted mt-0.5">{def.label}</div>
+                  {isActive && (
+                    <Check className="absolute top-1 right-1 size-3 text-status-ok" />
+                  )}
+                  {hasKey && !isActive && (
+                    <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-status-ok" />
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="grid gap-4 py-1">
             <div className="grid gap-1.5">
               <label htmlFor="api-key" className="text-sm font-medium text-content-primary">
                 API Key
@@ -251,7 +321,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
                 type="password"
                 value={keyInput}
                 onChange={e => setKeyInput(e.target.value)}
-                placeholder="sk-ant-..."
+                placeholder={dialogDef.placeholder}
                 className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 font-mono text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
               />
             </div>
@@ -262,11 +332,11 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
               </label>
               <select
                 id="model"
-                value={selectedModel}
-                onChange={e => setSelectedModel(e.target.value)}
+                value={dialogConfig?.model ?? dialogDef.defaultModel}
+                onChange={e => dispatch(setProviderModel({ provider: dialogProvider, model: e.target.value }))}
                 className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
               >
-                {MODELS.map(m => (
+                {dialogDef.models.map(m => (
                   <option key={m.value} value={m.value}>{m.label}</option>
                 ))}
               </select>
@@ -274,13 +344,13 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
           </div>
 
           <DialogFooter>
-            {apiKey && (
+            {dialogConfig?.apiKey && (
               <Button variant="destructive" onClick={handleRemove}>
-                Remove
+                Remove Key
               </Button>
             )}
             <Button onClick={handleSave} disabled={!keyInput.trim()}>
-              Save
+              {dialogConfig?.apiKey ? 'Update' : 'Save'}
             </Button>
           </DialogFooter>
         </DialogContent>

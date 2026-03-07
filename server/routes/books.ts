@@ -1,14 +1,15 @@
 import type { FastifyInstance } from 'fastify'
 import { randomUUID } from 'node:crypto'
-import { createAnthropic } from '@ai-sdk/anthropic'
 import { streamText } from 'ai'
 import * as store from '../services/book-store.js'
+import { createModelClient } from '../services/model-client.js'
 
 interface CreateBookBody {
   topic: string
   details?: string
   apiKey: string
   model: string
+  provider?: string
 }
 
 function parseTocFromMarkdown(text: string): { title: string; chapters: Array<{ title: string; description: string }> } {
@@ -67,7 +68,7 @@ export async function bookRoutes(fastify: FastifyInstance) {
   })
 
   fastify.post<{ Body: CreateBookBody }>('/api/books', async (request, reply) => {
-    const { topic, details, apiKey, model } = request.body
+    const { topic, details, apiKey, model, provider } = request.body
 
     if (!apiKey) {
       return reply.status(400).send({ error: 'API key is required' })
@@ -76,7 +77,6 @@ export async function bookRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({ error: 'Topic is required' })
     }
 
-    const anthropic = createAnthropic({ apiKey })
     const bookId = randomUUID().slice(0, 12)
 
     reply.raw.writeHead(200, {
@@ -93,7 +93,7 @@ export async function bookRoutes(fastify: FastifyInstance) {
       // Phase 1: Generate TOC
       let tocText = ''
       const tocResult = streamText({
-        model: anthropic(model),
+        model: createModelClient(provider ?? 'anthropic', apiKey, model),
         system: `You are creating a table of contents for a personalized learning book.
 
 Generate a well-structured table of contents with 8-15 chapters.
@@ -144,7 +144,7 @@ Just output the title and table of contents, nothing else.`,
       // Phase 2: Generate Chapter 1
       let chapterText = ''
       const chapterResult = streamText({
-        model: anthropic(model),
+        model: createModelClient(provider ?? 'anthropic', apiKey, model),
         system: `You are writing a chapter for a personalized learning book. Write an engaging, clear chapter approximately 1,500 words long.
 
 Use markdown formatting:

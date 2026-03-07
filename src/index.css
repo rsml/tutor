@@ -1,14 +1,13 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
 
 /* Rewire Tailwind dark: variant to use data-theme attribute */
 @custom-variant dark (&:is([data-theme="dark"] *));
 
 /* ─── Layer 1: Semantic Design Tokens (light defaults) ─── */
 @theme {
-  --font-sans: 'Geist Variable', sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro', system-ui, sans-serif;
 
   /* Surfaces */
   --color-surface-base: oklch(0.985 0.004 260);

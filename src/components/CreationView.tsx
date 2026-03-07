@@ -3,7 +3,7 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { useAppSelector, selectApiKey, selectModel, selectFontSize } from '@src/store'
+import { useAppSelector, selectApiKey, selectModel, selectActiveProvider, selectFontSize } from '@src/store'
 
 type Phase = 'toc' | 'chapter' | 'done' | 'error'
 
@@ -17,6 +17,7 @@ interface CreationViewProps {
 export function CreationView({ topic, details, onComplete, onCancel }: CreationViewProps) {
   const apiKey = useAppSelector(selectApiKey)
   const model = useAppSelector(selectModel)
+  const provider = useAppSelector(selectActiveProvider)
   const fontSize = useAppSelector(selectFontSize)
 
   const [phase, setPhase] = useState<Phase>('toc')
@@ -41,7 +42,7 @@ export function CreationView({ topic, details, onComplete, onCancel }: CreationV
       const res = await fetch('http://localhost:3147/api/books', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, details, apiKey, model }),
+        body: JSON.stringify({ topic, details, apiKey, model, provider }),
       })
 
       if (!res.ok || !res.body) {
@@ -106,7 +107,7 @@ export function CreationView({ topic, details, onComplete, onCancel }: CreationV
       setError(err instanceof Error ? err.message : 'Connection failed')
       setPhase('error')
     }
-  }, [apiKey, model, topic, details])
+  }, [apiKey, model, provider, topic, details])
 
   useEffect(() => {
     if (!startedRef.current) {

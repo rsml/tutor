@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { X, SendHorizontal } from 'lucide-react'
 import { ChatMessage } from '@src/components/ChatMessage'
 import { useStreamingChat } from '@src/hooks/useStreamingChat'
-import { useAppSelector, selectApiKey, selectModel } from '@src/store'
+import { useAppSelector, selectApiKey, selectModel, selectActiveProvider } from '@src/store'
 
 interface ChatPanelProps {
   open: boolean
@@ -16,9 +16,11 @@ interface ChatPanelProps {
 export function ChatPanel({ open, onClose, selectedText, chapterContent, initialPrompt, onMissingApiKey }: ChatPanelProps) {
   const apiKey = useAppSelector(selectApiKey)
   const model = useAppSelector(selectModel)
+  const provider = useAppSelector(selectActiveProvider)
   const { messages, isStreaming, sendMessage, clearMessages } = useStreamingChat({
     apiKey,
     model,
+    provider,
     chapterContent,
     selectedText,
   })

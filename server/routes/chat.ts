@@ -1,10 +1,11 @@
 import type { FastifyInstance } from 'fastify'
-import { createAnthropic } from '@ai-sdk/anthropic'
 import { streamText } from 'ai'
+import { createModelClient } from '../services/model-client.js'
 
 interface ChatBody {
   apiKey: string
   model: string
+  provider?: string
   chapterContent: string
   selectedText: string
   userMessage: string
@@ -13,13 +14,13 @@ interface ChatBody {
 
 export async function chatRoutes(fastify: FastifyInstance) {
   fastify.post<{ Body: ChatBody }>('/api/chat', async (request, reply) => {
-    const { apiKey, model, chapterContent, selectedText, userMessage, history } = request.body
+    const { apiKey, model, provider, chapterContent, selectedText, userMessage, history } = request.body
 
     if (!apiKey) {
       return reply.status(400).send({ error: 'API key is required' })
     }
 
-    const anthropic = createAnthropic({ apiKey })
+    const modelClient = createModelClient(provider ?? 'anthropic', apiKey, model)
 
     const systemPrompt = `You are a concise, knowledgeable tutor helping a learner understand a passage from a book they are reading.
 
@@ -42,7 +43,7 @@ ${chapterContent.slice(0, 4000)}
     ]
 
     const result = streamText({
-      model: anthropic(model),
+      model: modelClient,
       system: systemPrompt,
       messages,
     })
