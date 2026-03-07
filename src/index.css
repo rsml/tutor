@@ -210,3 +210,46 @@
 #reader-scroll {
   overscroll-behavior-y: none;
 }
+
+/* Markdown styles for creation view */
+.creation-markdown {
+  h1 {
+    @apply text-2xl font-bold tracking-tight text-content-primary mb-4;
+  }
+  h2 {
+    @apply text-xl font-semibold text-content-primary mt-8 mb-3;
+  }
+  h3 {
+    @apply text-lg font-medium text-content-primary mt-6 mb-2;
+  }
+  p {
+    @apply text-[1.05rem] leading-[1.8] text-content-secondary mb-4;
+  }
+  ol {
+    @apply list-decimal pl-6 space-y-2 mb-4;
+  }
+  ul {
+    @apply list-disc pl-6 space-y-1.5 mb-4;
+  }
+  li {
+    @apply text-content-secondary leading-relaxed;
+  }
+  strong {
+    @apply font-semibold text-content-primary;
+  }
+  em {
+    @apply italic;
+  }
+  blockquote {
+    @apply border-l-2 border-border-focus/40 pl-4 italic text-content-muted my-4;
+  }
+  code {
+    @apply rounded bg-surface-muted px-1.5 py-0.5 text-sm font-mono;
+  }
+  pre {
+    @apply rounded-lg bg-surface-muted p-4 overflow-x-auto mb-4;
+    code {
+      @apply bg-transparent p-0;
+    }
+  }
+}

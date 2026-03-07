@@ -11,13 +11,27 @@ import {
   DialogFooter,
 } from '@src/components/ui/dialog'
 
-export function WizardModal({ trigger }: { trigger: React.ReactElement }) {
+interface WizardModalProps {
+  trigger: React.ReactElement
+  onCreate: (topic: string, details: string) => void
+}
+
+export function WizardModal({ trigger, onCreate }: WizardModalProps) {
+  const [open, setOpen] = useState(false)
   const [topic, setTopic] = useState('')
   const [details, setDetails] = useState('')
   const [detailsOpen, setDetailsOpen] = useState(true)
 
+  const handleCreate = () => {
+    if (!topic.trim()) return
+    setOpen(false)
+    onCreate(topic.trim(), details.trim())
+    setTopic('')
+    setDetails('')
+  }
+
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={trigger} />
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -36,6 +50,7 @@ export function WizardModal({ trigger }: { trigger: React.ReactElement }) {
               id="topic"
               value={topic}
               onChange={e => setTopic(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleCreate()}
               placeholder="e.g., Machine Learning, Rust, CSS Architecture"
               className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
             />
@@ -68,10 +83,11 @@ export function WizardModal({ trigger }: { trigger: React.ReactElement }) {
           <Button
             size="lg"
             disabled={!topic.trim()}
+            onClick={handleCreate}
             className="bg-[oklch(0.55_0.20_285)] text-white font-semibold hover:bg-[oklch(0.50_0.22_285)]"
           >
             <BookOpen data-icon="inline-start" className="size-4" />
-            Generate Table of Contents
+            Create
           </Button>
         </DialogFooter>
       </DialogContent>
