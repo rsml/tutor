@@ -44,7 +44,6 @@ describe('book-store', () => {
     identity: 'developer',
     preferences: {
       explainComplexTermsSimply: true,
-      assumePriorKnowledge: false,
       codeExamples: true,
       realWorldAnalogies: true,
       includeRecaps: true,
@@ -57,6 +56,7 @@ describe('book-store', () => {
       humorLevel: 2,
       formalityLevel: 3,
     },
+    skills: [],
   }
 
   beforeEach(async () => {

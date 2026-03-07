@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import {
   Dialog,
@@ -10,9 +11,13 @@ import {
 } from '@src/components/ui/dialog'
 import { apiUrl } from '@src/lib/api-base'
 
+interface Skill {
+  name: string
+  level: number
+}
+
 interface Preferences {
   explainComplexTermsSimply: boolean
-  assumePriorKnowledge: boolean
   codeExamples: boolean
   realWorldAnalogies: boolean
   includeRecaps: boolean
@@ -30,11 +35,11 @@ interface ProfileDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onStartInterview: () => void
+  onOpenSkills: () => void
 }
 
 const BOOL_PREF_LABELS: Record<string, string> = {
   explainComplexTermsSimply: 'Explain complex terms simply',
-  assumePriorKnowledge: 'Assume prior knowledge',
   codeExamples: 'Include code examples',
   realWorldAnalogies: 'Use real-world analogies',
   includeRecaps: 'Recap previous material at chapter start',
@@ -64,7 +69,6 @@ mental models that grow, right metaphors that aren't too loose or leaky`
 
 const DEFAULT_PREFS: Preferences = {
   explainComplexTermsSimply: true,
-  assumePriorKnowledge: false,
   codeExamples: true,
   realWorldAnalogies: true,
   includeRecaps: true,
@@ -78,9 +82,10 @@ const DEFAULT_PREFS: Preferences = {
   formalityLevel: 3,
 }
 
-export function ProfileDialog({ open, onOpenChange, onStartInterview }: ProfileDialogProps) {
+export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkills }: ProfileDialogProps) {
   const [aboutMe, setAboutMe] = useState(DEFAULT_ABOUT)
   const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFS)
+  const [skills, setSkills] = useState<Skill[]>([])
   const [saving, setSaving] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
@@ -97,6 +102,7 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview }: ProfileD
       .then(data => {
         if (data.aboutMe) setAboutMe(data.aboutMe)
         if (data.preferences) setPreferences(prev => ({ ...prev, ...data.preferences }))
+        if (data.skills) setSkills(data.skills)
         setLoaded(true)
       })
       .catch(() => setLoaded(true))
@@ -108,7 +114,7 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview }: ProfileD
       await fetch(apiUrl('/api/profile'), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ aboutMe: aboutMe.trim(), preferences }),
+        body: JSON.stringify({ aboutMe: aboutMe.trim(), preferences, skills }),
       })
       onOpenChange(false)
     } catch {
@@ -206,6 +212,19 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview }: ProfileD
                 </button>
               </label>
             ))}
+          </div>
+
+          {/* Prior Knowledge */}
+          <div className="grid gap-2">
+            <span className="text-sm font-medium text-content-primary">Prior Knowledge</span>
+            <button
+              type="button"
+              onClick={onOpenSkills}
+              className="flex items-center justify-between gap-3 rounded-lg border border-border-default/50 px-3 py-2 text-sm text-content-secondary transition-colors hover:bg-surface-raised hover:text-content-primary"
+            >
+              <span>{skills.length > 0 ? `${skills.length} skill${skills.length !== 1 ? 's' : ''}` : 'No skills added'}</span>
+              <ChevronRight className="size-4 text-content-muted" />
+            </button>
           </div>
 
           {/* Slider Preferences */}

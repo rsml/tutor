@@ -3,7 +3,9 @@ import { streamText, tool, stepCountIs } from 'ai'
 import { ZodError } from 'zod'
 import * as store from '../services/book-store.js'
 import { createModelClient } from '../services/model-client.js'
-import { UpdateProfileBodySchema, InterviewChatBodySchema, CompleteProfileSchema } from '../schemas.js'
+import { z } from 'zod'
+import { generateObject } from 'ai'
+import { UpdateProfileBodySchema, InterviewChatBodySchema, CompleteProfileSchema, SuggestSkillsBodySchema, SkillSchema } from '../schemas.js'
 
 const AI_TIMEOUT_MS = 5 * 60 * 1000
 
@@ -20,13 +22,13 @@ const INTERVIEW_SYSTEM_PROMPT = `You are conducting a learning profile interview
 - Ask at least 6-8 questions minimum before considering completion
 - Before calling the tool, ask a final "Is there anything else you'd like me to know about how you learn best?"
 - Keep responses concise: 2-4 sentences + your question
-- When you are confident about ALL 13 preferences (7 booleans + 6 sliders), call the complete_profile tool
+- When you are confident about ALL 12 preferences (6 booleans + 6 sliders), call the complete_profile tool
 - The aboutMe field should be a rich 2-4 sentence synthesis of who this person is as a learner
+- Identify their key skills and estimate proficiency levels (1-10) for the skills array
 
 ## Preference Keys (for the tool call):
 **Booleans:**
 - explainComplexTermsSimply: Should complex jargon be broken down?
-- assumePriorKnowledge: Can we skip basics and dive deeper?
 - codeExamples: Should chapters include code snippets?
 - realWorldAnalogies: Use real-world comparisons to explain concepts?
 - includeRecaps: Start each chapter with a brief recap of the previous one?
@@ -45,7 +47,7 @@ export async function profileRoutes(fastify: FastifyInstance) {
   fastify.get('/api/profile', async () => {
     const profile = await store.getProfile()
     const aboutMe = [profile.identity, profile.style].filter(Boolean).join('\n\n')
-    return { aboutMe, preferences: profile.preferences }
+    return { aboutMe, preferences: profile.preferences, skills: profile.skills ?? [] }
   })
 
   fastify.put<{ Body: unknown }>('/api/profile', async (request, reply) => {
@@ -55,6 +57,7 @@ export async function profileRoutes(fastify: FastifyInstance) {
         identity: body.aboutMe,
         style: '',
         preferences: body.preferences,
+        skills: body.skills ?? [],
       })
       return { ok: true }
     } catch (err) {
@@ -62,6 +65,46 @@ export async function profileRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'Invalid request', details: err.issues })
       }
       throw err
+    }
+  })
+
+  fastify.post<{ Body: unknown }>('/api/profile/suggest-skills', async (request, reply) => {
+    let body: z.infer<typeof SuggestSkillsBodySchema>
+    try {
+      body = SuggestSkillsBodySchema.parse(request.body)
+    } catch (err) {
+      if (err instanceof ZodError) {
+        return reply.status(400).send({ error: 'Invalid request', details: err.issues })
+      }
+      throw err
+    }
+
+    const { model, provider, aboutMe, existingSkills } = body
+    const modelClient = createModelClient(provider ?? 'anthropic', model)
+
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
+
+    try {
+      const result = await generateObject({
+        model: modelClient,
+        abortSignal: controller.signal,
+        schema: z.object({
+          skills: z.array(SkillSchema).min(3).max(8),
+        }),
+        prompt: `Based on this person's background, suggest 3-8 skills/knowledge areas with estimated proficiency levels (1-10).
+
+About the person:
+${aboutMe}
+
+${existingSkills.length > 0 ? `They already have these skills listed (do NOT suggest duplicates):\n${existingSkills.map(s => `- ${s.name}: ${s.level}/10`).join('\n')}` : ''}
+
+Suggest skills that are relevant to their background and learning goals. Rate their likely proficiency honestly based on what they described. Include both strengths and areas where they might be learning.`,
+      })
+
+      return result.object
+    } finally {
+      clearTimeout(timer)
     }
   })
 
@@ -111,6 +154,7 @@ export async function profileRoutes(fastify: FastifyInstance) {
                 identity: profileData.aboutMe,
                 style: '',
                 preferences: profileData.preferences,
+                skills: profileData.skills ?? [],
               })
               sendLine({ type: 'profile_complete', profile: profileData })
               return 'Profile saved successfully.'

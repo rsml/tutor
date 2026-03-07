@@ -67,7 +67,6 @@ async function buildProfileContext(): Promise<string> {
     if (profile.style) parts.push(`Preferred learning style: ${profile.style}`)
     const prefs: string[] = []
     if (profile.preferences.explainComplexTermsSimply) prefs.push('explain complex terms simply')
-    if (!profile.preferences.assumePriorKnowledge) prefs.push('do not assume prior knowledge')
     if (profile.preferences.codeExamples) prefs.push('include code examples')
     if (profile.preferences.realWorldAnalogies) prefs.push('use real-world analogies')
     if (profile.preferences.includeRecaps) prefs.push('recap previous material at chapter start')
@@ -81,6 +80,22 @@ async function buildProfileContext(): Promise<string> {
     prefs.push(`humor: ${HUMOR_LABELS[profile.preferences.humorLevel - 1]}`)
     prefs.push(`formality: ${FORMALITY_LABELS[profile.preferences.formalityLevel - 1]}`)
     if (prefs.length > 0) parts.push(`Writing preferences: ${prefs.join(', ')}`)
+
+    const skills = profile.skills ?? []
+    if (skills.length > 0) {
+      const strong = skills.filter(s => s.level >= 7).map(s => `${s.name} (${s.level}/10)`)
+      const moderate = skills.filter(s => s.level >= 4 && s.level <= 6).map(s => `${s.name} (${s.level}/10)`)
+      const limited = skills.filter(s => s.level <= 3).map(s => `${s.name} (${s.level}/10)`)
+      const skillParts: string[] = []
+      if (strong.length > 0) skillParts.push(`Strong knowledge (>=7): ${strong.join(', ')}`)
+      if (moderate.length > 0) skillParts.push(`Moderate knowledge (4-6): ${moderate.join(', ')}`)
+      if (limited.length > 0) skillParts.push(`Limited knowledge (<=3): ${limited.join(', ')}`)
+      skillParts.push('Adjust depth — skip basics for strong areas, explain fundamentals for weak areas')
+      parts.push(`Prior knowledge:\n${skillParts.join('\n')}`)
+    } else {
+      parts.push('Prior knowledge unknown — do not assume prior knowledge')
+    }
+
     return parts.join('\n')
   } catch {
     return ''

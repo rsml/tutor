@@ -3,9 +3,8 @@ import { z } from 'zod'
 // --- Learning Profile ---
 
 export const PreferencesSchema = z.object({
-  // Booleans (7)
+  // Booleans (6)
   explainComplexTermsSimply: z.boolean().default(true),
-  assumePriorKnowledge: z.boolean().default(false),
   codeExamples: z.boolean().default(true),
   realWorldAnalogies: z.boolean().default(true),
   includeRecaps: z.boolean().default(true),
@@ -20,12 +19,18 @@ export const PreferencesSchema = z.object({
   formalityLevel: z.number().int().min(1).max(5).default(3),
 })
 
+export const SkillSchema = z.object({
+  name: z.string().min(1).max(100),
+  level: z.number().int().min(1).max(10),
+})
+
 export type Preferences = z.infer<typeof PreferencesSchema>
 
 export const LearningProfileSchema = z.object({
   style: z.string(),
   identity: z.string(),
   preferences: PreferencesSchema,
+  skills: z.array(SkillSchema).max(50).default([]),
 })
 
 export type LearningProfile = z.infer<typeof LearningProfileSchema>
@@ -33,6 +38,7 @@ export type LearningProfile = z.infer<typeof LearningProfileSchema>
 export const UpdateProfileBodySchema = z.object({
   aboutMe: z.string().max(2000),
   preferences: PreferencesSchema,
+  skills: z.array(SkillSchema).max(50).default([]),
 })
 
 
@@ -146,6 +152,7 @@ export const InterviewChatBodySchema = AiRequestSchema.extend({
 export const CompleteProfileSchema = z.object({
   aboutMe: z.string(),
   preferences: PreferencesSchema,
+  skills: z.array(SkillSchema).max(50).default([]),
 })
 
 export const CreateBookBodySchema = AiRequestSchema.extend({
@@ -190,6 +197,11 @@ export const SetApiKeyBodySchema = z.object({
 
 export const RemoveApiKeyBodySchema = z.object({
   provider: ProviderSchema,
+})
+
+export const SuggestSkillsBodySchema = AiRequestSchema.extend({
+  aboutMe: z.string().max(2000),
+  existingSkills: z.array(SkillSchema).max(50).default([]),
 })
 
 export const SuggestBookBodySchema = AiRequestSchema.extend({

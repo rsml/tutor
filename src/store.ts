@@ -52,26 +52,46 @@ export const selectChapterFeedback = (bookId: string, chapterNum: number) =>
 export const selectChapterQuizResult = (bookId: string, chapterNum: number) =>
   (state: RootState) => state.chapterData.quizResults[bookId]?.[String(chapterNum)] ?? null
 
+export interface ReadingPosition {
+  chapter: number
+  section: number
+}
+
 export interface ReadingProgressState {
-  positions: Record<string, number>
+  positions: Record<string, ReadingPosition>
   furthest: Record<string, number>
+}
+
+/** Normalize legacy number positions to { chapter, section } */
+function migratePosition(value: unknown): ReadingPosition {
+  if (typeof value === 'number') return { chapter: value, section: 0 }
+  if (value && typeof value === 'object' && 'chapter' in value) return value as ReadingPosition
+  return { chapter: 0, section: 0 }
 }
 
 const readingProgressSlice = createSlice({
   name: 'readingProgress',
   initialState: { positions: {}, furthest: {} } as ReadingProgressState,
   reducers: {
-    setChapterPosition(state, action: PayloadAction<{ bookId: string; chapterIndex: number }>) {
-      state.positions[action.payload.bookId] = action.payload.chapterIndex
-      const prev = state.furthest[action.payload.bookId] ?? -1
-      if (action.payload.chapterIndex > prev) {
-        state.furthest[action.payload.bookId] = action.payload.chapterIndex
+    setPosition(state, action: PayloadAction<{ bookId: string; chapter: number; section: number }>) {
+      const { bookId, chapter, section } = action.payload
+      state.positions[bookId] = { chapter, section }
+      const prev = state.furthest[bookId] ?? -1
+      if (chapter > prev) {
+        state.furthest[bookId] = chapter
       }
     },
   },
 })
 
-export const { setChapterPosition } = readingProgressSlice.actions
+export const { setPosition } = readingProgressSlice.actions
+
+/** @deprecated Use setPosition instead */
+export function setChapterPosition(payload: { bookId: string; chapterIndex: number }) {
+  return setPosition({ bookId: payload.bookId, chapter: payload.chapterIndex, section: 0 })
+}
+
+export { migratePosition }
 
 export interface ProviderConfig {
   apiKey: string | null
@@ -192,10 +212,24 @@ const stripApiKeysTransform = createTransform(
   { whitelist: ['settings'] },
 )
 
+// Migrate legacy numeric positions to { chapter, section } on rehydrate
+const migratePositionsTransform = createTransform(
+  (inbound: ReadingProgressState) => inbound,
+  (outbound: ReadingProgressState) => {
+    if (!outbound?.positions) return outbound
+    const migrated = { ...outbound, positions: { ...outbound.positions } }
+    for (const [bookId, val] of Object.entries(migrated.positions)) {
+      migrated.positions[bookId] = migratePosition(val)
+    }
+    return migrated
+  },
+  { whitelist: ['readingProgress'] },
+)
+
 const persistConfig = {
   key: 'tutor',
   storage: electronStorage,
-  transforms: [stripApiKeysTransform],
+  transforms: [stripApiKeysTransform, migratePositionsTransform],
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

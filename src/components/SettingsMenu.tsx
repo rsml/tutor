@@ -22,6 +22,7 @@ import {
 } from '@src/components/ui/dropdown-menu'
 import { ProfileDialog } from '@src/components/ProfileDialog'
 import { InterviewPanel } from '@src/components/InterviewPanel'
+import { SkillsPanel } from '@src/components/SkillsPanel'
 import { useTheme } from '@src/components/ThemeProvider'
 import {
   useAppDispatch,
@@ -63,6 +64,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
 
   const [profileOpen, setProfileOpen] = useState(false)
   const [interviewOpen, setInterviewOpen] = useState(false)
+  const [skillsOpen, setSkillsOpen] = useState(false)
   const [internalDialogOpen, setInternalDialogOpen] = useState(false)
   const [dialogProvider, setDialogProvider] = useState<ProviderId>(activeProvider)
   const [keyInput, setKeyInput] = useState('')
@@ -387,6 +389,10 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
           setProfileOpen(false)
           setInterviewOpen(true)
         }}
+        onOpenSkills={() => {
+          setProfileOpen(false)
+          setSkillsOpen(true)
+        }}
       />
 
       <InterviewPanel
@@ -398,6 +404,14 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
           }
         }}
         onMissingApiKey={openDialog}
+      />
+
+      <SkillsPanel
+        open={skillsOpen}
+        onClose={() => {
+          setSkillsOpen(false)
+          setProfileOpen(true)
+        }}
       />
     </>
   )
