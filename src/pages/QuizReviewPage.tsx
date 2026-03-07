@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { ArrowLeft, BarChart3 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import { NoiseOverlay } from '@src/components/NoiseOverlay'
+import { ChapterBreakdownList } from '@src/components/ChapterBreakdownList'
+import { QuizPanel } from '@src/components/QuizPanel'
 import { useAppSelector, useAppDispatch, recordQuizAttempt } from '@src/store'
 import { selectBookQuizSummary, selectSmartReviewQueue } from '@src/store/quizHistorySelectors'
 import type { ChapterQuiz } from '@src/store/quizHistorySlice'
@@ -20,6 +22,7 @@ export function QuizReviewPage({ book, onBack, onBackToReader }: {
   onBackToReader: () => void
 }) {
   const [sortMode, setSortMode] = useState<SortMode>('weakest')
+  const [retakeChapter, setRetakeChapter] = useState<number | null>(null)
   const summary = useAppSelector(selectBookQuizSummary(book.id))
   const bookQuizzes = useAppSelector(s => s.quizHistory.quizzes[book.id] ?? {}) as Record<string, ChapterQuiz>
   const [tocTitles, setTocTitles] = useState<Record<string, string>>({})
@@ -38,6 +41,21 @@ export function QuizReviewPage({ book, onBack, onBackToReader }: {
       })
       .catch(() => {})
   }, [book.id])
+
+  const handleRetake = (chapterNum: number) => setRetakeChapter(chapterNum)
+
+  const handleRetakeComplete = (answers: number[]) => {
+    if (retakeChapter === null) return
+    const quiz = bookQuizzes[String(retakeChapter)]
+    if (!quiz) return
+    dispatch(recordQuizAttempt({
+      bookId: book.id,
+      chapterNum: retakeChapter,
+      questions: quiz.questions,
+      answers,
+    }))
+    setRetakeChapter(null)
+  }
 
   return (
     <div className="flex h-screen flex-col text-content-primary">
@@ -100,10 +118,32 @@ export function QuizReviewPage({ book, onBack, onBackToReader }: {
                 chaptersToReview={summary.chaptersToReview}
               />
 
-              {/* Chapter breakdown placeholder — will be added in Task 6 */}
-              <div className="mt-4 text-sm text-content-muted">
-                Chapter breakdown coming next...
-              </div>
+              {/* Chapter breakdown / retake */}
+              {retakeChapter !== null && bookQuizzes[String(retakeChapter)] ? (
+                <div className="mt-4">
+                  <button
+                    onClick={() => setRetakeChapter(null)}
+                    className="mb-4 text-sm text-content-muted hover:text-content-secondary transition-colors"
+                  >
+                    &larr; Back to review
+                  </button>
+                  <QuizPanel
+                    questions={bookQuizzes[String(retakeChapter)].questions}
+                    onComplete={handleRetakeComplete}
+                    onSkip={() => setRetakeChapter(null)}
+                    title={`Retake — ${tocTitles[String(retakeChapter)] || `Chapter ${retakeChapter}`}`}
+                    subtitle="Same questions, fresh attempt. Let's see if you improved."
+                  />
+                </div>
+              ) : (
+                <ChapterBreakdownList
+                  bookId={book.id}
+                  chapters={bookQuizzes}
+                  tocTitles={tocTitles}
+                  sortMode={sortMode}
+                  onRetake={handleRetake}
+                />
+              )}
             </>
           )}
         </div>
