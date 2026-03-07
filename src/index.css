@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "highlight.js/styles/github-dark-dimmed.css";
+@import "katex/dist/katex.min.css";
 
 /* Rewire Tailwind dark: variant to use data-theme attribute */
 @custom-variant dark (&:is([data-theme="dark"] *));
@@ -436,4 +438,71 @@
   em {
     font-style: italic;
   }
+}
+
+/* ─── Syntax Highlighting Overrides ─── */
+.hljs {
+  background: var(--color-surface-muted) !important;
+}
+
+/* ─── Code Block Wrapper (copy button + language label) ─── */
+.code-block-wrapper {
+  position: relative;
+  margin-bottom: 1.25rem;
+
+  pre {
+    margin-bottom: 0;
+  }
+}
+
+.code-block-lang {
+  position: absolute;
+  top: 0.5rem;
+  right: 2.75rem;
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-content-faint);
+  pointer-events: none;
+  user-select: none;
+}
+
+.code-block-copy {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.25rem;
+  color: var(--color-content-faint);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 150ms, color 150ms, background-color 150ms;
+}
+
+.code-block-wrapper:hover .code-block-copy {
+  opacity: 1;
+}
+
+.code-block-copy:hover {
+  color: var(--color-content-secondary);
+  background: var(--color-surface-overlay);
+}
+
+/* ─── KaTeX Overrides ─── */
+.katex-display {
+  margin: 1.25rem 0 !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.katex {
+  font-size: 1.05em !important;
 }
