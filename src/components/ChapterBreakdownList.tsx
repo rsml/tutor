@@ -148,7 +148,7 @@ function Sparkline({ scores, max }: { scores: number[]; max: number }) {
   }).join(' ')
 
   return (
-    <svg width={width} height={height} className="shrink-0">
+    <svg width={width} height={height} className="shrink-0" role="img" aria-label={`Score trend: ${scores.join(', ')}`}>
       <polyline
         points={points}
         fill="none"

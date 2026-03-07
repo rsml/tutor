@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ArrowLeft, BarChart3 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import { NoiseOverlay } from '@src/components/NoiseOverlay'
 import { ChapterBreakdownList } from '@src/components/ChapterBreakdownList'
 import { QuizPanel } from '@src/components/QuizPanel'
-import { SmartReviewFlow } from '@src/components/SmartReviewFlow'
+import { SmartReviewFlow, type ReviewQuestion } from '@src/components/SmartReviewFlow'
+import { apiUrl } from '@src/lib/api-base'
 import { useAppSelector, useAppDispatch, recordQuizAttempt } from '@src/store'
 import { selectBookQuizSummary, selectSmartReviewQueue } from '@src/store/quizHistorySelectors'
 import type { ChapterQuiz } from '@src/store/quizHistorySlice'
@@ -33,7 +34,7 @@ export function QuizReviewPage({ book, onBack, onBackToReader }: {
 
   // Fetch TOC for chapter titles
   useEffect(() => {
-    fetch(`/api/books/${book.id}/toc`)
+    fetch(apiUrl(`/api/books/${book.id}/toc`))
       .then(res => res.json())
       .then(data => {
         const titles: Record<string, string> = {}
@@ -59,6 +60,15 @@ export function QuizReviewPage({ book, onBack, onBackToReader }: {
     }))
     setRetakeChapter(null)
   }
+
+  const handleSmartReviewRecord = useCallback((chapterNum: number, questions: ReviewQuestion[], answers: number[]) => {
+    dispatch(recordQuizAttempt({
+      bookId: book.id,
+      chapterNum,
+      questions: questions.map(q => ({ question: q.question, options: q.options, correctIndex: q.correctIndex })),
+      answers,
+    }))
+  }, [dispatch, book.id])
 
   return (
     <div className="flex h-screen flex-col text-content-primary">
@@ -138,8 +148,8 @@ export function QuizReviewPage({ book, onBack, onBackToReader }: {
                 <SmartReviewFlow
                   queue={smartReviewQueue}
                   tocTitles={tocTitles}
+                  onRecordAttempt={handleSmartReviewRecord}
                   onComplete={() => setSmartReviewActive(false)}
-                  onExit={() => setSmartReviewActive(false)}
                 />
               ) : retakeChapter !== null && bookQuizzes[String(retakeChapter)] ? (
                 <div className="mt-4">
@@ -150,6 +160,7 @@ export function QuizReviewPage({ book, onBack, onBackToReader }: {
                     &larr; Back to review
                   </button>
                   <QuizPanel
+                    key={retakeChapter}
                     questions={bookQuizzes[String(retakeChapter)].questions}
                     onComplete={handleRetakeComplete}
                     onSkip={() => setRetakeChapter(null)}

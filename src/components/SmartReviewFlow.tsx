@@ -1,9 +1,9 @@
-import { useReducer } from 'react'
+import { useEffect, useReducer, useState } from 'react'
 import { Button } from '@src/components/ui/button'
 import { QuizPanel } from '@src/components/QuizPanel'
 import { CheckCircle2, XCircle } from 'lucide-react'
 
-interface ReviewQuestion {
+export interface ReviewQuestion {
   bookId: string
   chapterNum: number
   questionIndex: number
@@ -15,8 +15,8 @@ interface ReviewQuestion {
 interface SmartReviewProps {
   queue: ReviewQuestion[]
   tocTitles: Record<string, string>
+  onRecordAttempt: (chapterNum: number, questions: ReviewQuestion[], answers: number[]) => void
   onComplete: () => void
-  onExit: () => void
 }
 
 interface QuizPhase {
@@ -34,6 +34,8 @@ interface InterstitialPhase {
   groupTotal: number
   groupIndex: number
   totalGroups: number
+  completedQuestions: ReviewQuestion[]
+  completedAnswers: number[]
 }
 
 type State = QuizPhase | InterstitialPhase | { phase: 'done' }
@@ -53,7 +55,24 @@ function groupByChapter(queue: ReviewQuestion[]): Array<[number, ReviewQuestion[
   return Array.from(groups.entries())
 }
 
-export function SmartReviewFlow({ queue, tocTitles, onComplete, onExit }: SmartReviewProps) {
+function ProgressDots({ current, total }: { current: number; total: number }) {
+  return (
+    <div className="flex justify-center gap-1.5">
+      {Array.from({ length: total }).map((_, i) => (
+        <div
+          key={i}
+          className={`h-1.5 w-6 rounded-full ${
+            i < current ? 'bg-[oklch(0.55_0.20_285)]'
+            : i === current ? 'bg-[oklch(0.55_0.20_285)]/60'
+            : 'bg-border-default/50'
+          }`}
+        />
+      ))}
+    </div>
+  )
+}
+
+export function SmartReviewFlow({ queue, tocTitles, onRecordAttempt, onComplete }: SmartReviewProps) {
   const groups = groupByChapter(queue)
 
   function reducer(state: State, action: Action): State {
@@ -62,12 +81,14 @@ export function SmartReviewFlow({ queue, tocTitles, onComplete, onExit }: SmartR
     if (action.type === 'quiz-complete' && state.phase === 'quiz') {
       const score = action.answers.filter((a, i) => a === action.questions[i].correctIndex).length
       return {
-        phase: 'interstitial',
+        phase: 'interstitial' as const,
         chapterNum: state.chapterNum,
         groupScore: score,
         groupTotal: action.questions.length,
         groupIndex: state.groupIndex,
         totalGroups: state.totalGroups,
+        completedQuestions: action.questions,
+        completedAnswers: action.answers,
       }
     }
 
@@ -96,25 +117,20 @@ export function SmartReviewFlow({ queue, tocTitles, onComplete, onExit }: SmartR
     totalGroups: groups.length,
   } as State)
 
-  if (state.phase === 'done') {
-    onComplete()
-    return null
-  }
+  useEffect(() => {
+    if (state.phase === 'done') onComplete()
+  }, [state.phase, onComplete])
 
-  const ProgressDots = ({ current, total }: { current: number; total: number }) => (
-    <div className="flex justify-center gap-1.5">
-      {Array.from({ length: total }).map((_, i) => (
-        <div
-          key={i}
-          className={`h-1.5 w-6 rounded-full ${
-            i < current ? 'bg-[oklch(0.55_0.20_285)]'
-            : i === current ? 'bg-[oklch(0.55_0.20_285)]/60'
-            : 'bg-border-default/50'
-          }`}
-        />
-      ))}
-    </div>
-  )
+  const [lastRecordedGroup, setLastRecordedGroup] = useState(-1)
+
+  useEffect(() => {
+    if (state.phase === 'interstitial' && state.groupIndex !== lastRecordedGroup) {
+      onRecordAttempt(state.chapterNum, state.completedQuestions, state.completedAnswers)
+      setLastRecordedGroup(state.groupIndex)
+    }
+  }, [state, lastRecordedGroup, onRecordAttempt])
+
+  if (state.phase === 'done') return null
 
   if (state.phase === 'interstitial') {
     const isLast = state.groupIndex + 1 >= state.totalGroups
@@ -165,6 +181,7 @@ export function SmartReviewFlow({ queue, tocTitles, onComplete, onExit }: SmartR
         </div>
 
         <QuizPanel
+          key={`${state.chapterNum}-${state.groupIndex}`}
           questions={state.questions.map(q => ({
             question: q.question,
             options: q.options,
