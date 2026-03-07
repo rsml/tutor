@@ -51,6 +51,9 @@ export const BookMetaSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   profileOverrides: z.record(z.string(), z.unknown()).optional(),
+  rating: z.number().min(0).max(5).multipleOf(0.5).optional(),
+  finalQuizScore: z.number().int().min(0).optional(),
+  finalQuizTotal: z.number().int().min(0).optional(),
 })
 
 export type BookMeta = z.infer<typeof BookMetaSchema>
