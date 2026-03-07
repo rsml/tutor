@@ -5,9 +5,11 @@ import { SelectionTooltip } from '@src/components/SelectionTooltip'
 import { ChatPanel } from '@src/components/ChatPanel'
 import { SettingsMenu } from '@src/components/SettingsMenu'
 import { useTextSelection } from '@src/hooks/useTextSelection'
-import { useAppDispatch, useAppSelector, setChapterPosition, selectFontSize } from '@src/store'
+import { useAppDispatch, useAppSelector, setChapterPosition, selectFontSize, selectApiKey, selectModel, selectActiveProvider } from '@src/store'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { QuizPanel } from '@src/components/QuizPanel'
+import { FeedbackForm } from '@src/components/FeedbackForm'
 
 interface Book {
   id: string
@@ -29,6 +31,19 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
   // Fetch chapter content from API
   const [chapterContent, setChapterContent] = useState<string | null>(null)
   const [chapterLoading, setChapterLoading] = useState(true)
+
+  type Phase = 'reading' | 'quiz' | 'feedback' | 'generating'
+  const [phase, setPhase] = useState<Phase>('reading')
+  const [generatedUpTo, setGeneratedUpTo] = useState(book.totalChapters)
+  const [quizQuestions, setQuizQuestions] = useState<Array<{ question: string; options: string[]; correctIndex: number }>>([])
+  const [quizAnswers, setQuizAnswers] = useState<number[]>([])
+  const [streamingContent, setStreamingContent] = useState('')
+
+  const apiKey = useAppSelector(selectApiKey)
+  const model = useAppSelector(selectModel)
+  const provider = useAppSelector(selectActiveProvider)
+
+  const isOnLastGenerated = chapterIndex + 1 === generatedUpTo && generatedUpTo < book.totalChapters
 
   useEffect(() => {
     let cancelled = false
@@ -57,6 +72,13 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
     return () => { cancelled = true }
   }, [book.id, chapterIndex])
 
+  useEffect(() => {
+    fetch(`http://localhost:3147/api/books/${book.id}`)
+      .then(res => res.json())
+      .then(data => setGeneratedUpTo(data.generatedUpTo))
+      .catch(() => {})
+  }, [book.id])
+
   const scrollRef = useRef<HTMLElement>(null)
   const articleRef = useRef<HTMLElement>(null)
 
@@ -81,11 +103,98 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
     setChatPrompt(null)
   }, [])
 
+  const handleKeepGoing = useCallback(async () => {
+    try {
+      const res = await fetch(`http://localhost:3147/api/books/${book.id}/chapters/${chapterIndex + 1}/quiz`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.questions?.length > 0) {
+          setQuizQuestions(data.questions)
+          setPhase('quiz')
+          scrollRef.current?.scrollTo({ top: 0 })
+          return
+        }
+      }
+    } catch {}
+    setPhase('feedback')
+    scrollRef.current?.scrollTo({ top: 0 })
+  }, [book.id, chapterIndex])
+
+  const handleQuizComplete = useCallback((answers: number[]) => {
+    setQuizAnswers(answers)
+    setPhase('feedback')
+    scrollRef.current?.scrollTo({ top: 0 })
+  }, [])
+
+  const handleQuizSkip = useCallback(() => {
+    setQuizAnswers([])
+    setPhase('feedback')
+    scrollRef.current?.scrollTo({ top: 0 })
+  }, [])
+
+  const handleFeedbackSubmit = useCallback(async (liked: string, disliked: string) => {
+    try {
+      await fetch(`http://localhost:3147/api/books/${book.id}/chapters/${chapterIndex + 1}/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ liked, disliked, quizAnswers }),
+      })
+    } catch {}
+
+    setPhase('generating')
+    setStreamingContent('')
+    scrollRef.current?.scrollTo({ top: 0 })
+
+    try {
+      const res = await fetch(`http://localhost:3147/api/books/${book.id}/generate-next`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey, model, provider }),
+      })
+
+      if (!res.ok || !res.body) throw new Error('Generation failed')
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const data = JSON.parse(line.slice(6))
+            if (data.type === 'chapter') {
+              setStreamingContent(prev => prev + data.text)
+            } else if (data.type === 'done') {
+              const nextIndex = chapterIndex + 1
+              setGeneratedUpTo(data.chapterNum)
+              dispatch(setChapterPosition({ bookId: book.id, chapterIndex: nextIndex }))
+              setPhase('reading')
+              scrollRef.current?.scrollTo({ top: 0 })
+            } else if (data.type === 'error') {
+              setPhase('reading')
+            }
+          } catch {}
+        }
+      }
+    } catch {
+      setPhase('reading')
+    }
+  }, [book.id, chapterIndex, quizAnswers, apiKey, model, provider, dispatch])
+
   // Page turn
   const goChapter = useCallback((delta: number) => {
     const next = chapterIndex + delta
     if (next >= 0 && next < book.totalChapters) {
       dispatch(setChapterPosition({ bookId: book.id, chapterIndex: next }))
+      setPhase('reading')
       scrollRef.current?.scrollTo({ top: 0 })
     }
   }, [chapterIndex, book.totalChapters, dispatch, book.id])
@@ -182,22 +291,67 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
             className="h-full overflow-y-auto"
           >
             <article ref={articleRef} style={{ fontSize: `${fontSize}px` }}>
-              <div className="mx-auto max-w-2xl px-8 pt-6 pb-24">
-                {chapterLoading ? (
-                  <div className="flex items-center gap-2 pt-12 text-content-muted">
-                    <Loader2 className="size-4 animate-spin" />
-                    <span className="text-sm">Loading chapter...</span>
-                  </div>
-                ) : chapterContent ? (
-                  <div className="prose prose-neutral dark:prose-invert max-w-none leading-[1.8] text-content-secondary">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{chapterContent}</ReactMarkdown>
-                  </div>
-                ) : (
-                  <p className="pt-12 text-sm text-content-muted">
-                    Chapter {chapterIndex + 1} hasn't been generated yet.
-                  </p>
-                )}
-              </div>
+              {phase === 'reading' && (
+                <div className="mx-auto max-w-2xl px-8 pt-6 pb-24">
+                  {chapterLoading ? (
+                    <div className="flex items-center gap-2 pt-12 text-content-muted">
+                      <Loader2 className="size-4 animate-spin" />
+                      <span className="text-sm">Loading chapter...</span>
+                    </div>
+                  ) : chapterContent ? (
+                    <>
+                      <div className="prose prose-neutral dark:prose-invert max-w-none leading-[1.8] text-content-secondary">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{chapterContent}</ReactMarkdown>
+                      </div>
+                      {isOnLastGenerated && (
+                        <div className="mt-12 flex justify-center">
+                          <Button
+                            size="lg"
+                            onClick={handleKeepGoing}
+                            className="bg-[oklch(0.55_0.20_285)] text-white font-semibold hover:bg-[oklch(0.50_0.22_285)]"
+                          >
+                            Keep Going
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="pt-12 text-sm text-content-muted">
+                      Chapter {chapterIndex + 1} hasn't been generated yet.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {phase === 'quiz' && (
+                <QuizPanel
+                  questions={quizQuestions}
+                  onComplete={handleQuizComplete}
+                  onSkip={handleQuizSkip}
+                />
+              )}
+
+              {phase === 'feedback' && (
+                <FeedbackForm
+                  chapterNum={chapterIndex + 1}
+                  onSubmit={handleFeedbackSubmit}
+                />
+              )}
+
+              {phase === 'generating' && (
+                <div className="mx-auto max-w-2xl px-8 pt-6 pb-24">
+                  {streamingContent ? (
+                    <div className="prose prose-neutral dark:prose-invert max-w-none leading-[1.8] text-content-secondary">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingContent}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 pt-12 text-content-muted">
+                      <Loader2 className="size-4 animate-spin" />
+                      <span className="text-sm">Generating chapter {chapterIndex + 2}...</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </article>
           </main>
 
