@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { persistStore, persistReducer, createTransform, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER } from 'redux-persist'
 import storage from 'redux-persist/lib/storage'
 import type { ProviderId } from '@src/lib/providers'
+import quizHistoryReducer from '@src/store/quizHistorySlice'
 
 interface QuizResult {
   questions: Array<{
@@ -146,6 +147,7 @@ const rootReducer = combineReducers({
   readingProgress: readingProgressSlice.reducer,
   settings: settingsSlice.reducer,
   chapterData: chapterDataSlice.reducer,
+  quizHistory: quizHistoryReducer,
 })
 
 // Use Electron IPC storage when available, otherwise fall back to localStorage
@@ -215,3 +217,6 @@ export type AppDispatch = typeof store.dispatch
 
 export const useAppDispatch = useDispatch.withTypes<AppDispatch>()
 export const useAppSelector = useSelector.withTypes<RootState>()
+
+export { recordQuizAttempt } from '@src/store/quizHistorySlice'
+export type { QuizQuestion as QuizHistoryQuestion, QuizAttempt, ChapterQuiz } from '@src/store/quizHistorySlice'
