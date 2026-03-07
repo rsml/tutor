@@ -15,19 +15,48 @@ interface Preferences {
   assumePriorKnowledge: boolean
   codeExamples: boolean
   realWorldAnalogies: boolean
+  includeRecaps: boolean
+  includeSummaries: boolean
+  visualDescriptions: boolean
+  depthLevel: number
+  pacePreference: number
+  metaphorDensity: number
+  narrativeStyle: number
+  humorLevel: number
+  formalityLevel: number
 }
 
 interface ProfileDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onStartInterview: () => void
 }
 
-const PREF_LABELS: Record<keyof Preferences, string> = {
+const BOOL_PREF_LABELS: Record<string, string> = {
   explainComplexTermsSimply: 'Explain complex terms simply',
   assumePriorKnowledge: 'Assume prior knowledge',
   codeExamples: 'Include code examples',
   realWorldAnalogies: 'Use real-world analogies',
+  includeRecaps: 'Recap previous material at chapter start',
+  includeSummaries: 'Key takeaways at chapter end',
+  visualDescriptions: 'Describe diagrams and visual mental models',
 }
+
+const BOOL_KEYS = Object.keys(BOOL_PREF_LABELS) as Array<keyof typeof BOOL_PREF_LABELS>
+
+const SLIDER_PREFS: Array<{
+  key: keyof Preferences
+  label: string
+  left: string
+  right: string
+}> = [
+  { key: 'depthLevel', label: 'Depth', left: 'Overview', right: 'Comprehensive' },
+  { key: 'pacePreference', label: 'Pace', left: 'Deliberate', right: 'Brisk' },
+  { key: 'metaphorDensity', label: 'Metaphors', left: 'Rare', right: 'Frequent' },
+  { key: 'narrativeStyle', label: 'Style', left: 'Technical', right: 'Narrative' },
+  { key: 'humorLevel', label: 'Humor', left: 'Serious', right: 'Playful' },
+  { key: 'formalityLevel', label: 'Formality', left: 'Casual', right: 'Academic' },
+]
 
 const DEFAULT_ABOUT = `CTO, expert in frontend/UX/mobile, mid-level at backend/infrastructure, learning to be better at backend and infra
 
@@ -38,25 +67,40 @@ const DEFAULT_PREFS: Preferences = {
   assumePriorKnowledge: false,
   codeExamples: true,
   realWorldAnalogies: true,
+  includeRecaps: true,
+  includeSummaries: true,
+  visualDescriptions: false,
+  depthLevel: 3,
+  pacePreference: 3,
+  metaphorDensity: 3,
+  narrativeStyle: 3,
+  humorLevel: 2,
+  formalityLevel: 3,
 }
 
-export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
+export function ProfileDialog({ open, onOpenChange, onStartInterview }: ProfileDialogProps) {
   const [aboutMe, setAboutMe] = useState(DEFAULT_ABOUT)
   const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFS)
   const [saving, setSaving] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
 
   useEffect(() => {
-    if (!open || loaded) return
+    if (!open) {
+      setShowConfirm(false)
+      return
+    }
+    // Always re-fetch when opening
+    setLoaded(false)
     fetch(apiUrl('/api/profile'))
       .then(res => res.json())
       .then(data => {
         if (data.aboutMe) setAboutMe(data.aboutMe)
-        if (data.preferences) setPreferences(data.preferences)
+        if (data.preferences) setPreferences(prev => ({ ...prev, ...data.preferences }))
         setLoaded(true)
       })
-      .catch(() => {})
-  }, [open, loaded])
+      .catch(() => setLoaded(true))
+  }, [open])
 
   const handleSave = async () => {
     setSaving(true)
@@ -74,13 +118,30 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
     }
   }
 
-  const togglePref = (key: keyof Preferences) => {
-    setPreferences(prev => ({ ...prev, [key]: !prev[key] }))
+  const togglePref = (key: string) => {
+    setPreferences(prev => ({ ...prev, [key]: !prev[key as keyof Preferences] }))
+  }
+
+  const setSlider = (key: string, value: number) => {
+    setPreferences(prev => ({ ...prev, [key]: value }))
+  }
+
+  const handleInterviewClick = () => {
+    if (aboutMe.trim()) {
+      setShowConfirm(true)
+    } else {
+      onStartInterview()
+    }
+  }
+
+  const handleConfirmInterview = () => {
+    setShowConfirm(false)
+    onStartInterview()
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Learning Profile</DialogTitle>
           <DialogDescription>
@@ -89,10 +150,31 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
         </DialogHeader>
 
         <div className="grid gap-4 py-2">
+          {/* About Me */}
           <div className="grid gap-1.5">
-            <label htmlFor="about-me" className="text-sm font-medium text-content-primary">
-              About Me
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="about-me" className="text-sm font-medium text-content-primary">
+                About Me
+              </label>
+              <Button variant="ghost" size="sm" onClick={handleInterviewClick}>
+                Interview Me
+              </Button>
+            </div>
+
+            {showConfirm && (
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-status-warn/30 bg-status-warn/10 px-3 py-2 text-xs text-content-secondary">
+                <span>This will replace your About Me and preferences.</span>
+                <div className="flex gap-1.5 shrink-0">
+                  <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => setShowConfirm(false)}>
+                    Cancel
+                  </Button>
+                  <Button size="sm" className="h-6 text-xs px-2" onClick={handleConfirmInterview}>
+                    Continue
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <textarea
               id="about-me"
               value={aboutMe}
@@ -103,32 +185,58 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
             />
           </div>
 
+          {/* Boolean Toggles */}
           <div className="grid gap-2">
             <span className="text-sm font-medium text-content-primary">Preferences</span>
-            {(Object.keys(PREF_LABELS) as Array<keyof Preferences>).map(key => (
+            {BOOL_KEYS.map(key => (
               <label key={key} className="flex items-center justify-between gap-3">
-                <span className="text-sm text-content-secondary">{PREF_LABELS[key]}</span>
+                <span className="text-sm text-content-secondary">{BOOL_PREF_LABELS[key]}</span>
                 <button
                   type="button"
                   onClick={() => togglePref(key)}
                   className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors ${
-                    preferences[key] ? 'bg-[oklch(0.55_0.20_285)]' : 'bg-content-muted/30'
+                    preferences[key as keyof Preferences] ? 'bg-[oklch(0.55_0.20_285)]' : 'bg-content-muted/30'
                   }`}
                 >
                   <span
                     className={`pointer-events-none inline-block size-4 rounded-full bg-white shadow-sm transition-transform ${
-                      preferences[key] ? 'translate-x-4' : 'translate-x-0.5'
+                      preferences[key as keyof Preferences] ? 'translate-x-4' : 'translate-x-0.5'
                     } translate-y-0.5`}
                   />
                 </button>
               </label>
             ))}
           </div>
+
+          {/* Slider Preferences */}
+          <div className="grid gap-3">
+            <span className="text-sm font-medium text-content-primary">Style</span>
+            {SLIDER_PREFS.map(({ key, label, left, right }) => (
+              <div key={key} className="grid gap-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-content-secondary">{label}</span>
+                  <span className="text-xs tabular-nums text-content-muted">{preferences[key] as number}/5</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-content-muted w-20 text-right shrink-0">{left}</span>
+                  <input
+                    type="range"
+                    min={1}
+                    max={5}
+                    value={preferences[key] as number}
+                    onChange={e => setSlider(key, parseInt(e.target.value))}
+                    className="flex-1 accent-[oklch(0.55_0.20_285)] cursor-pointer"
+                  />
+                  <span className="text-[10px] text-content-muted w-20 shrink-0">{right}</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button onClick={handleSave} disabled={saving || !loaded}>
             {saving ? 'Saving...' : 'Save'}
           </Button>
         </DialogFooter>

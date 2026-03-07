@@ -2,28 +2,39 @@ import { z } from 'zod'
 
 // --- Learning Profile ---
 
+export const PreferencesSchema = z.object({
+  // Booleans (7)
+  explainComplexTermsSimply: z.boolean().default(true),
+  assumePriorKnowledge: z.boolean().default(false),
+  codeExamples: z.boolean().default(true),
+  realWorldAnalogies: z.boolean().default(true),
+  includeRecaps: z.boolean().default(true),
+  includeSummaries: z.boolean().default(true),
+  visualDescriptions: z.boolean().default(false),
+  // Sliders (1-5 integer scale, 6)
+  depthLevel: z.number().int().min(1).max(5).default(3),
+  pacePreference: z.number().int().min(1).max(5).default(3),
+  metaphorDensity: z.number().int().min(1).max(5).default(3),
+  narrativeStyle: z.number().int().min(1).max(5).default(3),
+  humorLevel: z.number().int().min(1).max(5).default(2),
+  formalityLevel: z.number().int().min(1).max(5).default(3),
+})
+
+export type Preferences = z.infer<typeof PreferencesSchema>
+
 export const LearningProfileSchema = z.object({
   style: z.string(),
   identity: z.string(),
-  preferences: z.object({
-    explainComplexTermsSimply: z.boolean(),
-    assumePriorKnowledge: z.boolean(),
-    codeExamples: z.boolean(),
-    realWorldAnalogies: z.boolean(),
-  }),
+  preferences: PreferencesSchema,
 })
 
 export type LearningProfile = z.infer<typeof LearningProfileSchema>
 
 export const UpdateProfileBodySchema = z.object({
   aboutMe: z.string().max(2000),
-  preferences: z.object({
-    explainComplexTermsSimply: z.boolean(),
-    assumePriorKnowledge: z.boolean(),
-    codeExamples: z.boolean(),
-    realWorldAnalogies: z.boolean(),
-  }),
+  preferences: PreferencesSchema,
 })
+
 
 // --- Table of Contents ---
 
@@ -122,6 +133,19 @@ const ModelSchema = z.string().min(1).max(100).regex(/^[a-zA-Z0-9._:\/-]{1,100}$
 export const AiRequestSchema = z.object({
   model: ModelSchema,
   provider: ProviderSchema.optional(),
+})
+
+export const InterviewChatBodySchema = AiRequestSchema.extend({
+  userMessage: z.string().min(1).max(5000),
+  history: z.array(z.object({
+    role: z.enum(['user', 'assistant']),
+    content: z.string().max(10_000),
+  })).max(50),
+})
+
+export const CompleteProfileSchema = z.object({
+  aboutMe: z.string(),
+  preferences: PreferencesSchema,
 })
 
 export const CreateBookBodySchema = AiRequestSchema.extend({

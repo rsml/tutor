@@ -52,6 +52,13 @@ function parseTocFromMarkdown(text: string): { title: string; chapters: Array<{ 
   return { title, chapters }
 }
 
+const DEPTH_LABELS = ['high-level overview', 'light coverage', 'balanced depth', 'detailed', 'comprehensive deep-dive']
+const PACE_LABELS = ['very deliberate pace', 'measured pace', 'moderate pace', 'brisk pace', 'very fast pace']
+const METAPHOR_LABELS = ['very rare metaphors', 'occasional metaphors', 'moderate metaphors', 'frequent metaphors', 'very frequent metaphors']
+const NARRATIVE_LABELS = ['strictly technical', 'mostly technical', 'balanced technical/narrative', 'mostly narrative', 'fully narrative storytelling']
+const HUMOR_LABELS = ['strictly serious', 'mostly serious', 'light humor okay', 'playful tone', 'witty and playful']
+const FORMALITY_LABELS = ['very casual', 'casual', 'balanced formality', 'somewhat academic', 'formal academic']
+
 async function buildProfileContext(): Promise<string> {
   try {
     const profile = await store.getProfile()
@@ -63,6 +70,16 @@ async function buildProfileContext(): Promise<string> {
     if (!profile.preferences.assumePriorKnowledge) prefs.push('do not assume prior knowledge')
     if (profile.preferences.codeExamples) prefs.push('include code examples')
     if (profile.preferences.realWorldAnalogies) prefs.push('use real-world analogies')
+    if (profile.preferences.includeRecaps) prefs.push('recap previous material at chapter start')
+    if (profile.preferences.includeSummaries) prefs.push('include key takeaways at chapter end')
+    if (profile.preferences.visualDescriptions) prefs.push('describe diagrams and visual mental models')
+    // Slider preferences
+    prefs.push(`depth: ${DEPTH_LABELS[profile.preferences.depthLevel - 1]}`)
+    prefs.push(`pace: ${PACE_LABELS[profile.preferences.pacePreference - 1]}`)
+    prefs.push(`metaphors: ${METAPHOR_LABELS[profile.preferences.metaphorDensity - 1]}`)
+    prefs.push(`style: ${NARRATIVE_LABELS[profile.preferences.narrativeStyle - 1]}`)
+    prefs.push(`humor: ${HUMOR_LABELS[profile.preferences.humorLevel - 1]}`)
+    prefs.push(`formality: ${FORMALITY_LABELS[profile.preferences.formalityLevel - 1]}`)
     if (prefs.length > 0) parts.push(`Writing preferences: ${prefs.join(', ')}`)
     return parts.join('\n')
   } catch {

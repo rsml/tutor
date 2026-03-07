@@ -21,6 +21,7 @@ import {
   DropdownMenuGroup,
 } from '@src/components/ui/dropdown-menu'
 import { ProfileDialog } from '@src/components/ProfileDialog'
+import { InterviewPanel } from '@src/components/InterviewPanel'
 import { useTheme } from '@src/components/ThemeProvider'
 import {
   useAppDispatch,
@@ -61,6 +62,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
   const textureOpacity = useAppSelector(selectTextureOpacity)
 
   const [profileOpen, setProfileOpen] = useState(false)
+  const [interviewOpen, setInterviewOpen] = useState(false)
   const [internalDialogOpen, setInternalDialogOpen] = useState(false)
   const [dialogProvider, setDialogProvider] = useState<ProviderId>(activeProvider)
   const [keyInput, setKeyInput] = useState('')
@@ -378,7 +380,25 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
         </DialogContent>
       </Dialog>
 
-      <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
+      <ProfileDialog
+        open={profileOpen}
+        onOpenChange={setProfileOpen}
+        onStartInterview={() => {
+          setProfileOpen(false)
+          setInterviewOpen(true)
+        }}
+      />
+
+      <InterviewPanel
+        open={interviewOpen}
+        onClose={(profileUpdated) => {
+          setInterviewOpen(false)
+          if (profileUpdated) {
+            setProfileOpen(true)
+          }
+        }}
+        onMissingApiKey={openDialog}
+      />
     </>
   )
 }

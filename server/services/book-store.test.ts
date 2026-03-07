@@ -47,6 +47,15 @@ describe('book-store', () => {
       assumePriorKnowledge: false,
       codeExamples: true,
       realWorldAnalogies: true,
+      includeRecaps: true,
+      includeSummaries: true,
+      visualDescriptions: false,
+      depthLevel: 3,
+      pacePreference: 3,
+      metaphorDensity: 3,
+      narrativeStyle: 3,
+      humorLevel: 2,
+      formalityLevel: 3,
     },
   }
 
