@@ -51,6 +51,24 @@ function parseTocFromMarkdown(text: string): { title: string; chapters: Array<{ 
   return { title, chapters }
 }
 
+async function buildProfileContext(): Promise<string> {
+  try {
+    const profile = await store.getProfile()
+    const parts: string[] = []
+    if (profile.identity) parts.push(`Reader background: ${profile.identity}`)
+    if (profile.style) parts.push(`Preferred learning style: ${profile.style}`)
+    const prefs: string[] = []
+    if (profile.preferences.explainComplexTermsSimply) prefs.push('explain complex terms simply')
+    if (!profile.preferences.assumePriorKnowledge) prefs.push('do not assume prior knowledge')
+    if (profile.preferences.codeExamples) prefs.push('include code examples')
+    if (profile.preferences.realWorldAnalogies) prefs.push('use real-world analogies')
+    if (prefs.length > 0) parts.push(`Writing preferences: ${prefs.join(', ')}`)
+    return parts.join('\n')
+  } catch {
+    return ''
+  }
+}
+
 async function generateQuiz(
   provider: string,
   model: string,
@@ -237,6 +255,7 @@ export async function bookRoutes(fastify: FastifyInstance) {
         prevChapterContent = await store.getChapter(bookId, nextNum - 1)
       } catch { /* first chapter */ }
 
+      const profileContext = await buildProfileContext()
       let chapterText = ''
       const chapterTimeout = createTimeout()
       const chapterResult = streamText({
@@ -252,7 +271,8 @@ Use markdown formatting:
 - Code blocks with language tags where relevant
 - > blockquotes for key insights or memorable takeaways
 
-Write in a conversational but knowledgeable tone. Use concrete examples and real-world analogies. Make complex ideas accessible without being condescending.`,
+Write in a conversational but knowledgeable tone. Use concrete examples and real-world analogies. Make complex ideas accessible without being condescending.
+${profileContext ? `\nReader profile:\n${profileContext}\n` : ''}`,
         prompt: `Book: ${meta.title}
 Topic: ${meta.prompt}
 
@@ -444,6 +464,7 @@ ${priorQuestions.map(q => `  - ${q}`).join('\n')}`,
 
     try {
       // Phase 1: Generate TOC
+      const profileContext = await buildProfileContext()
       let tocText = ''
       const tocTimeout = createTimeout()
       const tocResult = streamText({
@@ -464,7 +485,7 @@ Example format:
 1. **The Box Model Revisited** — Understanding the foundation that everything else builds on.
 2. **Flexbox Deep Dive** — Layout patterns that solve real problems elegantly.
 
-Just output the title and table of contents, nothing else.`,
+${profileContext ? `\nReader profile:\n${profileContext}\n\nTailor the book structure and difficulty to match the reader's background and preferences.\n` : ''}Just output the title and table of contents, nothing else.`,
         prompt: `Create a table of contents for a book about: ${topic}${details ? `\n\nAdditional context: ${details}` : ''}`,
       })
 
@@ -513,7 +534,8 @@ Use markdown formatting:
 - Code blocks with language tags where relevant
 - > blockquotes for key insights or memorable takeaways
 
-Write in a conversational but knowledgeable tone. Use concrete examples and real-world analogies. Make complex ideas accessible without being condescending.`,
+Write in a conversational but knowledgeable tone. Use concrete examples and real-world analogies. Make complex ideas accessible without being condescending.
+${profileContext ? `\nReader profile:\n${profileContext}\n` : ''}`,
         prompt: `Book: ${title}
 Topic: ${topic}${details ? `\nContext: ${details}` : ''}
 
