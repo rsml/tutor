@@ -1,28 +1,33 @@
 import type { FastifyInstance } from 'fastify'
 import { streamText } from 'ai'
+import { ZodError } from 'zod'
 import { createModelClient } from '../services/model-client.js'
-
-interface ChatBody {
-  apiKey: string
-  model: string
-  provider?: string
-  chapterContent: string
-  selectedText: string
-  userMessage: string
-  history: Array<{ role: 'user' | 'assistant'; content: string }>
-}
+import { ChatBodySchema } from '../schemas.js'
 
 const AI_TIMEOUT_MS = 5 * 60 * 1000
 
 export async function chatRoutes(fastify: FastifyInstance) {
-  fastify.post<{ Body: ChatBody }>('/api/chat', async (request, reply) => {
-    const { apiKey, model, provider, chapterContent, selectedText, userMessage, history } = request.body
-
-    if (!apiKey) {
-      return reply.status(400).send({ error: 'API key is required' })
+  fastify.post<{ Body: unknown }>('/api/chat', async (request, reply) => {
+    let body: {
+      model: string
+      provider?: string
+      chapterContent: string
+      selectedText: string
+      userMessage: string
+      history: Array<{ role: 'user' | 'assistant'; content: string }>
+    }
+    try {
+      body = ChatBodySchema.parse(request.body)
+    } catch (err) {
+      if (err instanceof ZodError) {
+        return reply.status(400).send({ error: 'Invalid request', details: err.issues })
+      }
+      throw err
     }
 
-    const modelClient = createModelClient(provider ?? 'anthropic', apiKey, model)
+    const { model, provider, chapterContent, selectedText, userMessage, history } = body
+
+    const modelClient = createModelClient(provider ?? 'anthropic', model)
 
     const systemPrompt = `You are a concise, knowledgeable tutor helping a learner understand a passage from a book they are reading.
 

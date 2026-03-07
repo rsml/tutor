@@ -108,7 +108,7 @@ const settingsSlice = createSlice({
       state.activeProvider = action.payload
     },
     setProviderApiKey(state, action: PayloadAction<{ provider: ProviderId; apiKey: string | null }>) {
-      state.providers[action.payload.provider].apiKey = action.payload.apiKey
+      state.providers[action.payload.provider].apiKey = action.payload.apiKey ? 'configured' : null
     },
     setProviderModel(state, action: PayloadAction<{ provider: ProviderId; model: string }>) {
       state.providers[action.payload.provider].model = action.payload.model
@@ -136,6 +136,7 @@ export const {
 
 // Derived selectors — return active provider's key/model
 export const selectApiKey = (state: RootState) => state.settings.providers[state.settings.activeProvider]?.apiKey ?? null
+export const selectHasApiKey = (state: RootState) => !!state.settings.providers[state.settings.activeProvider]?.apiKey
 export const selectModel = (state: RootState) => state.settings.providers[state.settings.activeProvider]?.model ?? ''
 export const selectActiveProvider = (state: RootState) => state.settings.activeProvider
 export const selectProviders = (state: RootState) => state.settings.providers

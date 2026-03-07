@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import { useAppSelector, selectApiKey, selectModel, selectActiveProvider, selectFontSize } from '@src/store'
+import { SafeMarkdown } from '@src/components/SafeMarkdown'
+import { useAppSelector, selectHasApiKey, selectModel, selectActiveProvider, selectFontSize } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
 
 type Phase = 'toc' | 'chapter' | 'done' | 'error'
@@ -16,7 +15,7 @@ interface CreationViewProps {
 }
 
 export function CreationView({ topic, details, onComplete, onCancel }: CreationViewProps) {
-  const apiKey = useAppSelector(selectApiKey)
+  const hasApiKey = useAppSelector(selectHasApiKey)
   const model = useAppSelector(selectModel)
   const provider = useAppSelector(selectActiveProvider)
   const fontSize = useAppSelector(selectFontSize)
@@ -37,7 +36,7 @@ export function CreationView({ topic, details, onComplete, onCancel }: CreationV
   const chapterRafRef = useRef<number | null>(null)
 
   const startGeneration = useCallback(async () => {
-    if (!apiKey) {
+    if (!hasApiKey) {
       setError('Please set your API key in Settings first.')
       setPhase('error')
       return
@@ -47,7 +46,7 @@ export function CreationView({ topic, details, onComplete, onCancel }: CreationV
       const res = await fetch(apiUrl('/api/books'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, details, apiKey, model, provider }),
+        body: JSON.stringify({ topic, details, model, provider }),
       })
 
       if (!res.ok || !res.body) {
@@ -124,7 +123,7 @@ export function CreationView({ topic, details, onComplete, onCancel }: CreationV
       setError(err instanceof Error ? err.message : 'Connection failed')
       setPhase('error')
     }
-  }, [apiKey, model, provider, topic, details])
+  }, [hasApiKey, model, provider, topic, details])
 
   useEffect(() => {
     if (!startedRef.current) {
@@ -195,7 +194,7 @@ export function CreationView({ topic, details, onComplete, onCancel }: CreationV
           <div className="mx-auto max-w-2xl px-8 py-8">
             {tocContent ? (
               <div className="creation-markdown" style={{ fontSize: `${fontSize}px` }}>
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{tocContent}</ReactMarkdown>
+                <SafeMarkdown>{tocContent}</SafeMarkdown>
               </div>
             ) : (
               <div className="flex items-center gap-2 text-content-muted">
@@ -216,7 +215,7 @@ export function CreationView({ topic, details, onComplete, onCancel }: CreationV
           <div className="mx-auto max-w-2xl px-8 py-8">
             {chapterContent ? (
               <div className="creation-markdown" style={{ fontSize: `${fontSize}px` }}>
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{chapterContent}</ReactMarkdown>
+                <SafeMarkdown>{chapterContent}</SafeMarkdown>
               </div>
             ) : phase === 'toc' ? (
               <p className="text-sm text-content-muted">

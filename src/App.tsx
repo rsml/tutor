@@ -18,7 +18,7 @@ import { CreationView } from '@src/components/CreationView'
 import { BookOverviewModal } from '@src/components/BookOverviewModal'
 import { ReaderPage } from '@src/pages/ReaderPage'
 import { QuizReviewPage } from '@src/pages/QuizReviewPage'
-import { useAppSelector, useAppDispatch, setProviderApiKey, selectApiKey, selectFontSize } from '@src/store'
+import { useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize } from '@src/store'
 import { PROVIDER_IDS } from '@src/lib/providers'
 import { apiUrl } from '@src/lib/api-base'
 
@@ -53,24 +53,52 @@ export default function App() {
   const [serverAvailable, setServerAvailable] = useState(true)
   const furthest = useAppSelector(s => s.readingProgress.furthest)
   const dispatch = useAppDispatch()
-  const apiKey = useAppSelector(selectApiKey)
+  const hasApiKey = useAppSelector(selectHasApiKey)
   const fontSize = useAppSelector(selectFontSize)
 
   useEffect(() => {
-    // Load API keys for all providers from secure storage
-    for (const provider of PROVIDER_IDS) {
-      window.electronAPI?.loadApiKey(provider).then(key => {
+    if (window.electronAPI) {
+      // Load API keys from secure storage and POST to server
+      for (const provider of PROVIDER_IDS) {
+        window.electronAPI.loadApiKey(provider).then(async key => {
+          if (key) {
+            try {
+              await fetch(apiUrl('/api/settings/api-key'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider, apiKey: key }),
+              })
+            } catch { /* server may not be ready */ }
+            dispatch(setProviderApiKey({ provider, apiKey: key }))
+          }
+        })
+      }
+      // Also try loading legacy key (no provider suffix) into anthropic
+      window.electronAPI.loadApiKey().then(async key => {
         if (key) {
-          dispatch(setProviderApiKey({ provider, apiKey: key }))
+          try {
+            await fetch(apiUrl('/api/settings/api-key'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ provider: 'anthropic', apiKey: key }),
+            })
+          } catch { /* server may not be ready */ }
+          dispatch(setProviderApiKey({ provider: 'anthropic', apiKey: key }))
         }
       })
+    } else {
+      // Dev/web mode — check server for existing key status
+      fetch(apiUrl('/api/settings/api-key-status'))
+        .then(res => res.json())
+        .then((status: Record<string, boolean>) => {
+          for (const provider of PROVIDER_IDS) {
+            if (status[provider]) {
+              dispatch(setProviderApiKey({ provider, apiKey: 'configured' }))
+            }
+          }
+        })
+        .catch(() => {})
     }
-    // Also try loading legacy key (no provider suffix) into anthropic
-    window.electronAPI?.loadApiKey().then(key => {
-      if (key) {
-        dispatch(setProviderApiKey({ provider: 'anthropic', apiKey: key }))
-      }
-    })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Health check — disable New Book when server is unreachable
@@ -102,7 +130,7 @@ export default function App() {
   }, [contextMenu])
 
   const handleNewBook = () => {
-    if (!apiKey) {
+    if (!hasApiKey) {
       setApiKeyDialogOpen(true)
     } else {
       setWizardOpen(true)

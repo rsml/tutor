@@ -1,5 +1,5 @@
-import { readFile, writeFile, mkdir, readdir, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { readFile, writeFile, mkdir, readdir, rm, lstat } from 'node:fs/promises'
+import { join, dirname } from 'node:path'
 import { existsSync } from 'node:fs'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 import {
@@ -24,7 +24,12 @@ function booksDir(): string {
 }
 
 function bookDir(bookId: string): string {
-  return join(booksDir(), bookId)
+  const base = booksDir()
+  const resolved = join(base, bookId)
+  if (!resolved.startsWith(base + '/') && resolved !== base) {
+    throw new Error('Invalid book path')
+  }
+  return resolved
 }
 
 // --- YAML helpers ---
@@ -36,7 +41,7 @@ async function readYaml<T>(path: string, schema: { parse: (data: unknown) => T }
 }
 
 async function writeYaml(path: string, data: unknown): Promise<void> {
-  const dir = path.substring(0, path.lastIndexOf('/'))
+  const dir = dirname(path)
   if (!existsSync(dir)) {
     await mkdir(dir, { recursive: true })
   }
@@ -94,6 +99,10 @@ export async function saveBook(meta: BookMeta): Promise<void> {
 export async function deleteBook(bookId: string): Promise<void> {
   const dir = bookDir(bookId)
   if (existsSync(dir)) {
+    const stat = await lstat(dir)
+    if (!stat.isDirectory()) {
+      throw new Error('Invalid book directory')
+    }
     await rm(dir, { recursive: true })
   }
 }

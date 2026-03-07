@@ -7,20 +7,19 @@ export interface ChatMessage {
 }
 
 interface UseStreamingChatOptions {
-  apiKey: string | null
   model: string
   provider: string
   chapterContent: string
   selectedText: string
 }
 
-export function useStreamingChat({ apiKey, model, provider, chapterContent, selectedText }: UseStreamingChatOptions) {
+export function useStreamingChat({ model, provider, chapterContent, selectedText }: UseStreamingChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
   const sendMessage = useCallback(async (userMessage: string) => {
-    if (!apiKey || isStreaming) return
+    if (isStreaming) return
 
     const userMsg: ChatMessage = { role: 'user', content: userMessage }
     const history = messages.map(m => ({ role: m.role, content: m.content }))
@@ -36,7 +35,6 @@ export function useStreamingChat({ apiKey, model, provider, chapterContent, sele
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          apiKey,
           model,
           provider,
           chapterContent,
@@ -83,7 +81,7 @@ export function useStreamingChat({ apiKey, model, provider, chapterContent, sele
       setIsStreaming(false)
       abortRef.current = null
     }
-  }, [apiKey, model, provider, chapterContent, selectedText, messages, isStreaming])
+  }, [model, provider, chapterContent, selectedText, messages, isStreaming])
 
   const clearMessages = useCallback(() => {
     abortRef.current?.abort()

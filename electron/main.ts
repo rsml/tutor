@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, ipcMain, safeStorage, nativeImage } from 'electron'
+import { app, BrowserWindow, Menu, ipcMain, safeStorage, nativeImage, session } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readFile, writeFile, mkdir, rm } from 'node:fs/promises'
@@ -44,10 +44,12 @@ const menuTemplate: Electron.MenuItemConstructorOptions[] = [
   {
     label: 'View',
     submenu: [
-      { role: 'reload' },
-      { role: 'forceReload' },
-      { role: 'toggleDevTools' },
-      { type: 'separator' },
+      ...(app.isPackaged ? [] : [
+        { role: 'reload' as const },
+        { role: 'forceReload' as const },
+        { role: 'toggleDevTools' as const },
+        { type: 'separator' as const },
+      ]),
       { role: 'resetZoom' },
       { role: 'zoomIn' },
       { role: 'zoomOut' },
@@ -124,7 +126,10 @@ ipcMain.handle('storage:get', async (_event, key: string) => {
   if (!existsSync(stateFile)) return null
   try {
     const data = JSON.parse(await readFile(stateFile, 'utf-8'))
-    return data[key] ?? null
+    if (typeof data !== 'object' || data === null || Array.isArray(data)) return null
+    const value = data[key] ?? null
+    if (value !== null && typeof value !== 'string') return null
+    return value
   } catch {
     return null
   }
@@ -191,21 +196,54 @@ ipcMain.handle('apiKey:remove', async (_event, provider?: string) => {
 let apiPort = 0
 
 app.whenReady().then(async () => {
-  // Load API key from safeStorage into env for the server
-  const keyFile = apiKeyFile()
-  if (existsSync(keyFile)) {
-    try {
-      const encrypted = await readFile(keyFile)
-      process.env.ANTHROPIC_API_KEY = safeStorage.decryptString(encrypted)
-    } catch { /* ignore decryption errors */ }
-  }
-
   // Start the embedded API server on a random free port (localhost only — no firewall prompt)
   const server = await startServer(0, '127.0.0.1')
   const addr = server.server.address()
   apiPort = typeof addr === 'object' && addr ? addr.port : 0
 
   ipcMain.handle('get-api-port', () => apiPort)
+
+  // POST all saved API keys to the server's key store
+  for (const provider of VALID_PROVIDERS) {
+    const file = apiKeyFile(provider)
+    if (existsSync(file)) {
+      try {
+        const encrypted = await readFile(file)
+        const key = safeStorage.decryptString(encrypted)
+        await fetch(`http://127.0.0.1:${apiPort}/api/settings/api-key`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ provider, apiKey: key }),
+        })
+      } catch { /* ignore */ }
+    }
+  }
+  // Also try loading legacy keyFile (no provider suffix) as anthropic
+  const legacyFile = apiKeyFile()
+  if (existsSync(legacyFile)) {
+    try {
+      const encrypted = await readFile(legacyFile)
+      const key = safeStorage.decryptString(encrypted)
+      await fetch(`http://127.0.0.1:${apiPort}/api/settings/api-key`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: 'anthropic', apiKey: key }),
+      })
+    } catch { /* ignore */ }
+  }
+
+  // CSP enforcement
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
+          "connect-src 'self' http://127.0.0.1:*; img-src 'self' data:; font-src 'self';",
+        ],
+      },
+    })
+  })
 
   if (process.platform === 'darwin' && app.dock) {
     app.dock.setIcon(getAppIcon())

@@ -5,10 +5,9 @@ import { SelectionTooltip } from '@src/components/SelectionTooltip'
 import { ChatPanel } from '@src/components/ChatPanel'
 import { SettingsMenu } from '@src/components/SettingsMenu'
 import { useTextSelection } from '@src/hooks/useTextSelection'
-import { useAppDispatch, useAppSelector, setChapterPosition, setChapterFeedback, setChapterQuizResult, recordQuizAttempt, selectFontSize, selectApiKey, selectModel, selectActiveProvider } from '@src/store'
+import { useAppDispatch, useAppSelector, setChapterPosition, setChapterFeedback, setChapterQuizResult, recordQuizAttempt, selectFontSize, selectModel, selectActiveProvider } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { SafeMarkdown } from '@src/components/SafeMarkdown'
 import { QuizPanel } from '@src/components/QuizPanel'
 import { FeedbackForm } from '@src/components/FeedbackForm'
 import { StarRating } from '@src/components/StarRating'
@@ -54,7 +53,6 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
   const [bookRating, setBookRating] = useState(0)
   const [finalQuizLoading, setFinalQuizLoading] = useState(false)
 
-  const apiKey = useAppSelector(selectApiKey)
   const model = useAppSelector(selectModel)
   const provider = useAppSelector(selectActiveProvider)
 
@@ -161,7 +159,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
       const res = await fetch(apiUrl(`/api/books/${book.id}/final-quiz`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey, model, provider }),
+        body: JSON.stringify({ model, provider }),
       })
       if (res.ok) {
         const data = await res.json()
@@ -169,7 +167,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
       }
     } catch {}
     setFinalQuizLoading(false)
-  }, [book.id, chapterIndex, apiKey, model, provider, dispatch])
+  }, [book.id, chapterIndex, model, provider, dispatch])
 
   const handleFinalQuizComplete = useCallback((answers: number[]) => {
     const score = answers.filter((a, i) => a === finalQuizQuestions[i].correctIndex).length
@@ -246,7 +244,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
       const res = await fetch(apiUrl(`/api/books/${book.id}/generate-next`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey, model, provider }),
+        body: JSON.stringify({ model, provider }),
       })
 
       if (!res.ok || !res.body) throw new Error('Generation failed')
@@ -288,7 +286,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
     } catch {
       setPhase('reading')
     }
-  }, [book.id, chapterIndex, quizAnswers, apiKey, model, provider, dispatch])
+  }, [book.id, chapterIndex, quizAnswers, model, provider, dispatch])
 
   // Page turn
   const goChapter = useCallback((delta: number) => {
@@ -410,7 +408,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
                   ) : chapterContent ? (
                     <>
                       <div className="reader-prose">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{chapterContent}</ReactMarkdown>
+                        <SafeMarkdown>{chapterContent}</SafeMarkdown>
                       </div>
                       {(isOnLastGenerated || isOnLastChapterReady) && (
                         <div className="mt-12 flex justify-center">
@@ -452,7 +450,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
                 <div className="mx-auto max-w-2xl px-8 pb-24">
                   {streamingContent ? (
                     <div className="reader-prose">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingContent}</ReactMarkdown>
+                      <SafeMarkdown>{streamingContent}</SafeMarkdown>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 pt-12 text-content-muted">

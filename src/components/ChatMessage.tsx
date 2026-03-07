@@ -1,5 +1,4 @@
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { SafeMarkdown } from '@src/components/SafeMarkdown'
 import type { ChatMessage as ChatMessageType } from '@src/hooks/useStreamingChat'
 
 interface ChatMessageProps {
@@ -31,7 +30,7 @@ export function ChatMessage({ message, selectedText, isFirst }: ChatMessageProps
       <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-surface-muted px-3.5 py-2 text-sm text-content-primary">
         {message.content ? (
           <div className="prose-sm prose-neutral dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+            <SafeMarkdown>{message.content}</SafeMarkdown>
           </div>
         ) : (
           <span className="inline-block size-1.5 animate-pulse rounded-full bg-content-muted" />

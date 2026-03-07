@@ -24,7 +24,7 @@ import { useTheme } from '@src/components/ThemeProvider'
 import {
   useAppDispatch,
   useAppSelector,
-  selectApiKey,
+  selectHasApiKey,
   selectActiveProvider,
   selectProviders,
   selectFontSize,
@@ -38,6 +38,7 @@ import {
   setTextureOpacity,
 } from '@src/store'
 import { PROVIDERS, PROVIDER_IDS, type ProviderId } from '@src/lib/providers'
+import { apiUrl } from '@src/lib/api-base'
 
 const FONT_SIZES = [12, 13, 14, 15, 16, 17, 18, 20, 22]
 const DEFAULT_FONT_SIZE = 16
@@ -51,7 +52,7 @@ interface SettingsMenuProps {
 export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: SettingsMenuProps = {}) {
   const { theme, setTheme } = useTheme()
   const dispatch = useAppDispatch()
-  const apiKey = useAppSelector(selectApiKey)
+  const hasApiKey = useAppSelector(selectHasApiKey)
   const activeProvider = useAppSelector(selectActiveProvider)
   const providers = useAppSelector(selectProviders)
   const fontSize = useAppSelector(selectFontSize)
@@ -71,25 +72,32 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
   useEffect(() => {
     if (apiKeyDialogOpen) {
       setDialogProvider(activeProvider)
-      setKeyInput(providers[activeProvider]?.apiKey ?? '')
+      setKeyInput('')
     }
   }, [apiKeyDialogOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const openDialog = () => {
     setDialogProvider(activeProvider)
-    setKeyInput(providers[activeProvider]?.apiKey ?? '')
+    setKeyInput('')
     setDialogOpen(true)
   }
 
   const handleSelectDialogProvider = (id: ProviderId) => {
     setDialogProvider(id)
-    setKeyInput(providers[id]?.apiKey ?? '')
+    setKeyInput('')
   }
 
   const handleSave = async () => {
     const trimmed = keyInput.trim()
     if (trimmed) {
       await window.electronAPI?.saveApiKey(trimmed, dialogProvider)
+      try {
+        await fetch(apiUrl('/api/settings/api-key'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ provider: dialogProvider, apiKey: trimmed }),
+        })
+      } catch { /* server may not be ready */ }
     }
     dispatch(setProviderApiKey({ provider: dialogProvider, apiKey: trimmed || null }))
     dispatch(setActiveProvider(dialogProvider))
@@ -98,6 +106,13 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
 
   const handleRemove = async () => {
     await window.electronAPI?.removeApiKey(dialogProvider)
+    try {
+      await fetch(apiUrl('/api/settings/api-key'), {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: dialogProvider }),
+      })
+    } catch { /* server may not be ready */ }
     dispatch(setProviderApiKey({ provider: dialogProvider, apiKey: null }))
     setKeyInput('')
     setDialogOpen(false)
@@ -128,7 +143,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
           }
         >
           <Settings className="size-4" />
-          {!apiKey && !subtle && (
+          {!hasApiKey && !subtle && (
             <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-status-warn" />
           )}
         </DropdownMenuTrigger>
@@ -139,7 +154,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
             <span className="size-4 flex items-center justify-center text-[10px] font-bold text-content-muted">
               {activeDef.label.slice(0, 2).toUpperCase()}
             </span>
-            {apiKey ? (
+            {hasApiKey ? (
               <>
                 {activeDef.name}
                 <span className="ml-auto text-xs text-content-muted">{activeModelLabel}</span>
@@ -153,7 +168,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
           </DropdownMenuItem>
 
           {/* Quick model switch for active provider */}
-          {apiKey && (
+          {hasApiKey && (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
@@ -321,7 +336,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
                 type="password"
                 value={keyInput}
                 onChange={e => setKeyInput(e.target.value)}
-                placeholder={dialogDef.placeholder}
+                placeholder={providers[dialogProvider]?.apiKey ? 'Key saved (enter new to replace)' : dialogDef.placeholder}
                 className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 font-mono text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
               />
             </div>

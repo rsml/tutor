@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { X, SendHorizontal } from 'lucide-react'
 import { ChatMessage } from '@src/components/ChatMessage'
 import { useStreamingChat } from '@src/hooks/useStreamingChat'
-import { useAppSelector, selectApiKey, selectModel, selectActiveProvider } from '@src/store'
+import { useAppSelector, selectHasApiKey, selectModel, selectActiveProvider } from '@src/store'
 
 interface ChatPanelProps {
   open: boolean
@@ -14,11 +14,10 @@ interface ChatPanelProps {
 }
 
 export function ChatPanel({ open, onClose, selectedText, chapterContent, initialPrompt, onMissingApiKey }: ChatPanelProps) {
-  const apiKey = useAppSelector(selectApiKey)
+  const hasApiKey = useAppSelector(selectHasApiKey)
   const model = useAppSelector(selectModel)
   const provider = useAppSelector(selectActiveProvider)
   const { messages, isStreaming, sendMessage, clearMessages } = useStreamingChat({
-    apiKey,
     model,
     provider,
     chapterContent,
@@ -31,7 +30,7 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
   // Send initial prompt when panel opens with a new selection
   useEffect(() => {
     if (open && initialPrompt && !sentInitialRef.current) {
-      if (!apiKey) {
+      if (!hasApiKey) {
         onMissingApiKey()
         return
       }
@@ -66,7 +65,7 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
   const handleSubmit = () => {
     const trimmed = input.trim()
     if (!trimmed || isStreaming) return
-    if (!apiKey) {
+    if (!hasApiKey) {
       onMissingApiKey()
       return
     }
