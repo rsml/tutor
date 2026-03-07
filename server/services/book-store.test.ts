@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mkdtemp, rm, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -6,20 +6,18 @@ import { writeFile } from 'node:fs/promises'
 import { stringify as stringifyYaml } from 'yaml'
 import type { BookMeta, Feedback, LearningProfile, Toc } from '../schemas.js'
 
-// We need to mock the books directory before importing the store
+// Mock getDataDir at module level so book-store ALWAYS uses temp dir.
+// This prevents tests from ever writing to the production data directory.
 let testDir: string
 
-// Dynamic import after setting up env
-async function importStore() {
-  // Reset module cache by using a query param trick won't work in vitest
-  // Instead, we'll work with the real module and set up the books dir
-  return import('./book-store.js')
-}
+vi.mock('../../lib/data-dir.js', () => ({
+  getDataDir: () => testDir,
+}))
+
+// Import AFTER mock is set up — vitest hoists vi.mock automatically
+import * as store from './book-store.js'
 
 describe('book-store', () => {
-  let store: Awaited<ReturnType<typeof importStore>>
-  let origDataDir: string | undefined
-
   const testMeta: BookMeta = {
     id: 'test-book-123',
     title: 'Test Book',
@@ -61,9 +59,6 @@ describe('book-store', () => {
 
   beforeEach(async () => {
     testDir = await mkdtemp(join(tmpdir(), 'ai-books-test-'))
-    // Point data dir to temp directory so tests don't pollute real data
-    origDataDir = process.env.TUTOR_DATA_DIR
-    process.env.TUTOR_DATA_DIR = testDir
     await mkdir(join(testDir, 'books'), { recursive: true })
 
     // Write a learning profile so getProfile works
@@ -72,14 +67,9 @@ describe('book-store', () => {
       stringifyYaml(testProfile),
       'utf-8',
     )
-
-    // Fresh import each time (vitest caches, but env is dynamic)
-    store = await importStore()
   })
 
   afterEach(async () => {
-    if (origDataDir === undefined) delete process.env.TUTOR_DATA_DIR
-    else process.env.TUTOR_DATA_DIR = origDataDir
     await rm(testDir, { recursive: true })
   })
 
