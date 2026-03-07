@@ -73,7 +73,8 @@ const persistConfig = {
   transforms: [stripApiKeyTransform],
 }
 
-const persistedReducer = persistReducer(persistConfig, rootReducer)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const persistedReducer = persistReducer(persistConfig, rootReducer as any) as typeof rootReducer
 
 export const store = configureStore({
   reducer: persistedReducer,

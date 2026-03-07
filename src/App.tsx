@@ -6,7 +6,7 @@ import { NoiseOverlay } from '@src/components/NoiseOverlay'
 import { SettingsMenu } from '@src/components/SettingsMenu'
 import { WizardModal } from '@src/components/WizardModal'
 import { ReaderPage } from '@src/pages/ReaderPage'
-import { useAppSelector, useAppDispatch, setApiKey } from '@src/store'
+import { useAppSelector, useAppDispatch, setApiKey, selectApiKey } from '@src/store'
 
 const MOCK_BOOKS = [
   { id: '1', title: 'Introduction to Machine Learning', chaptersRead: 3, totalChapters: 12 },
@@ -24,11 +24,18 @@ export default function App() {
   const furthest = useAppSelector(s => s.readingProgress.furthest)
   const dispatch = useAppDispatch()
 
+  const existingKey = useAppSelector(selectApiKey)
+
   useEffect(() => {
     window.electronAPI?.loadApiKey().then(key => {
-      if (key) dispatch(setApiKey(key))
+      if (key) {
+        dispatch(setApiKey(key))
+      } else if (existingKey) {
+        // Migrate plaintext key from old redux-state.json to safeStorage
+        window.electronAPI?.saveApiKey(existingKey)
+      }
     })
-  }, [dispatch])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedBook = MOCK_BOOKS.find(b => b.id === selectedBookId)
 
