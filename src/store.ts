@@ -24,12 +24,44 @@ const readingProgressSlice = createSlice({
 
 export const { setChapterPosition } = readingProgressSlice.actions
 
-const rootReducer = combineReducers({
-  readingProgress: readingProgressSlice.reducer,
+interface SettingsState {
+  apiKey: string | null
+  model: string
+}
+
+const settingsSlice = createSlice({
+  name: 'settings',
+  initialState: { apiKey: null, model: 'claude-sonnet-4-20250514' } as SettingsState,
+  reducers: {
+    setApiKey(state, action: PayloadAction<string | null>) {
+      state.apiKey = action.payload
+    },
+    setModel(state, action: PayloadAction<string>) {
+      state.model = action.payload
+    },
+  },
 })
 
+export const { setApiKey, setModel } = settingsSlice.actions
+export const selectApiKey = (state: RootState) => state.settings.apiKey
+export const selectModel = (state: RootState) => state.settings.model
+
+const rootReducer = combineReducers({
+  readingProgress: readingProgressSlice.reducer,
+  settings: settingsSlice.reducer,
+})
+
+// Use Electron IPC storage when available, otherwise fall back to localStorage
+const electronStorage = window.electronAPI?.storageGet
+  ? {
+      getItem: (key: string) => window.electronAPI!.storageGet(key),
+      setItem: (key: string, value: string) => window.electronAPI!.storageSet(key, value),
+      removeItem: (key: string) => window.electronAPI!.storageRemove(key),
+    }
+  : storage
+
 const persistedReducer = persistReducer(
-  { key: 'tutor', storage },
+  { key: 'tutor', storage: electronStorage },
   rootReducer,
 )
 

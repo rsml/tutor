@@ -1,9 +1,11 @@
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
+import { chatRoutes } from './routes/chat.js'
 
 const fastify = Fastify({ logger: true })
 
 await fastify.register(cors)
+await fastify.register(chatRoutes)
 
 fastify.get('/api/health', async () => ({ status: 'ok' }))
 

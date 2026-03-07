@@ -1,0 +1,82 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+
+interface TextSelection {
+  selectedText: string
+  selectionRect: DOMRect | null
+  clearSelection: () => void
+}
+
+export function useTextSelection(containerRef: React.RefObject<HTMLElement | null>): TextSelection {
+  const [selectedText, setSelectedText] = useState('')
+  const [selectionRect, setSelectionRect] = useState<DOMRect | null>(null)
+  const lastScrollY = useRef(0)
+
+  const clearSelection = useCallback(() => {
+    setSelectedText('')
+    setSelectionRect(null)
+    window.getSelection()?.removeAllRanges()
+  }, [])
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const handleMouseUp = () => {
+      // Small delay to let browser finalize selection
+      requestAnimationFrame(() => {
+        const sel = window.getSelection()
+        const text = sel?.toString().trim()
+        if (!text || !sel?.rangeCount) {
+          return
+        }
+
+        // Check the selection is inside our container
+        const range = sel.getRangeAt(0)
+        if (!container.contains(range.commonAncestorContainer)) {
+          return
+        }
+
+        const rect = range.getBoundingClientRect()
+        setSelectedText(text)
+        setSelectionRect(rect)
+        lastScrollY.current = window.scrollY
+      })
+    }
+
+    const handleClickOutside = (e: MouseEvent) => {
+      // Don't clear if clicking inside the tooltip
+      const target = e.target as HTMLElement
+      if (target.closest('[data-selection-tooltip]')) return
+      if (target.closest('[data-chat-panel]')) return
+
+      const sel = window.getSelection()
+      if (!sel?.toString().trim()) {
+        clearSelection()
+      }
+    }
+
+    const handleScroll = () => {
+      if (Math.abs(window.scrollY - lastScrollY.current) > 20) {
+        clearSelection()
+      }
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') clearSelection()
+    }
+
+    container.addEventListener('mouseup', handleMouseUp)
+    document.addEventListener('mousedown', handleClickOutside)
+    window.addEventListener('scroll', handleScroll, true)
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      container.removeEventListener('mouseup', handleMouseUp)
+      document.removeEventListener('mousedown', handleClickOutside)
+      window.removeEventListener('scroll', handleScroll, true)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [containerRef, clearSelection])
+
+  return { selectedText, selectionRect, clearSelection }
+}

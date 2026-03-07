@@ -15,9 +15,10 @@ import {
   type LearningProfile,
   type ChapterProgress,
 } from '../schemas.js'
+import { getDataDir } from '../../lib/data-dir.js'
 
 function booksDir(): string {
-  return join(process.cwd(), 'books')
+  return join(getDataDir(), 'books')
 }
 
 function bookDir(bookId: string): string {

@@ -1,6 +1,9 @@
-import { app, BrowserWindow, Menu } from 'electron'
+import { app, BrowserWindow, Menu, ipcMain } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { getDataDir } from '../lib/data-dir.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -91,6 +94,50 @@ app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow()
   }
+})
+
+// --- Redux-persist file storage IPC ---
+
+const dataDir = getDataDir()
+const stateFile = path.join(dataDir, 'redux-state.json')
+
+async function ensureDataDir() {
+  if (!existsSync(dataDir)) {
+    await mkdir(dataDir, { recursive: true })
+  }
+}
+
+ipcMain.handle('storage:get', async (_event, key: string) => {
+  await ensureDataDir()
+  if (!existsSync(stateFile)) return null
+  try {
+    const data = JSON.parse(await readFile(stateFile, 'utf-8'))
+    return data[key] ?? null
+  } catch {
+    return null
+  }
+})
+
+ipcMain.handle('storage:set', async (_event, key: string, value: string) => {
+  await ensureDataDir()
+  let data: Record<string, string> = {}
+  if (existsSync(stateFile)) {
+    try {
+      data = JSON.parse(await readFile(stateFile, 'utf-8'))
+    } catch { /* start fresh */ }
+  }
+  data[key] = value
+  await writeFile(stateFile, JSON.stringify(data, null, 2), 'utf-8')
+})
+
+ipcMain.handle('storage:remove', async (_event, key: string) => {
+  await ensureDataDir()
+  if (!existsSync(stateFile)) return
+  try {
+    const data = JSON.parse(await readFile(stateFile, 'utf-8'))
+    delete data[key]
+    await writeFile(stateFile, JSON.stringify(data, null, 2), 'utf-8')
+  } catch { /* ignore */ }
 })
 
 app.whenReady().then(() => {

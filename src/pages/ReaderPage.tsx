@@ -103,7 +103,6 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
           className="inline-flex items-center gap-1.5 text-content-muted/50 transition-colors hover:text-content-muted"
         >
           <ArrowLeft className="size-5" />
-          <span className="text-sm">Library</span>
         </button>
       </div>
 
