@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
-import { Plus } from 'lucide-react'
+import { Plus, BookOpen } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import {
   Dialog,
@@ -289,30 +289,46 @@ export default function App() {
       {/* Library grid */}
       <main className="flex-1 overflow-y-auto px-8 py-8" style={{ fontSize: `${fontSize}px` }}>
         <div className="mx-auto max-w-7xl">
-          <div className="grid grid-cols-4 gap-8 xl:grid-cols-5">
-            {allBooks.map((book) => {
-              const reduxProgress = furthest[book.id]
-              const chaptersRead = reduxProgress != null
-                ? reduxProgress + 1
-                : book.chaptersRead
-              return (
-                <BookCard
-                  key={book.id}
-                  title={book.title}
-                  chaptersRead={chaptersRead}
-                  totalChapters={book.totalChapters}
-                  rating={book.rating}
-                  finalQuizScore={book.finalQuizScore}
-                  finalQuizTotal={book.finalQuizTotal}
-                  onClick={() => setView({ type: 'reading', book })}
-                  onContextMenu={apiBookIds.has(book.id) ? (e) => {
-                    e.preventDefault()
-                    setContextMenu({ book, x: e.clientX, y: e.clientY })
-                  } : undefined}
-                />
-              )
-            })}
-          </div>
+          {allBooks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-32 text-center">
+              <BookOpen className="size-12 text-content-muted/40" />
+              <h2 className="mt-4 text-lg font-semibold text-content-primary">No books yet</h2>
+              <p className="mt-1 text-sm text-content-muted">Create your first book to start learning.</p>
+              <Button
+                className="mt-6 bg-[oklch(0.55_0.20_285)] text-white hover:bg-[oklch(0.50_0.22_285)]"
+                onClick={handleNewBook}
+                disabled={!serverAvailable}
+              >
+                <Plus data-icon="inline-start" className="size-4" />
+                New Book
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-4 gap-8 xl:grid-cols-5">
+              {allBooks.map((book) => {
+                const reduxProgress = furthest[book.id]
+                const chaptersRead = reduxProgress != null
+                  ? reduxProgress + 1
+                  : book.chaptersRead
+                return (
+                  <BookCard
+                    key={book.id}
+                    title={book.title}
+                    chaptersRead={chaptersRead}
+                    totalChapters={book.totalChapters}
+                    rating={book.rating}
+                    finalQuizScore={book.finalQuizScore}
+                    finalQuizTotal={book.finalQuizTotal}
+                    onClick={() => setView({ type: 'reading', book })}
+                    onContextMenu={apiBookIds.has(book.id) ? (e) => {
+                      e.preventDefault()
+                      setContextMenu({ book, x: e.clientX, y: e.clientY })
+                    } : undefined}
+                  />
+                )
+              })}
+            </div>
+          )}
         </div>
       </main>
 

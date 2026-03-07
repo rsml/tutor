@@ -54,6 +54,10 @@ export async function startServer(port = 3147, host = '127.0.0.1') {
       return reply.status(404).send({ error: 'Not found' })
     }
     const statusCode = error.statusCode ?? 500
+    if (statusCode >= 500) {
+      fastify.log.error(error)
+      return reply.status(500).send({ error: 'Internal server error' })
+    }
     reply.status(statusCode).send({
       error: error.message || 'Internal server error',
     })

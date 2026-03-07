@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, readdir, rm, lstat } from 'node:fs/promises'
+import { readFile, writeFile, mkdir, readdir, rm, lstat, rename } from 'node:fs/promises'
 import { join, dirname } from 'node:path'
 import { existsSync } from 'node:fs'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
@@ -45,7 +45,9 @@ async function writeYaml(path: string, data: unknown): Promise<void> {
   if (!existsSync(dir)) {
     await mkdir(dir, { recursive: true })
   }
-  await writeFile(path, stringifyYaml(data), 'utf-8')
+  const tmp = path + '.tmp'
+  await writeFile(tmp, stringifyYaml(data), 'utf-8')
+  await rename(tmp, path)
 }
 
 // --- Learning Profile ---

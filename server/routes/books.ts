@@ -122,6 +122,8 @@ async function validateChapterNum(bookId: string, num: number): Promise<void> {
   }
 }
 
+const sanitizeFeedback = (s: string) => s.replace(/<\/?[^>]+>/g, '')
+
 const generationLocks = new Map<string, boolean>()
 
 export async function bookRoutes(fastify: FastifyInstance) {
@@ -244,8 +246,8 @@ export async function bookRoutes(fastify: FastifyInstance) {
       const allFeedback = await store.getAllFeedback(bookId)
       const feedbackContext = allFeedback.map(fb => {
         const parts: string[] = []
-        if (fb.feedback.liked) parts.push(`<reader_liked>${fb.feedback.liked}</reader_liked>`)
-        if (fb.feedback.disliked) parts.push(`<reader_disliked>${fb.feedback.disliked}</reader_disliked>`)
+        if (fb.feedback.liked) parts.push(`<reader_liked>${sanitizeFeedback(fb.feedback.liked)}</reader_liked>`)
+        if (fb.feedback.disliked) parts.push(`<reader_disliked>${sanitizeFeedback(fb.feedback.disliked)}</reader_disliked>`)
         if (fb.quiz.score !== undefined) {
           parts.push(`Quiz score: ${fb.quiz.score}/${fb.quiz.questions.length}`)
           const wrong = fb.quiz.questions.filter(q => q.correct === false)
