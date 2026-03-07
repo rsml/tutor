@@ -13,6 +13,9 @@ import {
   PatchBookBodySchema,
   RatingBodySchema,
   SuggestBookBodySchema,
+  TocBookSkillSchema,
+  TocChapterSkillSchema,
+  ChapterProgressSchema,
 } from '../schemas.js'
 
 const AI_TIMEOUT_MS = 5 * 60 * 1000
@@ -548,6 +551,51 @@ ${profileContext ? `\nReader profile:\n${profileContext}\n\nTailor the book stru
         return
       }
 
+      // Classify skills for the TOC
+      let tocSkills: { name: string; weight: number }[] = []
+      let chapterSkillMap: Array<{ chapterIndex: number; skills: Array<{ skill: string; subskill: string; weight: number }> }> = []
+      try {
+        const skillTimeout = createTimeout()
+        const skillClassification = await generateObject({
+          model: createModelClient(provider ?? 'anthropic', model),
+          abortSignal: skillTimeout.signal,
+          schema: z.object({
+            skills: z.array(TocBookSkillSchema),
+            chapters: z.array(z.object({
+              chapterIndex: z.number(),
+              skills: z.array(TocChapterSkillSchema),
+            })),
+          }),
+          prompt: `You are classifying the learning content of a book's table of contents like a college course curriculum.
+
+Book title: ${title}
+Topic: ${topic}
+
+Chapters:
+${chapters.map((ch, i) => `${i + 1}. ${ch.title} — ${ch.description}`).join('\n')}
+
+Identify 2-5 top-level skills this book teaches (broad disciplines like "Workflow Orchestration", "Distributed Systems", "API Design"). Assign each a weight 1-5 reflecting how central it is to the book.
+
+For each chapter, identify 1-3 sub-skills that fall under the book's top-level skills. Each sub-skill must reference one of the top-level skill names. Assign weights 1-3.
+
+Use consistent, human-readable skill names. Think of skills as what would appear on a course syllabus.`,
+        })
+        skillTimeout.clear()
+        tocSkills = skillClassification.object.skills
+        chapterSkillMap = skillClassification.object.chapters
+        send({ type: 'skills_classified' })
+      } catch {
+        // Skill classification failure is non-fatal
+      }
+
+      const tocWithSkills = {
+        skills: tocSkills.length > 0 ? tocSkills : undefined,
+        chapters: chapters.map((ch, i) => ({
+          ...ch,
+          skills: chapterSkillMap.find(c => c.chapterIndex === i)?.skills ?? undefined,
+        })),
+      }
+
       const now = new Date().toISOString()
       await store.saveBook({
         id: bookId,
@@ -559,7 +607,7 @@ ${profileContext ? `\nReader profile:\n${profileContext}\n\nTailor the book stru
         createdAt: now,
         updatedAt: now,
       })
-      await store.saveToc(bookId, { chapters })
+      await store.saveToc(bookId, tocWithSkills)
 
       send({ type: 'toc_done', bookId, title, totalChapters: chapters.length })
 
@@ -723,6 +771,131 @@ Rules:
       return result.object
     } finally {
       timeout.clear()
+    }
+  })
+
+  // --- Chapter Progress ---
+
+  fastify.put<{
+    Params: { id: string; num: string }
+    Body: unknown
+  }>(
+    '/api/books/:id/progress/:num',
+    { schema: { params: bookChapterSchema } },
+    async (request, reply) => {
+      try {
+        const body = ChapterProgressSchema.parse(request.body)
+        const chapterNum = parseInt(request.params.num)
+        await validateChapterNum(request.params.id, chapterNum)
+        await store.saveChapterProgress(request.params.id, chapterNum, body)
+        return { ok: true }
+      } catch (err) {
+        if (err instanceof ZodError) {
+          return reply.status(400).send({ error: 'Invalid request', details: err.issues })
+        }
+        throw err
+      }
+    },
+  )
+
+  // --- Skill Progress ---
+
+  fastify.get('/api/progress/skills', async () => {
+    const allBooks = await store.listBooks()
+
+    let totalBooks = 0
+    let completedBooks = 0
+    let totalChapters = 0
+    let completedChapters = 0
+
+    const skillMap = new Map<string, {
+      name: string
+      totalWeight: number
+      completedWeight: number
+      books: Array<{ bookId: string; title: string; weight: number; completed: boolean }>
+      subskills: Map<string, { name: string; totalWeight: number; completedWeight: number }>
+    }>()
+
+    for (const book of allBooks) {
+      let toc: Awaited<ReturnType<typeof store.getToc>>
+      let progress: Awaited<ReturnType<typeof store.getProgress>>
+      try {
+        toc = await store.getToc(book.id)
+        progress = await store.getProgress(book.id)
+      } catch {
+        continue
+      }
+
+      if (!toc.skills || toc.skills.length === 0) continue
+
+      totalBooks++
+      const chapCount = toc.chapters.length
+      totalChapters += chapCount
+
+      // Count completed chapters
+      let bookCompletedChapters = 0
+      for (let i = 1; i <= chapCount; i++) {
+        if (progress.chapters[String(i)]?.completed) {
+          bookCompletedChapters++
+        }
+      }
+      completedChapters += bookCompletedChapters
+      const bookComplete = bookCompletedChapters === chapCount
+
+      if (bookComplete) completedBooks++
+
+      // Aggregate book-level skills
+      for (const skill of toc.skills) {
+        let entry = skillMap.get(skill.name)
+        if (!entry) {
+          entry = {
+            name: skill.name,
+            totalWeight: 0,
+            completedWeight: 0,
+            books: [],
+            subskills: new Map(),
+          }
+          skillMap.set(skill.name, entry)
+        }
+        entry.totalWeight += skill.weight
+        if (bookComplete) entry.completedWeight += skill.weight
+        entry.books.push({
+          bookId: book.id,
+          title: book.title,
+          weight: skill.weight,
+          completed: bookComplete,
+        })
+      }
+
+      // Aggregate chapter-level sub-skills
+      for (let i = 0; i < toc.chapters.length; i++) {
+        const ch = toc.chapters[i]
+        if (!ch.skills) continue
+        const chapterCompleted = !!progress.chapters[String(i + 1)]?.completed
+
+        for (const cs of ch.skills) {
+          const skillEntry = skillMap.get(cs.skill)
+          if (!skillEntry) continue
+
+          let sub = skillEntry.subskills.get(cs.subskill)
+          if (!sub) {
+            sub = { name: cs.subskill, totalWeight: 0, completedWeight: 0 }
+            skillEntry.subskills.set(cs.subskill, sub)
+          }
+          sub.totalWeight += cs.weight
+          if (chapterCompleted) sub.completedWeight += cs.weight
+        }
+      }
+    }
+
+    const skills = Array.from(skillMap.values()).map(s => ({
+      ...s,
+      subskills: Array.from(s.subskills.values()),
+    }))
+
+    return {
+      stats: { totalBooks, completedBooks, totalChapters, completedChapters },
+      skills,
     }
   })
 }

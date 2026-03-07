@@ -19,6 +19,8 @@ import { CreationView } from '@src/components/CreationView'
 import { BookOverviewModal } from '@src/components/BookOverviewModal'
 import { ReaderPage } from '@src/pages/ReaderPage'
 import { QuizReviewPage } from '@src/pages/QuizReviewPage'
+import { ReviewProgressPage } from '@src/pages/ReviewProgressPage'
+import { SkillDetailPage } from '@src/pages/SkillDetailPage'
 import { useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize } from '@src/store'
 import { PROVIDER_IDS } from '@src/lib/providers'
 import { apiUrl } from '@src/lib/api-base'
@@ -40,6 +42,8 @@ type View =
   | { type: 'creating'; topic: string; details: string }
   | { type: 'reading'; book: Book }
   | { type: 'quiz-review'; book: Book }
+  | { type: 'review-progress' }
+  | { type: 'skill-detail'; skillName: string }
 
 export default function App() {
   const [view, setView] = useState<View>({ type: 'library' })
@@ -249,6 +253,24 @@ export default function App() {
     )
   }
 
+  if (view.type === 'review-progress') {
+    return (
+      <ReviewProgressPage
+        onBack={() => setView({ type: 'library' })}
+        onSkillClick={(skillName) => setView({ type: 'skill-detail', skillName })}
+      />
+    )
+  }
+
+  if (view.type === 'skill-detail') {
+    return (
+      <SkillDetailPage
+        skillName={view.skillName}
+        onBack={() => setView({ type: 'review-progress' })}
+      />
+    )
+  }
+
   const apiBookIds = new Set(apiBooks.map(b => b.id))
   const allBooks = apiBooks
 
@@ -282,6 +304,7 @@ export default function App() {
           <SettingsMenu
             apiKeyDialogOpen={apiKeyDialogOpen}
             onApiKeyDialogClose={() => setApiKeyDialogOpen(false)}
+            onReviewProgress={() => setView({ type: 'review-progress' })}
           />
         </div>
       </header>

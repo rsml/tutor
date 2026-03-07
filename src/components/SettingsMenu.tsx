@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Settings, Sun, Moon, Monitor, Type, Layers, Check, User } from 'lucide-react'
+import { Settings, Sun, Moon, Monitor, Type, Layers, Check, User, BarChart3 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import {
   Dialog,
@@ -49,10 +49,11 @@ const DEFAULT_FONT_SIZE = 16
 interface SettingsMenuProps {
   apiKeyDialogOpen?: boolean
   onApiKeyDialogClose?: () => void
+  onReviewProgress?: () => void
   subtle?: boolean
 }
 
-export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: SettingsMenuProps = {}) {
+export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewProgress, subtle }: SettingsMenuProps = {}) {
   const { theme, setTheme } = useTheme()
   const dispatch = useAppDispatch()
   const hasApiKey = useAppSelector(selectHasApiKey)
@@ -210,6 +211,11 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
                 <span className="size-1.5 rounded-full bg-status-warn" />
               </span>
             )}
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onClick={() => onReviewProgress?.()}>
+            <BarChart3 className="size-4" />
+            Review Progress
           </DropdownMenuItem>
 
           {/* Quick model switch for active provider */}

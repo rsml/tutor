@@ -44,12 +44,25 @@ export const UpdateProfileBodySchema = z.object({
 
 // --- Table of Contents ---
 
+export const TocBookSkillSchema = z.object({
+  name: z.string().min(1).max(100),
+  weight: z.number().int().min(1).max(5),
+})
+
+export const TocChapterSkillSchema = z.object({
+  skill: z.string().min(1).max(100),
+  subskill: z.string().min(1).max(100),
+  weight: z.number().int().min(1).max(3),
+})
+
 export const TocChapterSchema = z.object({
   title: z.string(),
   description: z.string(),
+  skills: z.array(TocChapterSkillSchema).optional(),
 })
 
 export const TocSchema = z.object({
+  skills: z.array(TocBookSkillSchema).optional(),
   chapters: z.array(TocChapterSchema),
 })
 

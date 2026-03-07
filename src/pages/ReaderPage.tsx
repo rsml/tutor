@@ -97,7 +97,16 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
     setChatPrompt(null)
   }, [])
 
+  const syncChapterCompleted = useCallback((chapNum: number) => {
+    fetch(apiUrl(`/api/books/${book.id}/progress/${chapNum}`), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scroll: 1, completed: true, completedAt: new Date().toISOString() }),
+    }).catch(() => {})
+  }, [book.id])
+
   const handleKeepGoing = useCallback(async () => {
+    syncChapterCompleted(chapterIndex + 1)
     try {
       const res = await fetch(apiUrl(`/api/books/${book.id}/chapters/${chapterIndex + 1}/quiz`))
       if (res.ok) {
@@ -112,12 +121,13 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
     } catch { /* empty */ }
     setPhase('feedback')
     scrollRef.current?.scrollTo({ top: 0 })
-  }, [book.id, chapterIndex])
+  }, [book.id, chapterIndex, syncChapterCompleted])
 
   const handleFinishBook = useCallback(() => {
+    syncChapterCompleted(chapterIndex + 1)
     setPhase('feedback')
     scrollRef.current?.scrollTo({ top: 0 })
-  }, [])
+  }, [chapterIndex, syncChapterCompleted])
 
   const handleLastChapterFeedback = useCallback(async (liked: string, disliked: string) => {
     dispatch(setChapterFeedback({ bookId: book.id, chapterNum: chapterIndex + 1, liked, disliked }))

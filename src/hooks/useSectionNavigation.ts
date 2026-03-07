@@ -120,6 +120,12 @@ export function useSectionNavigation({
     if (!isLastSectionOfChapter) {
       dispatch(setPosition({ bookId, chapter: chapterIndex, section: sectionIndex + 1 }))
     } else if (!isLastChapter) {
+      // Mark current chapter as completed on the server
+      fetch(apiUrl(`/api/books/${bookId}/progress/${chapterIndex + 1}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scroll: 1, completed: true, completedAt: new Date().toISOString() }),
+      }).catch(() => {})
       dispatch(setPosition({ bookId, chapter: chapterIndex + 1, section: 0 }))
     }
   }, [dispatch, bookId, chapterIndex, sectionIndex, isLastSectionOfChapter, isLastChapter])
