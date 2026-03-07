@@ -247,6 +247,24 @@ Write this chapter now.`,
     return { ok: true }
   })
 
+  fastify.put<{
+    Params: { id: string }
+    Body: { rating: number; finalQuizScore?: number; finalQuizTotal?: number }
+  }>('/api/books/:id/rating', async (request) => {
+    const meta = await store.getBook(request.params.id)
+    meta.rating = request.body.rating
+    if (request.body.finalQuizScore !== undefined) {
+      meta.finalQuizScore = request.body.finalQuizScore
+    }
+    if (request.body.finalQuizTotal !== undefined) {
+      meta.finalQuizTotal = request.body.finalQuizTotal
+    }
+    meta.status = 'complete'
+    meta.updatedAt = new Date().toISOString()
+    await store.saveBook(meta)
+    return { ok: true }
+  })
+
   fastify.post<{ Body: CreateBookBody }>('/api/books', async (request, reply) => {
     const { topic, details, apiKey, model, provider } = request.body
 
