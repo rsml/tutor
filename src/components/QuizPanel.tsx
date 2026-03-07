@@ -12,9 +12,11 @@ interface QuizPanelProps {
   questions: QuizQuestion[]
   onComplete: (answers: number[]) => void
   onSkip: () => void
+  title?: string
+  subtitle?: string
 }
 
-export function QuizPanel({ questions, onComplete, onSkip }: QuizPanelProps) {
+export function QuizPanel({ questions, onComplete, onSkip, title, subtitle }: QuizPanelProps) {
   const [answers, setAnswers] = useState<(number | null)[]>(
     Array(questions.length).fill(null),
   )
@@ -36,9 +38,9 @@ export function QuizPanel({ questions, onComplete, onSkip }: QuizPanelProps) {
 
   return (
     <div className="mx-auto max-w-2xl px-8 py-8">
-      <h2 className="text-xl font-semibold tracking-tight">Quick Quiz</h2>
+      <h2 className="text-xl font-semibold tracking-tight">{title ?? 'Quick Quiz'}</h2>
       <p className="mt-1 text-sm text-content-muted">
-        Test your understanding of this chapter.
+        {subtitle ?? 'Test your understanding of this chapter.'}
       </p>
 
       <div className="mt-8 space-y-8">

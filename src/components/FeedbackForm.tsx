@@ -4,9 +4,10 @@ import { Button } from '@src/components/ui/button'
 interface FeedbackFormProps {
   chapterNum: number
   onSubmit: (liked: string, disliked: string) => void
+  submitLabel?: string
 }
 
-export function FeedbackForm({ chapterNum, onSubmit }: FeedbackFormProps) {
+export function FeedbackForm({ chapterNum, onSubmit, submitLabel }: FeedbackFormProps) {
   const [liked, setLiked] = useState('')
   const [disliked, setDisliked] = useState('')
 
@@ -51,7 +52,7 @@ export function FeedbackForm({ chapterNum, onSubmit }: FeedbackFormProps) {
           onClick={() => onSubmit(liked, disliked)}
           className="bg-[oklch(0.55_0.20_285)] text-white font-semibold hover:bg-[oklch(0.50_0.22_285)]"
         >
-          Generate Next Chapter
+          {submitLabel ?? 'Generate Next Chapter'}
         </Button>
       </div>
     </div>
