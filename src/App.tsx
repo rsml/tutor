@@ -1,6 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@src/components/ui/dialog'
 import { BookCard } from '@src/components/BookCard'
 import { NoiseOverlay } from '@src/components/NoiseOverlay'
 import { SettingsMenu } from '@src/components/SettingsMenu'
@@ -17,16 +25,6 @@ interface Book {
   totalChapters: number
 }
 
-const MOCK_BOOKS: Book[] = [
-  { id: '1', title: 'Introduction to Machine Learning', chaptersRead: 3, totalChapters: 12 },
-  { id: '2', title: 'The Art of Prompt Engineering', chaptersRead: 7, totalChapters: 8 },
-  { id: '3', title: 'Rust for Systems Programming', chaptersRead: 0, totalChapters: 15 },
-  { id: '4', title: 'Advanced TypeScript Patterns', chaptersRead: 5, totalChapters: 6 },
-  { id: '5', title: 'Distributed Systems Design', chaptersRead: 1, totalChapters: 10 },
-  { id: '6', title: 'Modern CSS Architecture', chaptersRead: 4, totalChapters: 9 },
-  { id: '7', title: 'PostgreSQL Performance Tuning', chaptersRead: 2, totalChapters: 8 },
-  { id: '8', title: 'React Server Components', chaptersRead: 0, totalChapters: 7 },
-]
 
 type View =
   | { type: 'library' }
@@ -38,6 +36,10 @@ export default function App() {
   const [apiBooks, setApiBooks] = useState<Book[]>([])
   const [wizardOpen, setWizardOpen] = useState(false)
   const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false)
+  const [contextMenu, setContextMenu] = useState<{ book: Book; x: number; y: number } | null>(null)
+  const [renameDialog, setRenameDialog] = useState<{ book: Book; title: string } | null>(null)
+  const [deleteDialog, setDeleteDialog] = useState<{ book: Book; input: string } | null>(null)
+  const [serverAvailable, setServerAvailable] = useState(true)
   const furthest = useAppSelector(s => s.readingProgress.furthest)
   const dispatch = useAppDispatch()
   const apiKey = useAppSelector(selectApiKey)
@@ -59,6 +61,34 @@ export default function App() {
       }
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Health check — disable New Book when server is unreachable
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const res = await fetch('http://localhost:3147/api/health')
+        setServerAvailable(res.ok)
+      } catch {
+        setServerAvailable(false)
+      }
+    }
+    check()
+    const interval = setInterval(check, 10000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Close context menu on any click or Escape
+  useEffect(() => {
+    if (!contextMenu) return
+    const close = () => setContextMenu(null)
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
+    window.addEventListener('click', close)
+    window.addEventListener('keydown', handleKey)
+    return () => {
+      window.removeEventListener('click', close)
+      window.removeEventListener('keydown', handleKey)
+    }
+  }, [contextMenu])
 
   const handleNewBook = () => {
     if (!apiKey) {
@@ -105,6 +135,32 @@ export default function App() {
     setView({ type: 'library' })
   }
 
+  const handleRename = async () => {
+    if (!renameDialog) return
+    const trimmed = renameDialog.title.trim()
+    if (!trimmed) return
+    try {
+      const res = await fetch(`http://localhost:3147/api/books/${renameDialog.book.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: trimmed }),
+      })
+      if (res.ok) await fetchBooks()
+    } catch { /* server unreachable */ }
+    setRenameDialog(null)
+  }
+
+  const handleDelete = async () => {
+    if (!deleteDialog || deleteDialog.input !== 'delete') return
+    try {
+      const res = await fetch(`http://localhost:3147/api/books/${deleteDialog.book.id}`, {
+        method: 'DELETE',
+      })
+      if (res.ok) await fetchBooks()
+    } catch { /* server unreachable */ }
+    setDeleteDialog(null)
+  }
+
   if (view.type === 'creating') {
     return (
       <CreationView
@@ -125,7 +181,8 @@ export default function App() {
     )
   }
 
-  const allBooks = [...apiBooks, ...MOCK_BOOKS]
+  const apiBookIds = new Set(apiBooks.map(b => b.id))
+  const allBooks = apiBooks
 
   return (
     <div className="flex h-screen flex-col text-content-primary">
@@ -143,7 +200,8 @@ export default function App() {
           <Button
             size="sm"
             onClick={handleNewBook}
-            className="bg-[oklch(0.55_0.20_285)] text-white hover:bg-[oklch(0.50_0.22_285)]"
+            disabled={!serverAvailable}
+            className="bg-[oklch(0.55_0.20_285)] text-white hover:bg-[oklch(0.50_0.22_285)] disabled:opacity-40"
           >
             <Plus data-icon="inline-start" className="size-4" />
             New Book
@@ -176,12 +234,87 @@ export default function App() {
                   chaptersRead={chaptersRead}
                   totalChapters={book.totalChapters}
                   onClick={() => setView({ type: 'reading', book })}
+                  onContextMenu={apiBookIds.has(book.id) ? (e) => {
+                    e.preventDefault()
+                    setContextMenu({ book, x: e.clientX, y: e.clientY })
+                  } : undefined}
                 />
               )
             })}
           </div>
         </div>
       </main>
+
+      {/* Right-click context menu */}
+      {contextMenu && (
+        <div
+          className="fixed z-50 min-w-[140px] rounded-lg border border-border-default/50 bg-surface-base/95 backdrop-blur-md py-1 shadow-lg"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <button
+            onClick={() => {
+              setRenameDialog({ book: contextMenu.book, title: contextMenu.book.title })
+              setContextMenu(null)
+            }}
+            className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors"
+          >
+            Rename
+          </button>
+          <button
+            onClick={() => {
+              setDeleteDialog({ book: contextMenu.book, input: '' })
+              setContextMenu(null)
+            }}
+            className="w-full px-3 py-1.5 text-left text-sm text-status-error hover:bg-surface-muted transition-colors"
+          >
+            Delete
+          </button>
+        </div>
+      )}
+
+      {/* Rename dialog */}
+      <Dialog open={!!renameDialog} onOpenChange={open => { if (!open) setRenameDialog(null) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Rename Book</DialogTitle>
+          </DialogHeader>
+          <input
+            value={renameDialog?.title ?? ''}
+            onChange={e => setRenameDialog(prev => prev ? { ...prev, title: e.target.value } : null)}
+            onKeyDown={e => e.key === 'Enter' && handleRename()}
+            className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameDialog(null)}>Cancel</Button>
+            <Button onClick={handleRename} disabled={!renameDialog?.title.trim()}>OK</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deleteDialog} onOpenChange={open => { if (!open) setDeleteDialog(null) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Book</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete &ldquo;{deleteDialog?.book.title}&rdquo;? Type <strong>delete</strong> to confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <input
+            value={deleteDialog?.input ?? ''}
+            onChange={e => setDeleteDialog(prev => prev ? { ...prev, input: e.target.value } : null)}
+            onKeyDown={e => e.key === 'Enter' && deleteDialog?.input === 'delete' && handleDelete()}
+            placeholder="delete"
+            className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialog(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleteDialog?.input !== 'delete'}>OK</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

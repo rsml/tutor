@@ -212,8 +212,8 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
                 className="w-full accent-[oklch(0.55_0.20_285)] cursor-pointer"
                 onPointerDown={e => e.stopPropagation()}
               />
-              {/* Tick marks */}
-              <div className="flex justify-between px-0.5 -mt-0.5">
+              {/* Tick marks — px-2 (8px) = half the native range thumb width so ticks align with thumb center */}
+              <div className="flex justify-between px-2 -mt-0.5">
                 {FONT_SIZES.map((size, i) => (
                   <div
                     key={size}

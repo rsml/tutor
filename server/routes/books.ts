@@ -62,6 +62,14 @@ export async function bookRoutes(fastify: FastifyInstance) {
     return store.getToc(request.params.id)
   })
 
+  fastify.patch<{ Params: { id: string }; Body: { title: string } }>('/api/books/:id', async (request) => {
+    const meta = await store.getBook(request.params.id)
+    meta.title = request.body.title
+    meta.updatedAt = new Date().toISOString()
+    await store.saveBook(meta)
+    return { ok: true }
+  })
+
   fastify.delete<{ Params: { id: string } }>('/api/books/:id', async (request) => {
     await store.deleteBook(request.params.id)
     return { ok: true }

@@ -13,14 +13,15 @@ interface BookCardProps {
   chaptersRead: number
   totalChapters: number
   onClick?: () => void
+  onContextMenu?: (e: React.MouseEvent) => void
 }
 
-export function BookCard({ title, chaptersRead, totalChapters, onClick }: BookCardProps) {
+export function BookCard({ title, chaptersRead, totalChapters, onClick, onContextMenu }: BookCardProps) {
   const hue = stringToHue(title)
   const progress = totalChapters > 0 ? chaptersRead / totalChapters : 0
 
   return (
-    <div className="group cursor-pointer" onClick={onClick}>
+    <div className="group cursor-pointer" onClick={onClick} onContextMenu={onContextMenu}>
       {/* Cover */}
       <div
         className="aspect-[2/3] overflow-hidden rounded-xl shadow-md transition-all duration-200 group-hover:scale-[1.02] group-hover:shadow-xl"
