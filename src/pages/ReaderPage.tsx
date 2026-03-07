@@ -10,6 +10,8 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { QuizPanel } from '@src/components/QuizPanel'
 import { FeedbackForm } from '@src/components/FeedbackForm'
+import { StarRating } from '@src/components/StarRating'
+import { BookCompleteSummary } from '@src/components/BookCompleteSummary'
 
 interface Book {
   id: string
@@ -32,7 +34,7 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
   const [chapterContent, setChapterContent] = useState<string | null>(null)
   const [chapterLoading, setChapterLoading] = useState(true)
 
-  type Phase = 'reading' | 'quiz' | 'feedback' | 'generating'
+  type Phase = 'reading' | 'quiz' | 'feedback' | 'generating' | 'final-quiz' | 'rating' | 'complete'
   const [phase, setPhase] = useState<Phase>('reading')
   const [generatedUpTo, setGeneratedUpTo] = useState(book.totalChapters)
   const [quizQuestions, setQuizQuestions] = useState<Array<{ question: string; options: string[]; correctIndex: number }>>([])
@@ -41,11 +43,19 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
   const streamingBufferRef = useRef('')
   const streamingRafRef = useRef<number | null>(null)
 
+  const [finalQuizQuestions, setFinalQuizQuestions] = useState<Array<{ question: string; options: string[]; correctIndex: number }>>([])
+  const [finalQuizScore, setFinalQuizScore] = useState(0)
+  const [finalQuizTotal, setFinalQuizTotal] = useState(0)
+  const [bookRating, setBookRating] = useState(0)
+  const [finalQuizLoading, setFinalQuizLoading] = useState(false)
+
   const apiKey = useAppSelector(selectApiKey)
   const model = useAppSelector(selectModel)
   const provider = useAppSelector(selectActiveProvider)
 
   const isOnLastGenerated = chapterIndex + 1 === generatedUpTo && generatedUpTo < book.totalChapters
+  const isLastChapter = chapterIndex + 1 === book.totalChapters
+  const isOnLastChapterReady = isLastChapter && generatedUpTo >= book.totalChapters
 
   useEffect(() => {
     let cancelled = false
@@ -121,6 +131,60 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
     setPhase('feedback')
     scrollRef.current?.scrollTo({ top: 0 })
   }, [book.id, chapterIndex])
+
+  const handleFinishBook = useCallback(() => {
+    setPhase('feedback')
+    scrollRef.current?.scrollTo({ top: 0 })
+  }, [])
+
+  const handleLastChapterFeedback = useCallback(async (liked: string, disliked: string) => {
+    dispatch(setChapterFeedback({ bookId: book.id, chapterNum: chapterIndex + 1, liked, disliked }))
+
+    try {
+      await fetch(`/api/books/${book.id}/chapters/${chapterIndex + 1}/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ liked, disliked }),
+      })
+    } catch {}
+
+    setFinalQuizLoading(true)
+    setPhase('final-quiz')
+    scrollRef.current?.scrollTo({ top: 0 })
+
+    try {
+      const res = await fetch(`/api/books/${book.id}/final-quiz`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey, model, provider }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setFinalQuizQuestions(data.questions)
+      }
+    } catch {}
+    setFinalQuizLoading(false)
+  }, [book.id, chapterIndex, apiKey, model, provider, dispatch])
+
+  const handleFinalQuizComplete = useCallback((answers: number[]) => {
+    const score = answers.filter((a, i) => a === finalQuizQuestions[i].correctIndex).length
+    setFinalQuizScore(score)
+    setFinalQuizTotal(finalQuizQuestions.length)
+    setPhase('rating')
+    scrollRef.current?.scrollTo({ top: 0 })
+  }, [finalQuizQuestions])
+
+  const handleRatingSubmit = useCallback(async () => {
+    try {
+      await fetch(`/api/books/${book.id}/rating`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating: bookRating, finalQuizScore, finalQuizTotal }),
+      })
+    } catch {}
+    setPhase('complete')
+    scrollRef.current?.scrollTo({ top: 0 })
+  }, [book.id, bookRating, finalQuizScore, finalQuizTotal])
 
   const handleQuizComplete = useCallback((answers: number[]) => {
     setQuizAnswers(answers)
@@ -326,14 +390,14 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
                       <div className="reader-prose">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{chapterContent}</ReactMarkdown>
                       </div>
-                      {isOnLastGenerated && (
+                      {(isOnLastGenerated || isOnLastChapterReady) && (
                         <div className="mt-12 flex justify-center">
                           <Button
                             size="lg"
-                            onClick={handleKeepGoing}
+                            onClick={isOnLastChapterReady ? handleFinishBook : handleKeepGoing}
                             className="bg-[oklch(0.55_0.20_285)] text-white font-semibold hover:bg-[oklch(0.50_0.22_285)]"
                           >
-                            Keep Going
+                            {isOnLastChapterReady ? 'Finish Book' : 'Keep Going'}
                           </Button>
                         </div>
                       )}
@@ -357,7 +421,8 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
               {phase === 'feedback' && (
                 <FeedbackForm
                   chapterNum={chapterIndex + 1}
-                  onSubmit={handleFeedbackSubmit}
+                  onSubmit={isLastChapter ? handleLastChapterFeedback : handleFeedbackSubmit}
+                  submitLabel={isLastChapter ? 'Continue to Final Quiz' : undefined}
                 />
               )}
 
@@ -374,6 +439,63 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
                     </div>
                   )}
                 </div>
+              )}
+
+              {phase === 'final-quiz' && (
+                finalQuizLoading || finalQuizQuestions.length === 0 ? (
+                  <div className="mx-auto max-w-2xl px-8 py-8">
+                    <div className="flex items-center gap-2 pt-12 text-content-muted">
+                      <Loader2 className="size-4 animate-spin" />
+                      <span className="text-sm">Generating your final quiz...</span>
+                    </div>
+                  </div>
+                ) : (
+                  <QuizPanel
+                    questions={finalQuizQuestions}
+                    onComplete={handleFinalQuizComplete}
+                    onSkip={() => {
+                      setFinalQuizScore(0)
+                      setFinalQuizTotal(finalQuizQuestions.length)
+                      setPhase('rating')
+                      scrollRef.current?.scrollTo({ top: 0 })
+                    }}
+                    title="Final Quiz"
+                    subtitle={`Test your understanding across all ${book.totalChapters} chapters.`}
+                  />
+                )
+              )}
+
+              {phase === 'rating' && (
+                <div className="mx-auto max-w-md px-8 py-16 text-center">
+                  <h2 className="text-xl font-semibold tracking-tight">Rate this book</h2>
+                  <p className="mt-1 text-sm text-content-muted">
+                    How would you rate your learning experience?
+                  </p>
+                  <div className="mt-8 flex justify-center">
+                    <StarRating value={bookRating} onChange={setBookRating} size="lg" />
+                  </div>
+                  <div className="mt-8">
+                    <Button
+                      size="lg"
+                      onClick={handleRatingSubmit}
+                      disabled={bookRating === 0}
+                      className="bg-[oklch(0.55_0.20_285)] text-white font-semibold hover:bg-[oklch(0.50_0.22_285)] disabled:opacity-40"
+                    >
+                      Submit Rating
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {phase === 'complete' && (
+                <BookCompleteSummary
+                  title={book.title}
+                  totalChapters={book.totalChapters}
+                  rating={bookRating}
+                  finalQuizScore={finalQuizScore}
+                  finalQuizTotal={finalQuizTotal}
+                  onBackToLibrary={onBack}
+                />
               )}
             </article>
           </main>
