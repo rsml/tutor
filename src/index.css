@@ -61,7 +61,7 @@
     --primary-foreground: oklch(0.175 0.012 260);
     --sidebar-primary: oklch(0.70 0.17 260);
     --sidebar-primary-foreground: oklch(0.175 0.012 260);
-    --ambient-glow: oklch(0.28 0.04 45 / 0.10);
+    --ambient-glow: oklch(0.28 0.04 45 / 0.25);
   }
 }
 
