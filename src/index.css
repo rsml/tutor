@@ -210,6 +210,36 @@
   overscroll-behavior-y: none;
 }
 
+/* Visible scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: oklch(0.55 0.01 260 / 0.25);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.55 0.01 260 / 0.4);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) ::-webkit-scrollbar-thumb {
+    background: oklch(0.55 0.01 260 / 0.35);
+  }
+  :root:not([data-theme="light"]) ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.55 0.01 260 / 0.5);
+  }
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: oklch(0.55 0.01 260 / 0.35);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.55 0.01 260 / 0.5);
+}
+
 /* Markdown styles for creation view */
 .creation-markdown {
   h1 {

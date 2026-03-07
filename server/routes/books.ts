@@ -186,9 +186,7 @@ Use markdown formatting:
 - Code blocks with language tags where relevant
 - > blockquotes for key insights or memorable takeaways
 
-Write in a conversational but knowledgeable tone. Use concrete examples and real-world analogies. Make complex ideas accessible without being condescending.
-
-${feedbackContext ? `\nReader feedback from previous chapters:\n${feedbackContext}\n\nAdapt your writing based on this feedback. If the reader struggled with quiz questions, briefly recap those concepts. If they liked certain approaches, lean into those.` : ''}`,
+Write in a conversational but knowledgeable tone. Use concrete examples and real-world analogies. Make complex ideas accessible without being condescending.`,
         prompt: `Book: ${meta.title}
 Topic: ${meta.prompt}
 
@@ -197,6 +195,7 @@ Chapter title: ${chapterInfo.title}
 Chapter description: ${chapterInfo.description}
 
 ${prevChapterContent ? `Previous chapter ended with:\n${prevChapterContent.slice(-500)}` : ''}
+${feedbackContext ? `\n---\nIMPORTANT — Reader feedback from previous chapters (you MUST adapt your writing based on this):\n${feedbackContext}\n\nSpecific instructions based on feedback:\n- If the reader said they liked something, do MORE of that in this chapter.\n- If the reader said they disliked something or wanted improvements, actively change your approach.\n- If quiz scores were low or the reader got questions wrong, briefly recap those concepts at the start of this chapter before moving on.\n---` : ''}
 
 Write this chapter now.`,
       })

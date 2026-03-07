@@ -5,7 +5,7 @@ import { SelectionTooltip } from '@src/components/SelectionTooltip'
 import { ChatPanel } from '@src/components/ChatPanel'
 import { SettingsMenu } from '@src/components/SettingsMenu'
 import { useTextSelection } from '@src/hooks/useTextSelection'
-import { useAppDispatch, useAppSelector, setChapterPosition, selectFontSize, selectApiKey, selectModel, selectActiveProvider } from '@src/store'
+import { useAppDispatch, useAppSelector, setChapterPosition, setChapterFeedback, setChapterQuizResult, selectFontSize, selectApiKey, selectModel, selectActiveProvider } from '@src/store'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { QuizPanel } from '@src/components/QuizPanel'
@@ -38,6 +38,8 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
   const [quizQuestions, setQuizQuestions] = useState<Array<{ question: string; options: string[]; correctIndex: number }>>([])
   const [quizAnswers, setQuizAnswers] = useState<number[]>([])
   const [streamingContent, setStreamingContent] = useState('')
+  const streamingBufferRef = useRef('')
+  const streamingRafRef = useRef<number | null>(null)
 
   const apiKey = useAppSelector(selectApiKey)
   const model = useAppSelector(selectModel)
@@ -122,9 +124,19 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
 
   const handleQuizComplete = useCallback((answers: number[]) => {
     setQuizAnswers(answers)
+    // Store quiz results in Redux
+    const result = {
+      questions: quizQuestions.map((q, i) => ({
+        ...q,
+        userAnswer: answers[i],
+        correct: answers[i] === q.correctIndex,
+      })),
+      score: answers.filter((a, i) => a === quizQuestions[i].correctIndex).length,
+    }
+    dispatch(setChapterQuizResult({ bookId: book.id, chapterNum: chapterIndex + 1, result }))
     setPhase('feedback')
     scrollRef.current?.scrollTo({ top: 0 })
-  }, [])
+  }, [quizQuestions, dispatch, book.id, chapterIndex])
 
   const handleQuizSkip = useCallback(() => {
     setQuizAnswers([])
@@ -133,6 +145,9 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
   }, [])
 
   const handleFeedbackSubmit = useCallback(async (liked: string, disliked: string) => {
+    // Store feedback in Redux
+    dispatch(setChapterFeedback({ bookId: book.id, chapterNum: chapterIndex + 1, liked, disliked }))
+
     try {
       await fetch(`/api/books/${book.id}/chapters/${chapterIndex + 1}/feedback`, {
         method: 'POST',
@@ -143,7 +158,13 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
 
     setPhase('generating')
     setStreamingContent('')
+    streamingBufferRef.current = ''
     scrollRef.current?.scrollTo({ top: 0 })
+
+    const flushBuffer = () => {
+      setStreamingContent(streamingBufferRef.current)
+      streamingRafRef.current = null
+    }
 
     try {
       const res = await fetch(`/api/books/${book.id}/generate-next`, {
@@ -171,8 +192,12 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
           try {
             const data = JSON.parse(line.slice(6))
             if (data.type === 'chapter') {
-              setStreamingContent(prev => prev + data.text)
+              streamingBufferRef.current += data.text
+              if (!streamingRafRef.current) {
+                streamingRafRef.current = requestAnimationFrame(flushBuffer)
+              }
             } else if (data.type === 'done') {
+              if (streamingRafRef.current) cancelAnimationFrame(streamingRafRef.current)
               const nextIndex = chapterIndex + 1
               setGeneratedUpTo(data.chapterNum)
               dispatch(setChapterPosition({ bookId: book.id, chapterIndex: nextIndex }))

@@ -30,6 +30,10 @@ export function CreationView({ topic, details, onComplete, onCancel }: CreationV
   const tocScrollRef = useRef<HTMLDivElement>(null)
   const chapterScrollRef = useRef<HTMLDivElement>(null)
   const startedRef = useRef(false)
+  const tocBufferRef = useRef('')
+  const chapterBufferRef = useRef('')
+  const tocRafRef = useRef<number | null>(null)
+  const chapterRafRef = useRef<number | null>(null)
 
   const startGeneration = useCallback(async () => {
     if (!apiKey) {
@@ -69,26 +73,38 @@ export function CreationView({ topic, details, onComplete, onCancel }: CreationV
 
             switch (data.type) {
               case 'toc':
-                setTocContent(prev => prev + data.text)
-                requestAnimationFrame(() => {
-                  tocScrollRef.current?.scrollTo({ top: tocScrollRef.current!.scrollHeight })
-                })
+                tocBufferRef.current += data.text
+                if (!tocRafRef.current) {
+                  tocRafRef.current = requestAnimationFrame(() => {
+                    setTocContent(tocBufferRef.current)
+                    tocScrollRef.current?.scrollTo({ top: tocScrollRef.current!.scrollHeight })
+                    tocRafRef.current = null
+                  })
+                }
                 break
 
               case 'toc_done':
+                if (tocRafRef.current) cancelAnimationFrame(tocRafRef.current)
+                setTocContent(tocBufferRef.current)
                 setBookId(data.bookId)
                 setPhase('chapter')
                 setActiveTab('chapter')
                 break
 
               case 'chapter':
-                setChapterContent(prev => prev + data.text)
-                requestAnimationFrame(() => {
-                  chapterScrollRef.current?.scrollTo({ top: chapterScrollRef.current!.scrollHeight })
-                })
+                chapterBufferRef.current += data.text
+                if (!chapterRafRef.current) {
+                  chapterRafRef.current = requestAnimationFrame(() => {
+                    setChapterContent(chapterBufferRef.current)
+                    chapterScrollRef.current?.scrollTo({ top: chapterScrollRef.current!.scrollHeight })
+                    chapterRafRef.current = null
+                  })
+                }
                 break
 
               case 'done':
+                if (chapterRafRef.current) cancelAnimationFrame(chapterRafRef.current)
+                setChapterContent(chapterBufferRef.current)
                 setPhase('done')
                 if (data.bookId) setBookId(data.bookId)
                 break
