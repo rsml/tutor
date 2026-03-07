@@ -6,10 +6,12 @@ AI-generated books tailored to Ross's learning style. Books are generated chapte
 
 1. **Create a book** — Enter a topic + prompt, AI generates a table of contents
 2. **Approve the TOC** — Review, edit, reorder chapters, then approve
-3. **Read chapter-by-chapter** — Each chapter is ~1,500 words (5-10 min read)
-4. **Feedback loop** — After each chapter: submit what resonated/didn't, answer 3 quiz questions
-5. **Adaptive generation** — Next chapter incorporates your feedback + quiz results (wrong answers trigger brief recap)
-6. **Just-in-time** — Chapters generate one at a time; quiz masks generation latency
+3. **Read chapter-by-chapter** — Quick, digestible chapters (~1,500 words, 5-10 min read) teaching specific concepts
+4. **Inline chat** — Click any sentence to slide out a chat panel for deeper AI explanation, then return to where you left off
+5. **Feedback** — After finishing a chapter, give feedback on what resonated/didn't
+6. **Generation triggered** — Submitting feedback triggers next chapter generation in the background
+7. **Quiz while waiting** — Optional 3-question quiz to test retention and aid memory while next chapter generates
+8. **Adaptive** — Next chapter incorporates feedback + quiz results (wrong answers trigger brief recap at start)
 
 ## Architecture
 
@@ -73,7 +75,8 @@ ai-books/
 │   │   ├── BookCard.tsx
 │   │   ├── BookGrid.tsx
 │   │   ├── WizardModal.tsx         # 3-step: prompt → TOC → generating
-│   │   ├── MarkdownReader.tsx      # Renders chapter markdown
+│   │   ├── MarkdownReader.tsx      # Renders chapter markdown, clickable sentences
+│   │   ├── InlineChatPanel.tsx    # Slide-out AI chat for explaining selected text
 │   │   ├── FeedbackForm.tsx
 │   │   ├── QuizPanel.tsx
 │   │   └── ProgressBar.tsx
@@ -94,6 +97,7 @@ ai-books/
 - **Generation flow** — Just-in-time: one chapter at a time, quiz masks latency
 - **Background generation** — In-memory `Map<string, GenerationJob>`, fire-and-forget on quiz submit
 - **If server restarts mid-generation** — Book stays valid, user can retrigger from the reader
+- **Inline chat** — Click any sentence to open a slide-out panel for AI-powered deeper explanation; dismissing returns to reading position
 
 ## API Routes
 
@@ -111,6 +115,7 @@ ai-books/
 | `POST` | `/api/books/:id/chapters/:num/feedback` | Submit chapter feedback |
 | `GET` | `/api/books/:id/chapters/:num/quiz` | Get quiz questions |
 | `POST` | `/api/books/:id/chapters/:num/quiz` | Submit quiz, triggers next chapter |
+| `POST` | `/api/books/:id/chapters/:num/chat` | Inline chat about a sentence/passage |
 | `GET` | `/api/profile` | Get learning profile |
 | `PUT` | `/api/profile` | Update learning profile |
 
