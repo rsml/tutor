@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { readFile, writeFile, mkdir, rm } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { getDataDir } from '../lib/data-dir.js'
+import { startServer } from '../server/index.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -179,7 +180,25 @@ ipcMain.handle('apiKey:remove', async (_event, provider?: string) => {
   }
 })
 
-app.whenReady().then(() => {
+let apiPort = 0
+
+app.whenReady().then(async () => {
+  // Load API key from safeStorage into env for the server
+  const keyFile = apiKeyFile()
+  if (existsSync(keyFile)) {
+    try {
+      const encrypted = await readFile(keyFile)
+      process.env.ANTHROPIC_API_KEY = safeStorage.decryptString(encrypted)
+    } catch { /* ignore decryption errors */ }
+  }
+
+  // Start the embedded API server on a random free port (localhost only — no firewall prompt)
+  const server = await startServer(0, '127.0.0.1')
+  const addr = server.server.address()
+  apiPort = typeof addr === 'object' && addr ? addr.port : 0
+
+  ipcMain.handle('get-api-port', () => apiPort)
+
   if (process.platform === 'darwin' && app.dock) {
     app.dock.setIcon(getAppIcon())
   }

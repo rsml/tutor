@@ -4,6 +4,7 @@ import { Button } from '@src/components/ui/button'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useAppSelector, selectApiKey, selectModel, selectActiveProvider, selectFontSize } from '@src/store'
+import { apiUrl } from '@src/lib/api-base'
 
 type Phase = 'toc' | 'chapter' | 'done' | 'error'
 
@@ -43,7 +44,7 @@ export function CreationView({ topic, details, onComplete, onCancel }: CreationV
     }
 
     try {
-      const res = await fetch('/api/books', {
+      const res = await fetch(apiUrl('/api/books'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic, details, apiKey, model, provider }),

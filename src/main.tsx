@@ -4,17 +4,20 @@ import { Provider } from 'react-redux'
 import { PersistGate } from 'redux-persist/integration/react'
 import { store, persistor } from './store'
 import { ThemeProvider } from './components/ThemeProvider'
+import { initApiBase } from './lib/api-base'
 import App from './App'
 import './index.css'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <Provider store={store}>
-      <PersistGate loading={null} persistor={persistor}>
-        <ThemeProvider>
-          <App />
-        </ThemeProvider>
-      </PersistGate>
-    </Provider>
-  </StrictMode>,
-)
+initApiBase().then(() => {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <Provider store={store}>
+        <PersistGate loading={null} persistor={persistor}>
+          <ThemeProvider>
+            <App />
+          </ThemeProvider>
+        </PersistGate>
+      </Provider>
+    </StrictMode>,
+  )
+})

@@ -6,6 +6,7 @@ interface ElectronAPI {
   saveApiKey: (key: string, provider?: string) => Promise<void>
   loadApiKey: (provider?: string) => Promise<string | null>
   removeApiKey: (provider?: string) => Promise<void>
+  getApiPort: () => Promise<number>
 }
 
 interface Window {

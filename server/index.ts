@@ -3,21 +3,24 @@ import cors from '@fastify/cors'
 import { chatRoutes } from './routes/chat.js'
 import { bookRoutes } from './routes/books.js'
 
-const fastify = Fastify({ logger: true })
+export async function startServer(port = 3147, host = '127.0.0.1') {
+  const fastify = Fastify({ logger: true })
 
-await fastify.register(cors)
-await fastify.register(chatRoutes)
-await fastify.register(bookRoutes)
+  await fastify.register(cors)
+  await fastify.register(chatRoutes)
+  await fastify.register(bookRoutes)
 
-fastify.get('/api/health', async () => ({ status: 'ok' }))
+  fastify.get('/api/health', async () => ({ status: 'ok' }))
 
-const start = async () => {
-  try {
-    await fastify.listen({ port: 3147 })
-  } catch (err) {
-    fastify.log.error(err)
-    process.exit(1)
-  }
+  await fastify.listen({ port, host })
+  return fastify
 }
 
-start()
+// Allow standalone usage: pnpm dev:server
+const isDirectRun = process.argv[1] && (
+  process.argv[1].endsWith('/server/index.ts') ||
+  process.argv[1].endsWith('/server/index.js')
+)
+if (isDirectRun) {
+  startServer(3147, '127.0.0.1')
+}

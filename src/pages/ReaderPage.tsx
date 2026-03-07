@@ -6,6 +6,7 @@ import { ChatPanel } from '@src/components/ChatPanel'
 import { SettingsMenu } from '@src/components/SettingsMenu'
 import { useTextSelection } from '@src/hooks/useTextSelection'
 import { useAppDispatch, useAppSelector, setChapterPosition, setChapterFeedback, setChapterQuizResult, selectFontSize, selectApiKey, selectModel, selectActiveProvider } from '@src/store'
+import { apiUrl } from '@src/lib/api-base'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { QuizPanel } from '@src/components/QuizPanel'
@@ -63,7 +64,7 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
     setChapterContent(null)
 
     const chapterNum = chapterIndex + 1
-    fetch(`/api/books/${book.id}/chapters/${chapterNum}`)
+    fetch(apiUrl(`/api/books/${book.id}/chapters/${chapterNum}`))
       .then(res => {
         if (!res.ok) throw new Error('Not found')
         return res.json()
@@ -85,7 +86,7 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
   }, [book.id, chapterIndex])
 
   useEffect(() => {
-    fetch(`/api/books/${book.id}`)
+    fetch(apiUrl(`/api/books/${book.id}`))
       .then(res => res.json())
       .then(data => setGeneratedUpTo(data.generatedUpTo))
       .catch(() => {})
@@ -117,7 +118,7 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
 
   const handleKeepGoing = useCallback(async () => {
     try {
-      const res = await fetch(`/api/books/${book.id}/chapters/${chapterIndex + 1}/quiz`)
+      const res = await fetch(apiUrl(`/api/books/${book.id}/chapters/${chapterIndex + 1}/quiz`))
       if (res.ok) {
         const data = await res.json()
         if (data.questions?.length > 0) {
@@ -141,7 +142,7 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
     dispatch(setChapterFeedback({ bookId: book.id, chapterNum: chapterIndex + 1, liked, disliked }))
 
     try {
-      await fetch(`/api/books/${book.id}/chapters/${chapterIndex + 1}/feedback`, {
+      await fetch(apiUrl(`/api/books/${book.id}/chapters/${chapterIndex + 1}/feedback`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ liked, disliked }),
@@ -153,7 +154,7 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
     scrollRef.current?.scrollTo({ top: 0 })
 
     try {
-      const res = await fetch(`/api/books/${book.id}/final-quiz`, {
+      const res = await fetch(apiUrl(`/api/books/${book.id}/final-quiz`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apiKey, model, provider }),
@@ -176,7 +177,7 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
 
   const handleRatingSubmit = useCallback(async () => {
     try {
-      await fetch(`/api/books/${book.id}/rating`, {
+      await fetch(apiUrl(`/api/books/${book.id}/rating`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rating: bookRating, finalQuizScore, finalQuizTotal }),
@@ -213,7 +214,7 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
     dispatch(setChapterFeedback({ bookId: book.id, chapterNum: chapterIndex + 1, liked, disliked }))
 
     try {
-      await fetch(`/api/books/${book.id}/chapters/${chapterIndex + 1}/feedback`, {
+      await fetch(apiUrl(`/api/books/${book.id}/chapters/${chapterIndex + 1}/feedback`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ liked, disliked, quizAnswers }),
@@ -231,7 +232,7 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
     }
 
     try {
-      const res = await fetch(`/api/books/${book.id}/generate-next`, {
+      const res = await fetch(apiUrl(`/api/books/${book.id}/generate-next`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apiKey, model, provider }),
