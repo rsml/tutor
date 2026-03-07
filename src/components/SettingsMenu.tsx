@@ -262,7 +262,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
           <DropdownMenuSeparator />
 
           {/* Font Size */}
-          <div className="px-1.5 py-1">
+          <div className="px-2 pt-1.5 pb-5">
             <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-2">
               <Type className="size-3.5" />
               Font Size
@@ -298,7 +298,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
           <DropdownMenuSeparator />
 
           {/* Texture */}
-          <div className="px-1.5 py-1">
+          <div className="px-2 py-1.5">
             <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-2">
               <Layers className="size-3.5" />
               Texture
@@ -327,7 +327,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
                   className="w-full accent-[oklch(0.55_0.20_285)] cursor-pointer"
                   onPointerDown={e => e.stopPropagation()}
                 />
-                <div className="flex justify-between text-[9px] text-content-muted/50 -mt-0.5 px-0.5">
+                <div className="flex justify-between text-[9px] text-content-muted -mt-0.5 px-0.5">
                   <span>Subtle</span>
                   <span>Heavy</span>
                 </div>
