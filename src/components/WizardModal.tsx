@@ -71,10 +71,10 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Create a new book</DialogTitle>
+        <DialogHeader className="items-center">
+          <DialogTitle className="text-xl">New Book</DialogTitle>
           <DialogDescription>
-            Tell us what you want to learn. We'll generate a personalized table of contents.
+            What do you want to learn next?
           </DialogDescription>
         </DialogHeader>
 
@@ -115,8 +115,8 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
                 value={details}
                 onChange={e => setDetails(e.target.value)}
                 placeholder="Any specific areas to focus on, your experience level, or goals..."
-                rows={4}
-                className="resize-none rounded-lg border border-border-default bg-surface-raised px-3 py-2 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+                rows={6}
+                className="resize-y rounded-lg border border-border-default bg-surface-raised px-3 py-2 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
               />
             )}
           </div>
