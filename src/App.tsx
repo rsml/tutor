@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import { BookCard } from '@src/components/BookCard'
@@ -6,7 +6,7 @@ import { NoiseOverlay } from '@src/components/NoiseOverlay'
 import { SettingsMenu } from '@src/components/SettingsMenu'
 import { WizardModal } from '@src/components/WizardModal'
 import { ReaderPage } from '@src/pages/ReaderPage'
-import { useAppSelector } from '@src/store'
+import { useAppSelector, useAppDispatch, setApiKey } from '@src/store'
 
 const MOCK_BOOKS = [
   { id: '1', title: 'Introduction to Machine Learning', chaptersRead: 3, totalChapters: 12 },
@@ -22,6 +22,13 @@ const MOCK_BOOKS = [
 export default function App() {
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null)
   const furthest = useAppSelector(s => s.readingProgress.furthest)
+  const dispatch = useAppDispatch()
+
+  useEffect(() => {
+    window.electronAPI?.loadApiKey().then(key => {
+      if (key) dispatch(setApiKey(key))
+    })
+  }, [dispatch])
 
   const selectedBook = MOCK_BOOKS.find(b => b.id === selectedBookId)
 

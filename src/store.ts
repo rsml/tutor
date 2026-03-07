@@ -1,6 +1,6 @@
 import { combineReducers, configureStore, createSlice, type PayloadAction } from '@reduxjs/toolkit'
 import { useDispatch, useSelector } from 'react-redux'
-import { persistStore, persistReducer, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER } from 'redux-persist'
+import { persistStore, persistReducer, createTransform, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER } from 'redux-persist'
 import storage from 'redux-persist/lib/storage'
 
 interface ReadingProgressState {
@@ -60,10 +60,20 @@ const electronStorage = window.electronAPI?.storageGet
     }
   : storage
 
-const persistedReducer = persistReducer(
-  { key: 'tutor', storage: electronStorage },
-  rootReducer,
+// Strip apiKey from settings before persisting — it's stored encrypted via safeStorage
+const stripApiKeyTransform = createTransform(
+  (inbound: SettingsState) => ({ ...inbound, apiKey: null }),
+  (outbound: SettingsState) => outbound,
+  { whitelist: ['settings'] },
 )
+
+const persistConfig = {
+  key: 'tutor',
+  storage: electronStorage,
+  transforms: [stripApiKeyTransform],
+}
+
+const persistedReducer = persistReducer(persistConfig, rootReducer)
 
 export const store = configureStore({
   reducer: persistedReducer,

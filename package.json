@@ -71,7 +71,18 @@
       "dist-electron/**/*"
     ],
     "mac": {
-      "target": "dmg"
+      "target": "dmg",
+      "icon": "assets/icon.icns",
+      "extraResources": [
+        {
+          "from": "assets/appicon.icon",
+          "to": "icon.icon"
+        },
+        {
+          "from": "assets/icon.png",
+          "to": "assets/icon.png"
+        }
+      ]
     },
     "linux": {
       "target": "AppImage"

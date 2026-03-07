@@ -46,14 +46,18 @@ export function SettingsMenu() {
     setDialogOpen(true)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const trimmed = keyInput.trim()
+    if (trimmed) {
+      await window.electronAPI?.saveApiKey(trimmed)
+    }
     dispatch(setApiKey(trimmed || null))
     dispatch(setModel(selectedModel))
     setDialogOpen(false)
   }
 
-  const handleRemove = () => {
+  const handleRemove = async () => {
+    await window.electronAPI?.removeApiKey()
     dispatch(setApiKey(null))
     setKeyInput('')
     setDialogOpen(false)

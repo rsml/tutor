@@ -1,7 +1,7 @@
-import { app, BrowserWindow, Menu, ipcMain } from 'electron'
+import { app, BrowserWindow, Menu, ipcMain, safeStorage, nativeImage } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import { readFile, writeFile, mkdir, rm } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { getDataDir } from '../lib/data-dir.js'
 
@@ -65,6 +65,13 @@ const menuTemplate: Electron.MenuItemConstructorOptions[] = [
   },
 ]
 
+function getAppIcon() {
+  const iconPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'assets', 'icon.png')
+    : path.join(process.env.APP_ROOT!, 'assets', 'icon.png')
+  return nativeImage.createFromPath(iconPath)
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
@@ -72,6 +79,7 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 600,
     titleBarStyle: 'hiddenInset',
+    icon: getAppIcon(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
     },
@@ -138,6 +146,32 @@ ipcMain.handle('storage:remove', async (_event, key: string) => {
     delete data[key]
     await writeFile(stateFile, JSON.stringify(data, null, 2), 'utf-8')
   } catch { /* ignore */ }
+})
+
+// --- API Key secure storage (safeStorage) ---
+
+const apiKeyFile = path.join(dataDir, 'api-key.enc')
+
+ipcMain.handle('apiKey:save', async (_event, key: string) => {
+  await ensureDataDir()
+  const encrypted = safeStorage.encryptString(key)
+  await writeFile(apiKeyFile, encrypted)
+})
+
+ipcMain.handle('apiKey:load', async () => {
+  if (!existsSync(apiKeyFile)) return null
+  try {
+    const encrypted = await readFile(apiKeyFile)
+    return safeStorage.decryptString(encrypted)
+  } catch {
+    return null
+  }
+})
+
+ipcMain.handle('apiKey:remove', async () => {
+  if (existsSync(apiKeyFile)) {
+    await rm(apiKeyFile)
+  }
 })
 
 app.whenReady().then(() => {
