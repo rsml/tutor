@@ -8,10 +8,12 @@ import {
   ProgressSchema,
   FeedbackSchema,
   LearningProfileSchema,
+  QuizSchema,
   type BookMeta,
   type Toc,
   type Progress,
   type Feedback,
+  type Quiz,
   type LearningProfile,
   type ChapterProgress,
 } from '../schemas.js'
@@ -124,6 +126,26 @@ export async function saveChapter(bookId: string, chapterNum: number, content: s
 export async function chapterExists(bookId: string, chapterNum: number): Promise<boolean> {
   const padded = String(chapterNum).padStart(2, '0')
   return existsSync(join(bookDir(bookId), 'chapters', `${padded}.md`))
+}
+
+// --- Quiz ---
+
+export async function getQuiz(bookId: string, chapterNum: number): Promise<Quiz> {
+  const padded = String(chapterNum).padStart(2, '0')
+  return readYaml(join(bookDir(bookId), 'quiz', `${padded}.yml`), QuizSchema)
+}
+
+export async function saveQuiz(bookId: string, chapterNum: number, quiz: Quiz): Promise<void> {
+  QuizSchema.parse(quiz)
+  const dir = join(bookDir(bookId), 'quiz')
+  await mkdir(dir, { recursive: true })
+  const padded = String(chapterNum).padStart(2, '0')
+  await writeYaml(join(dir, `${padded}.yml`), quiz)
+}
+
+export async function quizExists(bookId: string, chapterNum: number): Promise<boolean> {
+  const padded = String(chapterNum).padStart(2, '0')
+  return existsSync(join(bookDir(bookId), 'quiz', `${padded}.yml`))
 }
 
 // --- Progress ---

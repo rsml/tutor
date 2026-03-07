@@ -92,5 +92,10 @@ export const FeedbackSchema = z.object({
   }),
 })
 
+export const QuizSchema = z.object({
+  questions: z.array(QuizQuestionSchema),
+})
+
 export type QuizQuestion = z.infer<typeof QuizQuestionSchema>
+export type Quiz = z.infer<typeof QuizSchema>
 export type Feedback = z.infer<typeof FeedbackSchema>
