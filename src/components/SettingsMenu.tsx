@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Settings, Sun, Moon, Monitor, Type, Layers, Check } from 'lucide-react'
+import { Settings, Sun, Moon, Monitor, Type, Layers, Check, User } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import {
   Dialog,
@@ -20,6 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuGroup,
 } from '@src/components/ui/dropdown-menu'
+import { ProfileDialog } from '@src/components/ProfileDialog'
 import { useTheme } from '@src/components/ThemeProvider'
 import {
   useAppDispatch,
@@ -59,6 +60,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
   const textureEnabled = useAppSelector(selectTextureEnabled)
   const textureOpacity = useAppSelector(selectTextureOpacity)
 
+  const [profileOpen, setProfileOpen] = useState(false)
   const [internalDialogOpen, setInternalDialogOpen] = useState(false)
   const [dialogProvider, setDialogProvider] = useState<ProviderId>(activeProvider)
   const [keyInput, setKeyInput] = useState('')
@@ -165,6 +167,11 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
                 <span className="ml-auto text-xs text-status-warn">Not set</span>
               </>
             )}
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onClick={() => setProfileOpen(true)}>
+            <User className="size-4" />
+            Learning Profile
           </DropdownMenuItem>
 
           {/* Quick model switch for active provider */}
@@ -370,6 +377,8 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
     </>
   )
 }
