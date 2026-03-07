@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tutor</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:* http://127.0.0.1:*; img-src 'self' data: http://localhost:* http://127.0.0.1:*;">
+    <style>
+      html, body { background: oklch(0.985 0.004 260); }
+      @media (prefers-color-scheme: dark) {
+        html:not([data-theme="light"]), html:not([data-theme="light"]) body { background: oklch(0.145 0.014 260); }
+      }
+      html[data-theme="dark"], html[data-theme="dark"] body { background: oklch(0.145 0.014 260); }
+      html[data-theme="light"], html[data-theme="light"] body { background: oklch(0.985 0.004 260); }
+    </style>
+    <script>
+      (function() {
+        var t = localStorage.getItem('tutor-theme');
+        var isDark = t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme:dark)').matches);
+        if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+        document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

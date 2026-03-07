@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dist-electron/
+release/
+books/
+.env
+*.log
+.worktrees/
+.claude/worktrees/
