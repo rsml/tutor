@@ -104,12 +104,6 @@ app.on('window-all-closed', () => {
   }
 })
 
-app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow()
-  }
-})
-
 // --- Redux-persist file storage IPC ---
 
 const dataDir = getDataDir()
@@ -238,7 +232,7 @@ app.whenReady().then(async () => {
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
-          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
+          `default-src 'self'; script-src 'self'${VITE_DEV_SERVER_URL ? " 'unsafe-inline'" : ''}; style-src 'self' 'unsafe-inline'; ` +
           "connect-src 'self' http://127.0.0.1:*; img-src 'self' data:; font-src 'self';",
         ],
       },
@@ -250,4 +244,10 @@ app.whenReady().then(async () => {
   }
   Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate))
   createWindow()
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow()
+    }
+  })
 })
