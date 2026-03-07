@@ -24,7 +24,7 @@ export function BookCard({ title, chaptersRead, totalChapters, onClick, onContex
     <div className="group cursor-pointer" onClick={onClick} onContextMenu={onContextMenu}>
       {/* Cover */}
       <div
-        className="aspect-[2/3] overflow-hidden rounded-xl shadow-md transition-all duration-200 group-hover:scale-[1.02] group-hover:shadow-xl"
+        className="aspect-[5/8] overflow-hidden rounded-xl shadow-md transition-all duration-200 group-hover:scale-[1.02] group-hover:shadow-xl"
         style={{
           background: `linear-gradient(145deg, oklch(0.45 0.16 ${hue}), oklch(0.25 0.12 ${hue + 50}))`,
         }}

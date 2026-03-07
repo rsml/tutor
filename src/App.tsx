@@ -250,6 +250,7 @@ export default function App() {
         <div
           className="fixed z-50 min-w-[140px] rounded-lg border border-border-default/50 bg-surface-base/95 backdrop-blur-md py-1 shadow-lg"
           style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={e => e.stopPropagation()}
         >
           <button
             onClick={() => {
