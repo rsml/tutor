@@ -40,7 +40,7 @@ export function SelectionTooltip({ selectedText, selectionRect, onAction }: Sele
       className="fixed z-30 -translate-x-1/2 -translate-y-full"
       style={{ top, left }}
     >
-      <div className="flex flex-col gap-1.5 rounded-xl border border-border-default/50 bg-surface-overlay/90 p-1.5 shadow-lg backdrop-blur-md">
+      <div className="flex flex-col gap-1.5 rounded-xl border border-border-default/50 bg-surface-overlay/95 p-1.5 shadow-lg backdrop-blur-sm">
         <div className="flex items-center gap-0.5">
           <button
             onClick={() => handleAction('explain')}

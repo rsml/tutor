@@ -21,6 +21,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuItem,
+  DropdownMenuGroup,
 } from '@src/components/ui/dropdown-menu'
 import { useTheme } from '@src/components/ThemeProvider'
 import { useAppDispatch, useAppSelector, selectApiKey, selectModel, setApiKey, setModel } from '@src/store'
@@ -78,8 +79,8 @@ export function SettingsMenu() {
           )}
         </DropdownMenuTrigger>
 
-        <DropdownMenuContent align="end" sideOffset={6}>
-          <DropdownMenuItem onClick={openDialog}>
+        <DropdownMenuContent align="end" sideOffset={6} className="min-w-[160px]">
+          <DropdownMenuItem onClick={openDialog} className="whitespace-nowrap">
             <Key className="size-4" />
             API Key
             {apiKey ? (
@@ -92,21 +93,23 @@ export function SettingsMenu() {
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>Appearance</DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
-              <DropdownMenuLabel>Theme</DropdownMenuLabel>
-              <DropdownMenuRadioGroup value={theme} onValueChange={v => setTheme(v as 'light' | 'dark' | 'system')}>
-                <DropdownMenuRadioItem value="light">
-                  <Sun className="size-4" />
-                  Light
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="dark">
-                  <Moon className="size-4" />
-                  Dark
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="system">
-                  <Monitor className="size-4" />
-                  System
-                </DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Theme</DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={theme} onValueChange={v => setTheme(v as 'light' | 'dark' | 'system')}>
+                  <DropdownMenuRadioItem value="light">
+                    <Sun className="size-4" />
+                    Light
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="dark">
+                    <Moon className="size-4" />
+                    Dark
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="system">
+                    <Monitor className="size-4" />
+                    System
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuGroup>
             </DropdownMenuSubContent>
           </DropdownMenuSub>
         </DropdownMenuContent>

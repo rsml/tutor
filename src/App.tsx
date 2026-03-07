@@ -34,7 +34,7 @@ export default function App() {
       <NoiseOverlay />
       {/* Header — glassmorphism */}
       <header
-        className="relative flex h-12 shrink-0 items-center justify-between border-b border-border-default/50 bg-surface-base/80 px-4 backdrop-blur-md"
+        className="relative flex h-12 shrink-0 items-center justify-between border-b border-border-default/50 bg-surface-base/90 px-4 backdrop-blur-sm"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
         <span className="absolute inset-x-0 pointer-events-none text-center text-sm font-semibold tracking-tight">

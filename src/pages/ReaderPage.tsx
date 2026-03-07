@@ -3,9 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@src/components/ui/button'
 import { SelectionTooltip } from '@src/components/SelectionTooltip'
 import { ChatPanel } from '@src/components/ChatPanel'
-import { PageTurnOverlay } from '@src/components/PageTurnOverlay'
 import { useTextSelection } from '@src/hooks/useTextSelection'
-import { usePageTurnGesture } from '@src/hooks/usePageTurnGesture'
 import { useAppDispatch, useAppSelector, setChapterPosition } from '@src/store'
 
 interface Book {
@@ -124,14 +122,6 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
     }
   }, [chapterIndex, chapters.length, dispatch, book.id])
 
-  const { progress, direction, isAnimating } = usePageTurnGesture({
-    scrollRef,
-    hasPrev,
-    hasNext,
-    onNextChapter: () => goChapter(1),
-    onPrevChapter: () => goChapter(-1),
-  })
-
   // Save initial position on mount
   useEffect(() => {
     if (savedPosition == null) {
@@ -139,15 +129,11 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Build preview content for adjacent chapters
-  const nextChapter = hasNext ? chapters[chapterIndex + 1] : null
-  const prevChapter = hasPrev ? chapters[chapterIndex - 1] : null
-
   return (
     <div className="flex h-screen flex-col text-content-primary">
       {/* Header — drag region */}
       <header
-        className="relative z-30 flex h-12 shrink-0 items-center border-b border-border-default/50 bg-surface-base/80 px-4 backdrop-blur-md"
+        className="relative z-30 flex h-12 shrink-0 items-center border-b border-border-default/50 bg-surface-base/90 px-4 backdrop-blur-sm"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
         <span className="absolute inset-x-0 pointer-events-none text-center text-sm font-semibold tracking-tight">
@@ -219,32 +205,15 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
           </div>
         )}
 
-        {/* Scrollable chapter content with page turn */}
-        <PageTurnOverlay
-          progress={progress}
-          direction={direction}
-          isAnimating={isAnimating}
-          nextPreview={nextChapter && (
-            <div className="h-full overflow-hidden opacity-60">
-              {renderChapterContent(nextChapter)}
-            </div>
-          )}
-          prevPreview={prevChapter && (
-            <div className="h-full overflow-hidden opacity-60">
-              {renderChapterContent(prevChapter)}
-            </div>
-          )}
+        {/* Scrollable chapter content */}
+        <main
+          ref={scrollRef}
+          className="h-full overflow-y-auto"
         >
-          <main
-            ref={scrollRef}
-            className="h-full overflow-y-auto"
-            style={{ overscrollBehaviorY: 'none' }}
-          >
-            <article ref={articleRef}>
-              {renderChapterContent(chapter)}
-            </article>
-          </main>
-        </PageTurnOverlay>
+          <article ref={articleRef}>
+            {renderChapterContent(chapter)}
+          </article>
+        </main>
       </div>
 
       {/* Selection tooltip */}
