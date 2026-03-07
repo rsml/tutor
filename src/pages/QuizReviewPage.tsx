@@ -4,6 +4,7 @@ import { Button } from '@src/components/ui/button'
 import { NoiseOverlay } from '@src/components/NoiseOverlay'
 import { ChapterBreakdownList } from '@src/components/ChapterBreakdownList'
 import { QuizPanel } from '@src/components/QuizPanel'
+import { SmartReviewFlow } from '@src/components/SmartReviewFlow'
 import { useAppSelector, useAppDispatch, recordQuizAttempt } from '@src/store'
 import { selectBookQuizSummary, selectSmartReviewQueue } from '@src/store/quizHistorySelectors'
 import type { ChapterQuiz } from '@src/store/quizHistorySlice'
@@ -23,7 +24,9 @@ export function QuizReviewPage({ book, onBack, onBackToReader }: {
 }) {
   const [sortMode, setSortMode] = useState<SortMode>('weakest')
   const [retakeChapter, setRetakeChapter] = useState<number | null>(null)
+  const [smartReviewActive, setSmartReviewActive] = useState(false)
   const summary = useAppSelector(selectBookQuizSummary(book.id))
+  const smartReviewQueue = useAppSelector(selectSmartReviewQueue(book.id))
   const bookQuizzes = useAppSelector(s => s.quizHistory.quizzes[book.id] ?? {}) as Record<string, ChapterQuiz>
   const [tocTitles, setTocTitles] = useState<Record<string, string>>({})
   const dispatch = useAppDispatch()
@@ -118,8 +121,27 @@ export function QuizReviewPage({ book, onBack, onBackToReader }: {
                 chaptersToReview={summary.chaptersToReview}
               />
 
-              {/* Chapter breakdown / retake */}
-              {retakeChapter !== null && bookQuizzes[String(retakeChapter)] ? (
+              {smartReviewQueue.length > 0 && !retakeChapter && !smartReviewActive && (
+                <div className="mt-3 flex justify-end">
+                  <Button
+                    size="sm"
+                    onClick={() => setSmartReviewActive(true)}
+                    className="bg-[oklch(0.55_0.20_285)] text-white hover:bg-[oklch(0.50_0.22_285)]"
+                  >
+                    Smart Review ({smartReviewQueue.length} question{smartReviewQueue.length > 1 ? 's' : ''})
+                  </Button>
+                </div>
+              )}
+
+              {/* Chapter breakdown / retake / smart review */}
+              {smartReviewActive ? (
+                <SmartReviewFlow
+                  queue={smartReviewQueue}
+                  tocTitles={tocTitles}
+                  onComplete={() => setSmartReviewActive(false)}
+                  onExit={() => setSmartReviewActive(false)}
+                />
+              ) : retakeChapter !== null && bookQuizzes[String(retakeChapter)] ? (
                 <div className="mt-4">
                   <button
                     onClick={() => setRetakeChapter(null)}
