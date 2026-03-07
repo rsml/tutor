@@ -83,6 +83,9 @@ function createWindow() {
     icon: getAppIcon(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
     },
   })
 
@@ -112,7 +115,7 @@ const stateFile = path.join(dataDir, 'redux-state.json')
 
 async function ensureDataDir() {
   if (!existsSync(dataDir)) {
-    await mkdir(dataDir, { recursive: true })
+    await mkdir(dataDir, { recursive: true, mode: 0o700 })
   }
 }
 
@@ -151,7 +154,12 @@ ipcMain.handle('storage:remove', async (_event, key: string) => {
 
 // --- API Key secure storage (safeStorage) ---
 
+const VALID_PROVIDERS = ['anthropic', 'openai', 'google']
+
 function apiKeyFile(provider?: string): string {
+  if (provider && !VALID_PROVIDERS.includes(provider)) {
+    throw new Error('Invalid provider')
+  }
   const suffix = provider ? `-${provider}` : ''
   return path.join(dataDir, `api-key${suffix}.enc`)
 }

@@ -12,6 +12,8 @@ interface ChatBody {
   history: Array<{ role: 'user' | 'assistant'; content: string }>
 }
 
+const AI_TIMEOUT_MS = 5 * 60 * 1000
+
 export async function chatRoutes(fastify: FastifyInstance) {
   fastify.post<{ Body: ChatBody }>('/api/chat', async (request, reply) => {
     const { apiKey, model, provider, chapterContent, selectedText, userMessage, history } = request.body
@@ -42,10 +44,14 @@ ${chapterContent.slice(0, 4000)}
       { role: 'user' as const, content: userMessage },
     ]
 
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
+
     const result = streamText({
       model: modelClient,
       system: systemPrompt,
       messages,
+      abortSignal: controller.signal,
     })
 
     reply.raw.writeHead(200, {
@@ -58,6 +64,7 @@ ${chapterContent.slice(0, 4000)}
     for await (const chunk of result.textStream) {
       reply.raw.write(chunk)
     }
+    clearTimeout(timer)
 
     reply.raw.end()
   })

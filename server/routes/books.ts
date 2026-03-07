@@ -5,6 +5,14 @@ import { z } from 'zod'
 import * as store from '../services/book-store.js'
 import { createModelClient } from '../services/model-client.js'
 
+const AI_TIMEOUT_MS = 5 * 60 * 1000
+
+function createTimeout(): { signal: AbortSignal; clear: () => void } {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
+  return { signal: controller.signal, clear: () => clearTimeout(timer) }
+}
+
 interface CreateBookBody {
   topic: string
   details?: string
@@ -48,21 +56,51 @@ async function generateQuiz(
   model: string,
   chapterContent: string,
 ): Promise<{ questions: Array<{ question: string; options: string[]; correctIndex: number }> }> {
-  const result = await generateObject({
-    model: createModelClient(provider, apiKey, model),
-    schema: z.object({
-      questions: z.array(z.object({
-        question: z.string(),
-        options: z.array(z.string()).length(4),
-        correctIndex: z.number().int().min(0).max(3),
-      })).length(3),
-    }),
-    prompt: `Based on this chapter content, generate exactly 3 multiple-choice quiz questions to test comprehension. Each question should have 4 options with exactly one correct answer.
+  const timeout = createTimeout()
+  try {
+    const result = await generateObject({
+      model: createModelClient(provider, apiKey, model),
+      abortSignal: timeout.signal,
+      schema: z.object({
+        questions: z.array(z.object({
+          question: z.string(),
+          options: z.array(z.string()).length(4),
+          correctIndex: z.number().int().min(0).max(3),
+        })).length(3),
+      }),
+      prompt: `Based on this chapter content, generate exactly 3 multiple-choice quiz questions to test comprehension. Each question should have 4 options with exactly one correct answer.
 
 Chapter content:
 ${chapterContent}`,
-  })
-  return result.object
+    })
+    return result.object
+  } finally {
+    timeout.clear()
+  }
+}
+
+const bookIdSchema = {
+  type: 'object' as const,
+  properties: { id: { type: 'string' as const, pattern: '^[a-z0-9-]{1,50}$' } },
+  required: ['id'] as const,
+}
+
+const bookChapterSchema = {
+  type: 'object' as const,
+  properties: {
+    id: { type: 'string' as const, pattern: '^[a-z0-9-]{1,50}$' },
+    num: { type: 'string' as const, pattern: '^[1-9][0-9]{0,2}$' },
+  },
+  required: ['id', 'num'] as const,
+}
+
+async function validateChapterNum(bookId: string, num: number): Promise<void> {
+  const meta = await store.getBook(bookId)
+  if (num < 1 || num > meta.totalChapters) {
+    const err = new Error(`Chapter ${num} out of range (1-${meta.totalChapters})`)
+    ;(err as any).statusCode = 400
+    throw err
+  }
 }
 
 export async function bookRoutes(fastify: FastifyInstance) {
@@ -70,22 +108,28 @@ export async function bookRoutes(fastify: FastifyInstance) {
     return store.listBooks()
   })
 
-  fastify.get<{ Params: { id: string } }>('/api/books/:id', async (request) => {
+  fastify.get<{ Params: { id: string } }>('/api/books/:id', { schema: { params: bookIdSchema } }, async (request) => {
     return store.getBook(request.params.id)
   })
 
   fastify.get<{ Params: { id: string; num: string } }>(
     '/api/books/:id/chapters/:num',
+    { schema: { params: bookChapterSchema } },
     async (request) => {
-      const content = await store.getChapter(request.params.id, parseInt(request.params.num))
+      const chapterNum = parseInt(request.params.num)
+      await validateChapterNum(request.params.id, chapterNum)
+      const content = await store.getChapter(request.params.id, chapterNum)
       return { content }
     },
   )
 
   fastify.get<{ Params: { id: string; num: string } }>(
     '/api/books/:id/chapters/:num/quiz',
+    { schema: { params: bookChapterSchema } },
     async (request) => {
-      return store.getQuiz(request.params.id, parseInt(request.params.num))
+      const chapterNum = parseInt(request.params.num)
+      await validateChapterNum(request.params.id, chapterNum)
+      return store.getQuiz(request.params.id, chapterNum)
     },
   )
 
@@ -94,8 +138,10 @@ export async function bookRoutes(fastify: FastifyInstance) {
     Body: { liked?: string; disliked?: string; quizAnswers?: number[] }
   }>(
     '/api/books/:id/chapters/:num/feedback',
+    { schema: { params: bookChapterSchema } },
     async (request) => {
       const chapterNum = parseInt(request.params.num)
+      await validateChapterNum(request.params.id, chapterNum)
       const { liked, disliked, quizAnswers } = request.body
 
       // Load quiz to merge answers
@@ -126,7 +172,7 @@ export async function bookRoutes(fastify: FastifyInstance) {
   fastify.post<{
     Params: { id: string }
     Body: { apiKey: string; model: string; provider?: string }
-  }>('/api/books/:id/generate-next', async (request, reply) => {
+  }>('/api/books/:id/generate-next', { schema: { params: bookIdSchema } }, async (request, reply) => {
     const { apiKey, model, provider } = request.body
     const bookId = request.params.id
 
@@ -174,8 +220,10 @@ export async function bookRoutes(fastify: FastifyInstance) {
       } catch { /* first chapter */ }
 
       let chapterText = ''
+      const chapterTimeout = createTimeout()
       const chapterResult = streamText({
         model: createModelClient(provider ?? 'anthropic', apiKey, model),
+        abortSignal: chapterTimeout.signal,
         system: `You are writing a chapter for a personalized learning book. Write an engaging, clear chapter approximately 1,500 words long.
 
 Use markdown formatting:
@@ -204,6 +252,7 @@ Write this chapter now.`,
         chapterText += chunk
         send({ type: 'chapter', text: chunk })
       }
+      chapterTimeout.clear()
 
       await store.saveChapter(bookId, nextNum, chapterText)
 
@@ -230,11 +279,11 @@ Write this chapter now.`,
     reply.raw.end()
   })
 
-  fastify.get<{ Params: { id: string } }>('/api/books/:id/toc', async (request) => {
+  fastify.get<{ Params: { id: string } }>('/api/books/:id/toc', { schema: { params: bookIdSchema } }, async (request) => {
     return store.getToc(request.params.id)
   })
 
-  fastify.patch<{ Params: { id: string }; Body: { title: string } }>('/api/books/:id', async (request) => {
+  fastify.patch<{ Params: { id: string }; Body: { title: string } }>('/api/books/:id', { schema: { params: bookIdSchema } }, async (request) => {
     const meta = await store.getBook(request.params.id)
     meta.title = request.body.title
     meta.updatedAt = new Date().toISOString()
@@ -242,7 +291,7 @@ Write this chapter now.`,
     return { ok: true }
   })
 
-  fastify.delete<{ Params: { id: string } }>('/api/books/:id', async (request) => {
+  fastify.delete<{ Params: { id: string } }>('/api/books/:id', { schema: { params: bookIdSchema } }, async (request) => {
     await store.deleteBook(request.params.id)
     return { ok: true }
   })
@@ -250,7 +299,7 @@ Write this chapter now.`,
   fastify.put<{
     Params: { id: string }
     Body: { rating: number; finalQuizScore?: number; finalQuizTotal?: number }
-  }>('/api/books/:id/rating', async (request) => {
+  }>('/api/books/:id/rating', { schema: { params: bookIdSchema } }, async (request) => {
     const meta = await store.getBook(request.params.id)
     meta.rating = request.body.rating
     if (request.body.finalQuizScore !== undefined) {
@@ -266,7 +315,7 @@ Write this chapter now.`,
   fastify.post<{
     Params: { id: string }
     Body: { apiKey: string; model: string; provider?: string }
-  }>('/api/books/:id/final-quiz', async (request) => {
+  }>('/api/books/:id/final-quiz', { schema: { params: bookIdSchema } }, async (request) => {
     const { apiKey, model, provider } = request.body
     const bookId = request.params.id
     const meta = await store.getBook(bookId)
@@ -287,16 +336,19 @@ Write this chapter now.`,
       fb.quiz.questions.map(q => q.question)
     )
 
-    const result = await generateObject({
-      model: createModelClient(provider ?? 'anthropic', apiKey, model),
-      schema: z.object({
-        questions: z.array(z.object({
-          question: z.string(),
-          options: z.array(z.string()).length(4),
-          correctIndex: z.number().int().min(0).max(3),
-        })).length(10),
-      }),
-      prompt: `You are creating a final comprehensive quiz for a book the reader has just finished.
+    const timeout = createTimeout()
+    try {
+      const result = await generateObject({
+        model: createModelClient(provider ?? 'anthropic', apiKey, model),
+        abortSignal: timeout.signal,
+        schema: z.object({
+          questions: z.array(z.object({
+            question: z.string(),
+            options: z.array(z.string()).length(4),
+            correctIndex: z.number().int().min(0).max(3),
+          })).length(10),
+        }),
+        prompt: `You are creating a final comprehensive quiz for a book the reader has just finished.
 
 Book: ${meta.title}
 Topic: ${meta.prompt}
@@ -313,9 +365,12 @@ Generate exactly 10 multiple-choice questions that test SYNTHESIS and CROSS-CHAP
 - Have 4 options with exactly one correct answer
 - Be meaningfully different from these previously asked questions:
 ${priorQuestions.map(q => `  - ${q}`).join('\n')}`,
-    })
+      })
 
-    return result.object
+      return result.object
+    } finally {
+      timeout.clear()
+    }
   })
 
   fastify.post<{ Body: CreateBookBody }>('/api/books', async (request, reply) => {
@@ -343,8 +398,10 @@ ${priorQuestions.map(q => `  - ${q}`).join('\n')}`,
     try {
       // Phase 1: Generate TOC
       let tocText = ''
+      const tocTimeout = createTimeout()
       const tocResult = streamText({
         model: createModelClient(provider ?? 'anthropic', apiKey, model),
+        abortSignal: tocTimeout.signal,
         system: `You are creating a table of contents for a personalized learning book.
 
 Generate a well-structured table of contents with 8-15 chapters.
@@ -368,6 +425,7 @@ Just output the title and table of contents, nothing else.`,
         tocText += chunk
         send({ type: 'toc', text: chunk })
       }
+      tocTimeout.clear()
 
       const { title, chapters } = parseTocFromMarkdown(tocText)
 
@@ -394,8 +452,10 @@ Just output the title and table of contents, nothing else.`,
 
       // Phase 2: Generate Chapter 1
       let chapterText = ''
+      const ch1Timeout = createTimeout()
       const chapterResult = streamText({
         model: createModelClient(provider ?? 'anthropic', apiKey, model),
+        abortSignal: ch1Timeout.signal,
         system: `You are writing a chapter for a personalized learning book. Write an engaging, clear chapter approximately 1,500 words long.
 
 Use markdown formatting:
@@ -421,6 +481,7 @@ Write this chapter now.`,
         chapterText += chunk
         send({ type: 'chapter', text: chunk })
       }
+      ch1Timeout.clear()
 
       await store.saveChapter(bookId, 1, chapterText)
 
