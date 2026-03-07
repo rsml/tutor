@@ -15,6 +15,16 @@ export const LearningProfileSchema = z.object({
 
 export type LearningProfile = z.infer<typeof LearningProfileSchema>
 
+export const UpdateProfileBodySchema = z.object({
+  aboutMe: z.string().max(2000),
+  preferences: z.object({
+    explainComplexTermsSimply: z.boolean(),
+    assumePriorKnowledge: z.boolean(),
+    codeExamples: z.boolean(),
+    realWorldAnalogies: z.boolean(),
+  }),
+})
+
 // --- Table of Contents ---
 
 export const TocChapterSchema = z.object({

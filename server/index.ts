@@ -4,6 +4,7 @@ import rateLimit from '@fastify/rate-limit'
 import { chatRoutes } from './routes/chat.js'
 import { bookRoutes } from './routes/books.js'
 import { settingsRoutes } from './routes/settings.js'
+import { profileRoutes } from './routes/profile.js'
 
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
@@ -45,6 +46,7 @@ export async function startServer(port = 3147, host = '127.0.0.1') {
   await fastify.register(chatRoutes)
   await fastify.register(bookRoutes)
   await fastify.register(settingsRoutes)
+  await fastify.register(profileRoutes)
 
   // Global error handler — clean 404 for ENOENT, no path leak
   fastify.setErrorHandler((error: Error & { code?: string; statusCode?: number }, _request, reply) => {
