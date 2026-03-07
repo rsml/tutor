@@ -314,7 +314,7 @@ export default function App() {
         <div className="mx-auto max-w-7xl">
           {allBooks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-32 text-center">
-              <BookOpen className="size-12 text-content-muted/40" />
+              <BookOpen className="size-12 text-content-faint" />
               <h2 className="mt-4 text-lg font-semibold text-content-primary">No books yet</h2>
               <p className="mt-1 text-sm text-content-muted">Create your first book to start learning.</p>
               <Button

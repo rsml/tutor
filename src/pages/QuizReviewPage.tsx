@@ -115,7 +115,7 @@ export function QuizReviewPage({ book, onBack, onBackToReader }: {
         <div className="mx-auto max-w-3xl">
           {!summary.hasAnyData ? (
             <div className="flex flex-col items-center gap-3 pt-24 text-content-muted">
-              <BarChart3 className="size-10 opacity-40" />
+              <BarChart3 className="size-10 text-content-faint" />
               <p className="text-sm">Complete chapter quizzes to see your review.</p>
               <Button variant="outline" size="sm" onClick={onBackToReader}>
                 Back to reading

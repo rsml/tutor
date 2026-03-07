@@ -105,6 +105,40 @@ async function buildProfileContext(): Promise<string> {
   }
 }
 
+function formatSkillProgress(result: import('../services/book-store.js').SkillProgressResult): string {
+  if (result.skills.length === 0) return ''
+
+  const { stats, skills } = result
+  const lines: string[] = []
+
+  lines.push(`Overall: ${stats.completedBooks}/${stats.totalBooks} books completed, ${stats.completedChapters}/${stats.totalChapters} chapters completed`)
+  lines.push('')
+
+  for (const skill of skills) {
+    const pct = skill.totalWeight > 0 ? Math.round((skill.completedWeight / skill.totalWeight) * 100) : 0
+    const bookList = skill.books.map(b => `${b.title} (${b.completed ? 'completed' : 'in progress'})`).join(', ')
+    lines.push(`${skill.name}: ${pct}% mastery — taught by: ${bookList}`)
+
+    const weak = skill.subskills.filter(s => s.totalWeight > 0 && (s.completedWeight / s.totalWeight) < 0.5)
+    const strong = skill.subskills.filter(s => s.totalWeight > 0 && (s.completedWeight / s.totalWeight) >= 0.5)
+
+    if (weak.length > 0) {
+      lines.push(`  Weak subskills (< 50%): ${weak.map(s => {
+        const p = Math.round((s.completedWeight / s.totalWeight) * 100)
+        return `${s.name} (${p}%)`
+      }).join(', ')}`)
+    }
+    if (strong.length > 0) {
+      lines.push(`  Strong subskills (>= 50%): ${strong.map(s => {
+        const p = Math.round((s.completedWeight / s.totalWeight) * 100)
+        return `${s.name} (${p}%)`
+      }).join(', ')}`)
+    }
+  }
+
+  return lines.join('\n')
+}
+
 async function generateQuiz(
   provider: string,
   model: string,
@@ -687,6 +721,8 @@ Write this chapter now.`,
 
     const allBooks = await store.listBooks()
     const profileContext = await buildProfileContext()
+    const skillProgress = await store.getSkillProgress()
+    const skillProgressContext = formatSkillProgress(skillProgress)
 
     const bookSummaries: string[] = []
     for (const book of allBooks) {
@@ -753,19 +789,26 @@ Write this chapter now.`,
           details: z.string().describe('Additional context and focus areas for the book (2-3 sentences)'),
           reasoning: z.string().describe('Brief explanation of why this topic was suggested based on the learning gaps (1-2 sentences)'),
         }),
-        prompt: `You are a learning advisor. Based on this reader's profile and their learning history, suggest ONE book topic they should study next.
+        prompt: `You are a learning advisor. Based on this reader's three layers of learning data — ranked by freshness — suggest ONE book topic they should study next.
 
-${profileContext ? `Reader profile:\n${profileContext}\n` : ''}
+=== LAYER 1: SELF-REPORTED PROFILE (potentially stale — what the reader *thinks* they know) ===
+${profileContext || 'No profile available.'}
 
-${bookSummaries.length > 0 ? `Books in their library:\n${bookSummaries.map((s, i) => `${i + 1}. ${s}`).join('\n\n')}` : 'The reader has no books yet.'}
+=== LAYER 2: QUIZ PERFORMANCE (more recent — what they actually got right/wrong) ===
+${bookSummaries.length > 0 ? bookSummaries.map((s, i) => `${i + 1}. ${s}`).join('\n\n') : 'No books or quiz data yet.'}
 
-Rules:
-- Suggest a topic that fills a KNOWLEDGE GAP — something they struggled with in quizzes, or a natural next step from what they've learned
-- Do NOT suggest a topic they already have a book for
-- Consider their identity and skill level — suggest something at the right difficulty
-- If they have no books yet, suggest something that matches their stated background and goals
-- The topic should be specific enough to make a focused book (not "Programming" but "Event-Driven Architecture in Node.js")
-- The details should explain what the book should focus on and why it's a good next step`,
+=== LAYER 3: SKILL MASTERY FROM BOOKS (most current — ground truth from completed content) ===
+${skillProgressContext || 'No skill mastery data yet.'}
+
+=== SYNTHESIS INSTRUCTIONS ===
+1. Start with Layer 3 (skill mastery) as ground truth — low completion % = verified gap worth targeting
+2. Cross-reference Layer 2 (quiz scores) — poor scores confirm struggle areas that need reinforcement
+3. Use Layer 1 (self-reported profile) for context only — self-assessment may not match reality
+4. Identify perception gaps — if a skill is self-rated high (Layer 1) but mastery is low (Layer 3), that's a blind spot — prioritize it
+5. Look for natural progressions — partial completion of a skill suggests a complementary next topic
+6. Never suggest a topic they already have a book for
+7. Keep the topic specific and relevant to their role/goals (not "Programming" but "Event-Driven Architecture in Node.js")
+8. The details should explain what the book should focus on and why it's a good next step given their verified skill gaps`,
       })
 
       return result.object
@@ -801,101 +844,6 @@ Rules:
   // --- Skill Progress ---
 
   fastify.get('/api/progress/skills', async () => {
-    const allBooks = await store.listBooks()
-
-    let totalBooks = 0
-    let completedBooks = 0
-    let totalChapters = 0
-    let completedChapters = 0
-
-    const skillMap = new Map<string, {
-      name: string
-      totalWeight: number
-      completedWeight: number
-      books: Array<{ bookId: string; title: string; weight: number; completed: boolean }>
-      subskills: Map<string, { name: string; totalWeight: number; completedWeight: number }>
-    }>()
-
-    for (const book of allBooks) {
-      let toc: Awaited<ReturnType<typeof store.getToc>>
-      let progress: Awaited<ReturnType<typeof store.getProgress>>
-      try {
-        toc = await store.getToc(book.id)
-        progress = await store.getProgress(book.id)
-      } catch {
-        continue
-      }
-
-      if (!toc.skills || toc.skills.length === 0) continue
-
-      totalBooks++
-      const chapCount = toc.chapters.length
-      totalChapters += chapCount
-
-      // Count completed chapters
-      let bookCompletedChapters = 0
-      for (let i = 1; i <= chapCount; i++) {
-        if (progress.chapters[String(i)]?.completed) {
-          bookCompletedChapters++
-        }
-      }
-      completedChapters += bookCompletedChapters
-      const bookComplete = bookCompletedChapters === chapCount
-
-      if (bookComplete) completedBooks++
-
-      // Aggregate book-level skills
-      for (const skill of toc.skills) {
-        let entry = skillMap.get(skill.name)
-        if (!entry) {
-          entry = {
-            name: skill.name,
-            totalWeight: 0,
-            completedWeight: 0,
-            books: [],
-            subskills: new Map(),
-          }
-          skillMap.set(skill.name, entry)
-        }
-        entry.totalWeight += skill.weight
-        if (bookComplete) entry.completedWeight += skill.weight
-        entry.books.push({
-          bookId: book.id,
-          title: book.title,
-          weight: skill.weight,
-          completed: bookComplete,
-        })
-      }
-
-      // Aggregate chapter-level sub-skills
-      for (let i = 0; i < toc.chapters.length; i++) {
-        const ch = toc.chapters[i]
-        if (!ch.skills) continue
-        const chapterCompleted = !!progress.chapters[String(i + 1)]?.completed
-
-        for (const cs of ch.skills) {
-          const skillEntry = skillMap.get(cs.skill)
-          if (!skillEntry) continue
-
-          let sub = skillEntry.subskills.get(cs.subskill)
-          if (!sub) {
-            sub = { name: cs.subskill, totalWeight: 0, completedWeight: 0 }
-            skillEntry.subskills.set(cs.subskill, sub)
-          }
-          sub.totalWeight += cs.weight
-          if (chapterCompleted) sub.completedWeight += cs.weight
-        }
-      }
-    }
-
-    const skills = Array.from(skillMap.values()).map(s => ({
-      ...s,
-      subskills: Array.from(s.subskills.values()),
-    }))
-
-    return {
-      stats: { totalBooks, completedBooks, totalChapters, completedChapters },
-      skills,
-    }
+    return store.getSkillProgress()
   })
 }

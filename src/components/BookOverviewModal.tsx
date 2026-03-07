@@ -64,7 +64,7 @@ export function BookOverviewModal({ open, onOpenChange, book }: BookOverviewModa
                   {read ? (
                     <CheckCircle2 className="size-4 shrink-0 mt-0.5 text-green-500" />
                   ) : (
-                    <Circle className="size-4 shrink-0 mt-0.5 text-content-muted/40" />
+                    <Circle className="size-4 shrink-0 mt-0.5 text-content-faint" />
                   )}
                   <div>
                     <p className={`text-sm font-medium ${read ? 'text-content-primary' : 'text-content-muted'}`}>

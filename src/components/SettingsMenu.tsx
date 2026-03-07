@@ -170,7 +170,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
               size="icon-sm"
               aria-label="Settings"
               style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-              className={`relative ${subtle ? 'text-content-muted/40 hover:text-content-muted' : ''}`}
+              className={`relative ${subtle ? 'text-content-faint hover:text-content-muted' : ''}`}
             />
           }
         >

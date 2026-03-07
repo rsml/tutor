@@ -190,6 +190,113 @@ export async function saveFeedback(bookId: string, chapterNum: number, feedback:
   await writeYaml(join(bookDir(bookId), 'feedback', `${padded}.yml`), feedback)
 }
 
+export interface SkillProgressResult {
+  stats: { totalBooks: number; completedBooks: number; totalChapters: number; completedChapters: number }
+  skills: Array<{
+    name: string
+    totalWeight: number
+    completedWeight: number
+    books: Array<{ bookId: string; title: string; weight: number; completed: boolean }>
+    subskills: Array<{ name: string; totalWeight: number; completedWeight: number }>
+  }>
+}
+
+export async function getSkillProgress(): Promise<SkillProgressResult> {
+  const allBooks = await listBooks()
+
+  let totalBooks = 0
+  let completedBooks = 0
+  let totalChapters = 0
+  let completedChapters = 0
+
+  const skillMap = new Map<string, {
+    name: string
+    totalWeight: number
+    completedWeight: number
+    books: Array<{ bookId: string; title: string; weight: number; completed: boolean }>
+    subskills: Map<string, { name: string; totalWeight: number; completedWeight: number }>
+  }>()
+
+  for (const book of allBooks) {
+    let toc: Toc
+    let progress: Progress
+    try {
+      toc = await getToc(book.id)
+      progress = await getProgress(book.id)
+    } catch {
+      continue
+    }
+
+    if (!toc.skills || toc.skills.length === 0) continue
+
+    totalBooks++
+    const chapCount = toc.chapters.length
+    totalChapters += chapCount
+
+    let bookCompletedChapters = 0
+    for (let i = 1; i <= chapCount; i++) {
+      if (progress.chapters[String(i)]?.completed) {
+        bookCompletedChapters++
+      }
+    }
+    completedChapters += bookCompletedChapters
+    const bookComplete = bookCompletedChapters === chapCount
+
+    if (bookComplete) completedBooks++
+
+    for (const skill of toc.skills) {
+      let entry = skillMap.get(skill.name)
+      if (!entry) {
+        entry = {
+          name: skill.name,
+          totalWeight: 0,
+          completedWeight: 0,
+          books: [],
+          subskills: new Map(),
+        }
+        skillMap.set(skill.name, entry)
+      }
+      entry.totalWeight += skill.weight
+      if (bookComplete) entry.completedWeight += skill.weight
+      entry.books.push({
+        bookId: book.id,
+        title: book.title,
+        weight: skill.weight,
+        completed: bookComplete,
+      })
+    }
+
+    for (let i = 0; i < toc.chapters.length; i++) {
+      const ch = toc.chapters[i]
+      if (!ch.skills) continue
+      const chapterCompleted = !!progress.chapters[String(i + 1)]?.completed
+
+      for (const cs of ch.skills) {
+        const skillEntry = skillMap.get(cs.skill)
+        if (!skillEntry) continue
+
+        let sub = skillEntry.subskills.get(cs.subskill)
+        if (!sub) {
+          sub = { name: cs.subskill, totalWeight: 0, completedWeight: 0 }
+          skillEntry.subskills.set(cs.subskill, sub)
+        }
+        sub.totalWeight += cs.weight
+        if (chapterCompleted) sub.completedWeight += cs.weight
+      }
+    }
+  }
+
+  const skills = Array.from(skillMap.values()).map(s => ({
+    ...s,
+    subskills: Array.from(s.subskills.values()),
+  }))
+
+  return {
+    stats: { totalBooks, completedBooks, totalChapters, completedChapters },
+    skills,
+  }
+}
+
 export async function getAllFeedback(bookId: string): Promise<Feedback[]> {
   const feedbackDir = join(bookDir(bookId), 'feedback')
   if (!existsSync(feedbackDir)) return []

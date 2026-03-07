@@ -27,7 +27,7 @@ export function StarRating({ value, onChange, readonly = false, size = 'md' }: S
         return (
           <div key={star} className={`relative ${readonly ? '' : 'cursor-pointer'}`}>
             {/* Full star background (empty) */}
-            <Star className={`${sizeClass} text-content-muted/20`} />
+            <Star className={`${sizeClass} text-content-faint`} />
 
             {/* Filled overlay */}
             {(filled || halfFilled) && (
