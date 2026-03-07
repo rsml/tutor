@@ -177,11 +177,11 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose }: Settings
                 {FONT_SIZES.map((size, i) => (
                   <div
                     key={size}
-                    className={`flex flex-col items-center ${i === defaultIndex ? 'text-content-primary' : 'text-content-muted/40'}`}
+                    className={`relative flex flex-col items-center ${i === defaultIndex ? 'text-content-primary' : 'text-content-muted/40'}`}
                   >
                     <div className={`h-1.5 w-px ${i === defaultIndex ? 'bg-content-primary' : 'bg-content-muted/30'}`} />
                     {i === defaultIndex && (
-                      <span className="text-[9px] mt-0.5">default</span>
+                      <span className="absolute top-2 left-1/2 -translate-x-1/2 text-[9px] whitespace-nowrap">default</span>
                     )}
                   </div>
                 ))}
