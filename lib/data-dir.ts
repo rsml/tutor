@@ -2,6 +2,9 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 export function getDataDir(): string {
+  if (process.env.TUTOR_DATA_DIR) {
+    return process.env.TUTOR_DATA_DIR
+  }
   if (process.platform === 'darwin') {
     return join(homedir(), 'Library', 'Application Support', 'tutor')
   }

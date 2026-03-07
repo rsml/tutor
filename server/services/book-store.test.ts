@@ -18,7 +18,7 @@ async function importStore() {
 
 describe('book-store', () => {
   let store: Awaited<ReturnType<typeof importStore>>
-  let origCwd: () => string
+  let origDataDir: string | undefined
 
   const testMeta: BookMeta = {
     id: 'test-book-123',
@@ -61,9 +61,9 @@ describe('book-store', () => {
 
   beforeEach(async () => {
     testDir = await mkdtemp(join(tmpdir(), 'ai-books-test-'))
-    // Override process.cwd to point to our test directory
-    origCwd = process.cwd
-    process.cwd = () => testDir
+    // Point data dir to temp directory so tests don't pollute real data
+    origDataDir = process.env.TUTOR_DATA_DIR
+    process.env.TUTOR_DATA_DIR = testDir
     await mkdir(join(testDir, 'books'), { recursive: true })
 
     // Write a learning profile so getProfile works
@@ -73,12 +73,13 @@ describe('book-store', () => {
       'utf-8',
     )
 
-    // Fresh import each time (vitest caches, but cwd() is dynamic)
+    // Fresh import each time (vitest caches, but env is dynamic)
     store = await importStore()
   })
 
   afterEach(async () => {
-    process.cwd = origCwd
+    if (origDataDir === undefined) delete process.env.TUTOR_DATA_DIR
+    else process.env.TUTOR_DATA_DIR = origDataDir
     await rm(testDir, { recursive: true })
   })
 
