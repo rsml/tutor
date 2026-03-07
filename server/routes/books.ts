@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { randomUUID } from 'node:crypto'
-import { streamText } from 'ai'
+import { streamText, generateObject } from 'ai'
+import { z } from 'zod'
 import * as store from '../services/book-store.js'
 import { createModelClient } from '../services/model-client.js'
 
@@ -41,6 +42,29 @@ function parseTocFromMarkdown(text: string): { title: string; chapters: Array<{ 
   return { title, chapters }
 }
 
+async function generateQuiz(
+  provider: string,
+  apiKey: string,
+  model: string,
+  chapterContent: string,
+): Promise<{ questions: Array<{ question: string; options: string[]; correctIndex: number }> }> {
+  const result = await generateObject({
+    model: createModelClient(provider, apiKey, model),
+    schema: z.object({
+      questions: z.array(z.object({
+        question: z.string(),
+        options: z.array(z.string()).length(4),
+        correctIndex: z.number().int().min(0).max(3),
+      })).length(3),
+    }),
+    prompt: `Based on this chapter content, generate exactly 3 multiple-choice quiz questions to test comprehension. Each question should have 4 options with exactly one correct answer.
+
+Chapter content:
+${chapterContent}`,
+  })
+  return result.object
+}
+
 export async function bookRoutes(fastify: FastifyInstance) {
   fastify.get('/api/books', async () => {
     return store.listBooks()
@@ -57,6 +81,158 @@ export async function bookRoutes(fastify: FastifyInstance) {
       return { content }
     },
   )
+
+  fastify.get<{ Params: { id: string; num: string } }>(
+    '/api/books/:id/chapters/:num/quiz',
+    async (request) => {
+      return store.getQuiz(request.params.id, parseInt(request.params.num))
+    },
+  )
+
+  fastify.post<{
+    Params: { id: string; num: string }
+    Body: { liked?: string; disliked?: string; quizAnswers?: number[] }
+  }>(
+    '/api/books/:id/chapters/:num/feedback',
+    async (request) => {
+      const chapterNum = parseInt(request.params.num)
+      const { liked, disliked, quizAnswers } = request.body
+
+      // Load quiz to merge answers
+      let questions: Array<{ question: string; options: string[]; correctIndex: number; userAnswer?: number; correct?: boolean }> = []
+      let score = 0
+      try {
+        const quiz = await store.getQuiz(request.params.id, chapterNum)
+        questions = quiz.questions.map((q, i) => {
+          const userAnswer = quizAnswers?.[i]
+          const correct = userAnswer === q.correctIndex
+          if (correct) score++
+          return { ...q, userAnswer, correct }
+        })
+      } catch {
+        // No quiz exists
+      }
+
+      const feedback = {
+        chapter: chapterNum,
+        feedback: { liked, disliked },
+        quiz: { questions, score },
+      }
+      await store.saveFeedback(request.params.id, chapterNum, feedback)
+      return { ok: true }
+    },
+  )
+
+  fastify.post<{
+    Params: { id: string }
+    Body: { apiKey: string; model: string; provider?: string }
+  }>('/api/books/:id/generate-next', async (request, reply) => {
+    const { apiKey, model, provider } = request.body
+    const bookId = request.params.id
+
+    const meta = await store.getBook(bookId)
+    const toc = await store.getToc(bookId)
+    const nextNum = meta.generatedUpTo + 1
+
+    if (nextNum > meta.totalChapters) {
+      return reply.status(400).send({ error: 'All chapters already generated' })
+    }
+
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    })
+
+    const send = (data: Record<string, unknown>) => {
+      reply.raw.write(`data: ${JSON.stringify(data)}\n\n`)
+    }
+
+    try {
+      // Gather prior feedback for context
+      const allFeedback = await store.getAllFeedback(bookId)
+      const feedbackContext = allFeedback.map(fb => {
+        const parts: string[] = []
+        if (fb.feedback.liked) parts.push(`Liked: ${fb.feedback.liked}`)
+        if (fb.feedback.disliked) parts.push(`Could improve: ${fb.feedback.disliked}`)
+        if (fb.quiz.score !== undefined) {
+          parts.push(`Quiz score: ${fb.quiz.score}/${fb.quiz.questions.length}`)
+          const wrong = fb.quiz.questions.filter(q => q.correct === false)
+          if (wrong.length > 0) {
+            parts.push(`Struggled with: ${wrong.map(q => q.question).join('; ')}`)
+          }
+        }
+        return `Chapter ${fb.chapter}: ${parts.join('. ')}`
+      }).join('\n')
+
+      const chapterInfo = toc.chapters[nextNum - 1]
+
+      // Read previous chapter for continuity
+      let prevChapterContent = ''
+      try {
+        prevChapterContent = await store.getChapter(bookId, nextNum - 1)
+      } catch { /* first chapter */ }
+
+      let chapterText = ''
+      const chapterResult = streamText({
+        model: createModelClient(provider ?? 'anthropic', apiKey, model),
+        system: `You are writing a chapter for a personalized learning book. Write an engaging, clear chapter approximately 1,500 words long.
+
+Use markdown formatting:
+- Start with # heading for the chapter title
+- Use ## and ### for sections
+- Bold and italic for emphasis
+- Bullet/numbered lists where appropriate
+- Code blocks with language tags where relevant
+- > blockquotes for key insights or memorable takeaways
+
+Write in a conversational but knowledgeable tone. Use concrete examples and real-world analogies. Make complex ideas accessible without being condescending.
+
+${feedbackContext ? `\nReader feedback from previous chapters:\n${feedbackContext}\n\nAdapt your writing based on this feedback. If the reader struggled with quiz questions, briefly recap those concepts. If they liked certain approaches, lean into those.` : ''}`,
+        prompt: `Book: ${meta.title}
+Topic: ${meta.prompt}
+
+This is Chapter ${nextNum} of ${meta.totalChapters}.
+Chapter title: ${chapterInfo.title}
+Chapter description: ${chapterInfo.description}
+
+${prevChapterContent ? `Previous chapter ended with:\n${prevChapterContent.slice(-500)}` : ''}
+
+Write this chapter now.`,
+      })
+
+      for await (const chunk of chapterResult.textStream) {
+        chapterText += chunk
+        send({ type: 'chapter', text: chunk })
+      }
+
+      await store.saveChapter(bookId, nextNum, chapterText)
+
+      // Generate quiz
+      try {
+        const quiz = await generateQuiz(provider ?? 'anthropic', apiKey, model, chapterText)
+        await store.saveQuiz(bookId, nextNum, quiz)
+      } catch {
+        // Quiz generation failure is non-fatal
+      }
+
+      meta.generatedUpTo = nextNum
+      if (nextNum >= meta.totalChapters) {
+        meta.status = 'complete'
+      }
+      meta.updatedAt = new Date().toISOString()
+      await store.saveBook(meta)
+
+      send({ type: 'done', chapterNum: nextNum })
+    } catch (error) {
+      send({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Generation failed',
+      })
+    }
+
+    reply.raw.end()
+  })
 
   fastify.get<{ Params: { id: string } }>('/api/books/:id/toc', async (request) => {
     return store.getToc(request.params.id)
@@ -180,6 +356,14 @@ Write this chapter now.`,
       }
 
       await store.saveChapter(bookId, 1, chapterText)
+
+      // Generate quiz for chapter 1
+      try {
+        const quiz = await generateQuiz(provider ?? 'anthropic', apiKey, model, chapterText)
+        await store.saveQuiz(bookId, 1, quiz)
+      } catch {
+        // Quiz generation failure is non-fatal
+      }
 
       const meta = await store.getBook(bookId)
       meta.generatedUpTo = 1
