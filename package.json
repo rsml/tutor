@@ -4,6 +4,10 @@
   "type": "module",
   "description": "AI-generated adaptive learning books",
   "scripts": {
+    "dev": "vite",
+    "dev:server": "tsx watch server/index.ts",
+    "build": "vite build",
+    "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest"
   },

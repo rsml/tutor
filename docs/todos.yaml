@@ -1,0 +1,7 @@
+- id: TODO-1
+  title: Use Electron v40.8.0
+  description: |
+    Update the project to use Electron v40.8.0. Add electron as a dependency
+    at version 40.8.0 and configure the project for Electron integration.
+  requires_human: false
+  status: pending
