@@ -205,3 +205,8 @@
     @apply bg-border-focus/20 text-content-primary;
   }
 }
+
+/* Prevent native overscroll on reader scroll container */
+#reader-scroll {
+  overscroll-behavior-y: none;
+}

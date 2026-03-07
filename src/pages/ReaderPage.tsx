@@ -1,6 +1,11 @@
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@src/components/ui/button'
+import { SelectionTooltip } from '@src/components/SelectionTooltip'
+import { ChatPanel } from '@src/components/ChatPanel'
+import { PageTurnOverlay } from '@src/components/PageTurnOverlay'
+import { useTextSelection } from '@src/hooks/useTextSelection'
+import { usePageTurnGesture } from '@src/hooks/usePageTurnGesture'
 import { useAppDispatch, useAppSelector, setChapterPosition } from '@src/store'
 
 interface Book {
@@ -29,6 +34,52 @@ function generateContent(bookTitle: string, chapter: number): string {
   return `This is chapter ${chapter} of **${bookTitle}**.\n\n## Building on What You Know\n\nIn the previous chapter, we established the core concepts. Now we'll extend that foundation with more nuanced ideas and practical applications.\n\n## Key Concepts\n\nEach concept builds on the last. Take your time here — understanding these connections is more valuable than memorizing individual facts.\n\n### Concept A\n\nThis relates directly to what we covered earlier, but with an important twist that changes how you should think about the problem.\n\n### Concept B\n\nHere's where theory meets practice. This is the pattern you'll reach for most often in real work.\n\n## Practice\n\nTry working through these ideas on your own before moving to the next chapter. The effort of recall strengthens understanding far more than re-reading.`
 }
 
+function renderChapterContent(chapter: { title: string; content: string }) {
+  return (
+    <article className="mx-auto max-w-2xl px-8 pt-6 pb-24">
+      <h1 className="text-3xl font-bold tracking-tight">{chapter.title}</h1>
+      <div className="mt-8 space-y-4 text-[1.05rem] leading-[1.8] text-content-secondary">
+        {chapter.content.split('\n\n').map((block, i) => {
+          if (block.startsWith('> ')) {
+            return (
+              <blockquote
+                key={i}
+                className="border-l-2 border-border-focus/40 pl-4 italic text-content-muted"
+              >
+                {block.slice(2)}
+              </blockquote>
+            )
+          }
+          if (block.startsWith('## ')) {
+            return (
+              <h2 key={i} className="mt-10 text-xl font-semibold text-content-primary">
+                {block.slice(3)}
+              </h2>
+            )
+          }
+          if (block.startsWith('### ')) {
+            return (
+              <h3 key={i} className="mt-7 text-lg font-medium text-content-primary">
+                {block.slice(4)}
+              </h3>
+            )
+          }
+          if (block.startsWith('- ')) {
+            return (
+              <ul key={i} className="list-disc space-y-1.5 pl-6">
+                {block.split('\n').map((line, j) => (
+                  <li key={j}>{renderInline(line.replace(/^- /, ''))}</li>
+                ))}
+              </ul>
+            )
+          }
+          return <p key={i}>{renderInline(block)}</p>
+        })}
+      </div>
+    </article>
+  )
+}
+
 export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void }) {
   const dispatch = useAppDispatch()
   const savedPosition = useAppSelector(s => s.readingProgress.positions[book.id])
@@ -40,6 +91,47 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
   const hasPrev = chapterIndex > 0
   const hasNext = chapterIndex < chapters.length - 1
 
+  const scrollRef = useRef<HTMLElement>(null)
+  const articleRef = useRef<HTMLElement>(null)
+
+  // Text selection
+  const { selectedText, selectionRect, clearSelection } = useTextSelection(articleRef)
+
+  // Chat panel
+  const [chatOpen, setChatOpen] = useState(false)
+  const [chatSelectedText, setChatSelectedText] = useState('')
+  const [chatPrompt, setChatPrompt] = useState<string | null>(null)
+  const [missingKeyAlert, setMissingKeyAlert] = useState(false)
+
+  const handleSelectionAction = useCallback((prompt: string) => {
+    setChatSelectedText(selectedText)
+    setChatPrompt(prompt)
+    setChatOpen(true)
+    clearSelection()
+  }, [selectedText, clearSelection])
+
+  const handleCloseChat = useCallback(() => {
+    setChatOpen(false)
+    setChatPrompt(null)
+  }, [])
+
+  // Page turn
+  const goChapter = useCallback((delta: number) => {
+    const next = chapterIndex + delta
+    if (next >= 0 && next < chapters.length) {
+      dispatch(setChapterPosition({ bookId: book.id, chapterIndex: next }))
+      scrollRef.current?.scrollTo({ top: 0 })
+    }
+  }, [chapterIndex, chapters.length, dispatch, book.id])
+
+  const { progress, direction, isAnimating } = usePageTurnGesture({
+    scrollRef,
+    hasPrev,
+    hasNext,
+    onNextChapter: () => goChapter(1),
+    onPrevChapter: () => goChapter(-1),
+  })
+
   // Save initial position on mount
   useEffect(() => {
     if (savedPosition == null) {
@@ -47,20 +139,15 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const goChapter = (delta: number) => {
-    const next = chapterIndex + delta
-    if (next >= 0 && next < chapters.length) {
-      dispatch(setChapterPosition({ bookId: book.id, chapterIndex: next }))
-      // Scroll back to top
-      document.getElementById('reader-scroll')?.scrollTo({ top: 0, behavior: 'smooth' })
-    }
-  }
+  // Build preview content for adjacent chapters
+  const nextChapter = hasNext ? chapters[chapterIndex + 1] : null
+  const prevChapter = hasPrev ? chapters[chapterIndex - 1] : null
 
   return (
     <div className="flex h-screen flex-col text-content-primary">
       {/* Header — drag region */}
       <header
-        className="relative flex h-12 shrink-0 items-center border-b border-border-default/50 bg-surface-base/80 px-4 backdrop-blur-md"
+        className="relative z-30 flex h-12 shrink-0 items-center border-b border-border-default/50 bg-surface-base/80 px-4 backdrop-blur-md"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
         <span className="absolute inset-x-0 pointer-events-none text-center text-sm font-semibold tracking-tight">
@@ -132,51 +219,68 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
           </div>
         )}
 
-        {/* Scrollable chapter content */}
-        <main id="reader-scroll" className="h-full overflow-y-auto">
-          <article className="mx-auto max-w-2xl px-8 pt-6 pb-24">
-            <h1 className="text-3xl font-bold tracking-tight">{chapter.title}</h1>
-            <div className="mt-8 space-y-4 text-[1.05rem] leading-[1.8] text-content-secondary">
-              {chapter.content.split('\n\n').map((block, i) => {
-                if (block.startsWith('> ')) {
-                  return (
-                    <blockquote
-                      key={i}
-                      className="border-l-2 border-border-focus/40 pl-4 italic text-content-muted"
-                    >
-                      {block.slice(2)}
-                    </blockquote>
-                  )
-                }
-                if (block.startsWith('## ')) {
-                  return (
-                    <h2 key={i} className="mt-10 text-xl font-semibold text-content-primary">
-                      {block.slice(3)}
-                    </h2>
-                  )
-                }
-                if (block.startsWith('### ')) {
-                  return (
-                    <h3 key={i} className="mt-7 text-lg font-medium text-content-primary">
-                      {block.slice(4)}
-                    </h3>
-                  )
-                }
-                if (block.startsWith('- ')) {
-                  return (
-                    <ul key={i} className="list-disc space-y-1.5 pl-6">
-                      {block.split('\n').map((line, j) => (
-                        <li key={j}>{renderInline(line.replace(/^- /, ''))}</li>
-                      ))}
-                    </ul>
-                  )
-                }
-                return <p key={i}>{renderInline(block)}</p>
-              })}
+        {/* Scrollable chapter content with page turn */}
+        <PageTurnOverlay
+          progress={progress}
+          direction={direction}
+          isAnimating={isAnimating}
+          nextPreview={nextChapter && (
+            <div className="h-full overflow-hidden opacity-60">
+              {renderChapterContent(nextChapter)}
             </div>
-          </article>
-        </main>
+          )}
+          prevPreview={prevChapter && (
+            <div className="h-full overflow-hidden opacity-60">
+              {renderChapterContent(prevChapter)}
+            </div>
+          )}
+        >
+          <main
+            ref={scrollRef}
+            className="h-full overflow-y-auto"
+            style={{ overscrollBehaviorY: 'none' }}
+          >
+            <article ref={articleRef}>
+              {renderChapterContent(chapter)}
+            </article>
+          </main>
+        </PageTurnOverlay>
       </div>
+
+      {/* Selection tooltip */}
+      <SelectionTooltip
+        selectedText={selectedText}
+        selectionRect={selectionRect}
+        onAction={handleSelectionAction}
+      />
+
+      {/* Chat panel */}
+      <ChatPanel
+        open={chatOpen}
+        onClose={handleCloseChat}
+        selectedText={chatSelectedText}
+        chapterContent={chapter.content}
+        initialPrompt={chatPrompt}
+        onMissingApiKey={() => setMissingKeyAlert(true)}
+      />
+
+      {/* Missing API key nudge */}
+      {missingKeyAlert && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-xs"
+          onClick={() => setMissingKeyAlert(false)}
+        >
+          <div className="rounded-xl border border-border-default bg-surface-overlay p-6 shadow-lg" onClick={e => e.stopPropagation()}>
+            <p className="text-sm text-content-primary">Set your API key in Settings to use chat features.</p>
+            <button
+              onClick={() => setMissingKeyAlert(false)}
+              className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -36,8 +36,8 @@ export function usePageTurnGesture({
 
   const virtualOffset = useRef(0)
   const directionRef = useRef<'next' | 'prev' | null>(null)
-  const debounceTimer = useRef<ReturnType<typeof setTimeout>>()
-  const animFrameRef = useRef<number>()
+  const debounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const animFrameRef = useRef<number>(undefined)
   const cooldownRef = useRef(false)
 
   const resetState = useCallback(() => {
