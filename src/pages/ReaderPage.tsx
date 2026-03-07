@@ -5,7 +5,7 @@ import { SelectionTooltip } from '@src/components/SelectionTooltip'
 import { ChatPanel } from '@src/components/ChatPanel'
 import { SettingsMenu } from '@src/components/SettingsMenu'
 import { useTextSelection } from '@src/hooks/useTextSelection'
-import { useAppDispatch, useAppSelector, setChapterPosition, setChapterFeedback, setChapterQuizResult, selectFontSize, selectApiKey, selectModel, selectActiveProvider } from '@src/store'
+import { useAppDispatch, useAppSelector, setChapterPosition, setChapterFeedback, setChapterQuizResult, recordQuizAttempt, selectFontSize, selectApiKey, selectModel, selectActiveProvider } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -199,6 +199,13 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
       score: answers.filter((a, i) => a === quizQuestions[i].correctIndex).length,
     }
     dispatch(setChapterQuizResult({ bookId: book.id, chapterNum: chapterIndex + 1, result }))
+    // Also record in quiz history for review/retake tracking
+    dispatch(recordQuizAttempt({
+      bookId: book.id,
+      chapterNum: chapterIndex + 1,
+      questions: quizQuestions,
+      answers,
+    }))
     setPhase('feedback')
     scrollRef.current?.scrollTo({ top: 0 })
   }, [quizQuestions, dispatch, book.id, chapterIndex])
