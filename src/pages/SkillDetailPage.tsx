@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Loader2 } from 'lucide-react'
-import { Button } from '@src/components/ui/button'
 import { ProgressStats } from '@src/components/ProgressStats'
 import { OverlaidBar } from '@src/components/OverlaidBar'
 import { NoiseOverlay } from '@src/components/NoiseOverlay'
@@ -54,14 +53,14 @@ export function SkillDetailPage({ skillName, onBack }: SkillDetailPageProps) {
         <header
           className="relative flex h-12 shrink-0 items-center border-b border-border-default/50 bg-surface-base/90 px-4 backdrop-blur-sm"
           style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-        >
-          <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-            <Button variant="ghost" size="icon-sm" onClick={onBack} aria-label="Back">
-              <ArrowLeft className="size-4" />
-            </Button>
-          </div>
-        </header>
-        <div className="flex flex-1 items-center justify-center">
+        />
+        <div className="relative flex flex-1 items-center justify-center">
+          <button
+            onClick={onBack}
+            className="absolute left-6 top-3 z-20 inline-flex items-center gap-1.5 p-2 text-content-muted/50 transition-colors hover:text-content-muted"
+          >
+            <ArrowLeft className="size-5" />
+          </button>
           <p className="text-sm text-content-muted">Skill not found.</p>
         </div>
       </div>
@@ -78,17 +77,18 @@ export function SkillDetailPage({ skillName, onBack }: SkillDetailPageProps) {
         className="relative flex h-12 shrink-0 items-center border-b border-border-default/50 bg-surface-base/90 px-4 backdrop-blur-sm"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
-        <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-          <Button variant="ghost" size="icon-sm" onClick={onBack} aria-label="Back to progress">
-            <ArrowLeft className="size-4" />
-          </Button>
-        </div>
         <span className="absolute inset-x-0 pointer-events-none text-center text-sm font-semibold tracking-tight">
           {skillName}
         </span>
       </header>
 
-      <main className="flex-1 overflow-y-auto px-8 py-8">
+      <main className="relative flex-1 overflow-y-auto px-8 py-8">
+        <button
+          onClick={onBack}
+          className="absolute left-6 top-3 z-20 inline-flex items-center gap-1.5 p-2 text-content-muted/50 transition-colors hover:text-content-muted"
+        >
+          <ArrowLeft className="size-5" />
+        </button>
         <div className="mx-auto max-w-3xl space-y-8">
           <ProgressStats
             stats={[

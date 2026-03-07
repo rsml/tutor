@@ -157,6 +157,10 @@ pnpm dev               # Vite on port 5173
 - Use CVA to add custom variants (e.g., button with `glass`, `command`)
 - Keep logic out of UI files — prefer hooks + context
 
+### Page Layout Patterns
+- **Header**: Centered title only, draggable region (`-webkit-app-region: drag`), no navigation buttons inside header
+- **Back button**: Absolute-positioned overlay on the content area below the header — `absolute left-6 top-3 z-20` on a plain `<button>` with `text-content-muted/50 hover:text-content-muted`. See `ReaderPage.tsx:339-344` as the reference pattern.
+
 ### Visual Aesthetic
 - Clean, minimal aesthetic inspired by Raycast, Linear, Obsidian
 - Subtle glassmorphism on floating panels: `backdrop-blur-md bg-background/80 border-border/50`
