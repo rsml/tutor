@@ -167,3 +167,26 @@ export const SetApiKeyBodySchema = z.object({
 export const RemoveApiKeyBodySchema = z.object({
   provider: ProviderSchema,
 })
+
+export const SuggestBookBodySchema = AiRequestSchema.extend({
+  quizHistory: z.record(
+    z.string(),
+    z.record(
+      z.string(),
+      z.object({
+        questions: z.array(z.object({
+          question: z.string(),
+          options: z.array(z.string()),
+          correctIndex: z.number(),
+        })),
+        attempts: z.array(z.object({
+          score: z.number(),
+          answers: z.array(z.object({
+            selectedAnswer: z.number(),
+            correct: z.boolean(),
+          })),
+        })),
+      }),
+    ),
+  ).optional(),
+})

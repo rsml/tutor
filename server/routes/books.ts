@@ -12,6 +12,7 @@ import {
   FinalQuizBodySchema,
   PatchBookBodySchema,
   RatingBodySchema,
+  SuggestBookBodySchema,
 } from '../schemas.js'
 
 const AI_TIMEOUT_MS = 5 * 60 * 1000
@@ -577,5 +578,107 @@ Write this chapter now.`,
     }
 
     reply.raw.end()
+  })
+
+  fastify.post<{ Body: unknown }>('/api/books/suggest', async (request, reply) => {
+    let body: z.infer<typeof SuggestBookBodySchema>
+    try {
+      body = SuggestBookBodySchema.parse(request.body)
+    } catch (err) {
+      if (err instanceof ZodError) {
+        return reply.status(400).send({ error: 'Invalid request', details: err.issues })
+      }
+      throw err
+    }
+
+    const { model, provider, quizHistory } = body
+
+    const allBooks = await store.listBooks()
+    const profileContext = await buildProfileContext()
+
+    const bookSummaries: string[] = []
+    for (const book of allBooks) {
+      const parts = [`"${book.title}" — Topic: ${book.prompt.slice(0, 200)}`]
+      parts.push(`Status: ${book.status}, Chapters: ${book.generatedUpTo}/${book.totalChapters}`)
+
+      if (book.rating) parts.push(`Rating: ${book.rating}/5`)
+
+      try {
+        const feedback = await store.getAllFeedback(book.id)
+        if (feedback.length > 0) {
+          const avgScore = feedback.reduce((sum, fb) => sum + (fb.quiz.score ?? 0), 0) / feedback.length
+          const totalQs = feedback.reduce((sum, fb) => sum + fb.quiz.questions.length, 0)
+          parts.push(`Avg quiz score: ${avgScore.toFixed(1)}/${totalQs > 0 ? (totalQs / feedback.length).toFixed(0) : '?'}`)
+
+          const wrongTopics = feedback.flatMap(fb =>
+            fb.quiz.questions.filter(q => q.correct === false).map(q => q.question)
+          )
+          if (wrongTopics.length > 0) {
+            parts.push(`Struggled with: ${wrongTopics.slice(0, 5).join('; ')}`)
+          }
+        }
+      } catch { /* no feedback */ }
+
+      const clientData = quizHistory?.[book.id]
+      if (clientData) {
+        const chapters = Object.entries(clientData)
+        let totalCorrect = 0
+        let totalQuestions = 0
+        const weakAreas: string[] = []
+
+        for (const [, ch] of chapters) {
+          const latest = ch.attempts[ch.attempts.length - 1]
+          if (!latest) continue
+          totalCorrect += latest.score
+          totalQuestions += ch.questions.length
+          latest.answers.forEach((a, i) => {
+            if (!a.correct) weakAreas.push(ch.questions[i].question)
+          })
+        }
+        if (totalQuestions > 0) {
+          parts.push(`Client quiz: ${totalCorrect}/${totalQuestions}`)
+        }
+        if (weakAreas.length > 0) {
+          parts.push(`Weak areas (client): ${weakAreas.slice(0, 5).join('; ')}`)
+        }
+      }
+
+      try {
+        const toc = await store.getToc(book.id)
+        parts.push(`Chapters: ${toc.chapters.map(c => c.title).join(', ')}`)
+      } catch { /* no toc */ }
+
+      bookSummaries.push(parts.join('\n  '))
+    }
+
+    const timeout = createTimeout()
+    try {
+      const result = await generateObject({
+        model: createModelClient(provider ?? 'anthropic', model),
+        abortSignal: timeout.signal,
+        schema: z.object({
+          topic: z.string().describe('The suggested book topic (concise, like "Kubernetes Networking" not "A book about...")'),
+          details: z.string().describe('Additional context and focus areas for the book (2-3 sentences)'),
+          reasoning: z.string().describe('Brief explanation of why this topic was suggested based on the learning gaps (1-2 sentences)'),
+        }),
+        prompt: `You are a learning advisor. Based on this reader's profile and their learning history, suggest ONE book topic they should study next.
+
+${profileContext ? `Reader profile:\n${profileContext}\n` : ''}
+
+${bookSummaries.length > 0 ? `Books in their library:\n${bookSummaries.map((s, i) => `${i + 1}. ${s}`).join('\n\n')}` : 'The reader has no books yet.'}
+
+Rules:
+- Suggest a topic that fills a KNOWLEDGE GAP — something they struggled with in quizzes, or a natural next step from what they've learned
+- Do NOT suggest a topic they already have a book for
+- Consider their identity and skill level — suggest something at the right difficulty
+- If they have no books yet, suggest something that matches their stated background and goals
+- The topic should be specific enough to make a focused book (not "Programming" but "Event-Driven Architecture in Node.js")
+- The details should explain what the book should focus on and why it's a good next step`,
+      })
+
+      return result.object
+    } finally {
+      timeout.clear()
+    }
   })
 }
