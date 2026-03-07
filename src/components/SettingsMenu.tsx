@@ -183,13 +183,13 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
         <DropdownMenuContent align="end" sideOffset={6} className="min-w-[220px]">
           {/* Provider / API Key */}
           <DropdownMenuItem onClick={openDialog} className="whitespace-nowrap">
-            <span className="size-4 flex items-center justify-center text-[10px] font-bold text-content-muted">
+            <span className="size-4 flex items-center justify-center text-[10px] font-bold text-content-muted transition-colors group-focus/dropdown-menu-item:text-accent-foreground">
               {activeDef.label.slice(0, 2).toUpperCase()}
             </span>
             {hasApiKey ? (
               <>
                 {activeDef.name}
-                <span className="ml-auto text-xs text-content-muted">{activeModelLabel}</span>
+                <span className="ml-auto text-xs text-content-muted transition-colors group-focus/dropdown-menu-item:text-accent-foreground">{activeModelLabel}</span>
               </>
             ) : (
               <>
