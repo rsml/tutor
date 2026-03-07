@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { BookOpen, ChevronDown, Sparkles, Loader2 } from 'lucide-react'
+import { ChevronDown, Sparkles, Loader2 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import {
   Dialog,
@@ -72,32 +72,13 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <DialogTitle>Create a new book</DialogTitle>
-              <DialogDescription>
-                Tell us what you want to learn. We'll generate a personalized table of contents.
-              </DialogDescription>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSuggest}
-              disabled={!hasApiKey || suggesting}
-              className="shrink-0 gap-1.5 text-xs text-content-muted hover:text-[oklch(0.55_0.20_285)]"
-              title="Suggest a book based on your learning history"
-            >
-              {suggesting ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <Sparkles className="size-3.5" />
-              )}
-              Suggest
-            </Button>
-          </div>
+          <DialogTitle>Create a new book</DialogTitle>
+          <DialogDescription>
+            Tell us what you want to learn. We'll generate a personalized table of contents.
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-2">
+        <div className="grid gap-4">
           {reasoning && (
             <p className="text-xs text-content-muted italic leading-relaxed bg-surface-muted/50 rounded-md px-3 py-2">
               {reasoning}
@@ -141,14 +122,28 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-row justify-between sm:justify-between">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSuggest}
+            disabled={!hasApiKey || suggesting}
+            className="gap-1.5 text-xs text-content-muted hover:text-[oklch(0.55_0.20_285)]"
+            title="Suggest a book based on your learning history"
+          >
+            {suggesting ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="size-3.5" />
+            )}
+            Suggest
+          </Button>
           <Button
             size="lg"
             disabled={!topic.trim()}
             onClick={handleCreate}
             className="bg-[oklch(0.55_0.20_285)] text-white font-semibold hover:bg-[oklch(0.50_0.22_285)]"
           >
-            <BookOpen data-icon="inline-start" className="size-4" />
             Create
           </Button>
         </DialogFooter>
