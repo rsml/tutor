@@ -16,6 +16,7 @@ import { SettingsMenu } from '@src/components/SettingsMenu'
 import { WizardModal } from '@src/components/WizardModal'
 import { CreationView } from '@src/components/CreationView'
 import { ReaderPage } from '@src/pages/ReaderPage'
+import { QuizReviewPage } from '@src/pages/QuizReviewPage'
 import { useAppSelector, useAppDispatch, setProviderApiKey, selectApiKey, selectFontSize } from '@src/store'
 import { PROVIDER_IDS } from '@src/lib/providers'
 import { apiUrl } from '@src/lib/api-base'
@@ -36,6 +37,7 @@ type View =
   | { type: 'library' }
   | { type: 'creating'; topic: string; details: string }
   | { type: 'reading'; book: Book }
+  | { type: 'quiz-review'; book: Book }
 
 export default function App() {
   const [view, setView] = useState<View>({ type: 'library' })
@@ -46,6 +48,7 @@ export default function App() {
   const [renameDialog, setRenameDialog] = useState<{ book: Book; title: string } | null>(null)
   const [deleteDialog, setDeleteDialog] = useState<{ book: Book; input: string } | null>(null)
   const [rateDialog, setRateDialog] = useState<{ book: Book; rating: number } | null>(null)
+  const [overviewBook, setOverviewBook] = useState<Book | null>(null)
   const [serverAvailable, setServerAvailable] = useState(true)
   const furthest = useAppSelector(s => s.readingProgress.furthest)
   const dispatch = useAppDispatch()
@@ -192,6 +195,16 @@ export default function App() {
     )
   }
 
+  if (view.type === 'quiz-review') {
+    return (
+      <QuizReviewPage
+        book={view.book}
+        onBack={() => { fetchBooks(); setView({ type: 'library' }) }}
+        onBackToReader={() => setView({ type: 'reading', book: view.book })}
+      />
+    )
+  }
+
   const apiBookIds = new Set(apiBooks.map(b => b.id))
   const allBooks = apiBooks
 
@@ -283,6 +296,24 @@ export default function App() {
             className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors"
           >
             Rate
+          </button>
+          <button
+            onClick={() => {
+              setView({ type: 'quiz-review', book: contextMenu.book })
+              setContextMenu(null)
+            }}
+            className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors"
+          >
+            Quiz Review
+          </button>
+          <button
+            onClick={() => {
+              setOverviewBook(contextMenu.book)
+              setContextMenu(null)
+            }}
+            className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors"
+          >
+            Book Overview
           </button>
           <button
             onClick={() => {
