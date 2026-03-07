@@ -22,7 +22,7 @@ interface ChapterFeedback {
 }
 
 // bookId -> chapterNum (string) -> data
-interface ChapterDataState {
+export interface ChapterDataState {
   feedback: Record<string, Record<string, ChapterFeedback>>
   quizResults: Record<string, Record<string, QuizResult>>
 }
@@ -52,7 +52,7 @@ export const selectChapterFeedback = (bookId: string, chapterNum: number) =>
 export const selectChapterQuizResult = (bookId: string, chapterNum: number) =>
   (state: RootState) => state.chapterData.quizResults[bookId]?.[String(chapterNum)] ?? null
 
-interface ReadingProgressState {
+export interface ReadingProgressState {
   positions: Record<string, number>
   furthest: Record<string, number>
 }
@@ -73,12 +73,12 @@ const readingProgressSlice = createSlice({
 
 export const { setChapterPosition } = readingProgressSlice.actions
 
-interface ProviderConfig {
+export interface ProviderConfig {
   apiKey: string | null
   model: string
 }
 
-interface SettingsState {
+export interface SettingsState {
   // Legacy fields (ignored after migration)
   apiKey?: string | null
   model?: string
@@ -220,3 +220,14 @@ export const useAppSelector = useSelector.withTypes<RootState>()
 
 export { recordQuizAttempt } from '@src/store/quizHistorySlice'
 export type { QuizQuestion as QuizHistoryQuestion, QuizAttempt, ChapterQuiz } from '@src/store/quizHistorySlice'
+
+export {
+  selectChapterQuiz,
+  selectChapterAttempts,
+  selectOverallScore,
+  selectChaptersNeedingReview,
+  selectChapterSparkline,
+  selectSmartReviewQueue,
+  selectBookQuizSummary,
+  selectPerQuestionCorrectRate,
+} from '@src/store/quizHistorySelectors'
