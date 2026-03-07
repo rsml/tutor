@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useAppSelector, selectTextureEnabled, selectTextureOpacity } from '@src/store'
 
 let cachedUrl: string | null = null
 
@@ -31,12 +32,16 @@ interface NoiseOverlayProps {
 
 export function NoiseOverlay({ opacity = 1, position = 'fixed' }: NoiseOverlayProps) {
   const ref = useRef<HTMLDivElement>(null)
+  const textureEnabled = useAppSelector(selectTextureEnabled)
+  const textureOpacity = useAppSelector(selectTextureOpacity)
 
   useEffect(() => {
     const el = ref.current
     if (!el) return
     el.style.backgroundImage = `url(${getNoiseUrl()})`
   }, [])
+
+  if (!textureEnabled) return null
 
   return (
     <div
@@ -46,7 +51,7 @@ export function NoiseOverlay({ opacity = 1, position = 'fixed' }: NoiseOverlayPr
         position,
         backgroundSize: '128px',
         zIndex: position === 'fixed' ? 9999 : undefined,
-        opacity: 0.025 * opacity,
+        opacity: 0.025 * opacity * textureOpacity,
       }}
       aria-hidden="true"
     />

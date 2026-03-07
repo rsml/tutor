@@ -27,11 +27,20 @@ export const { setChapterPosition } = readingProgressSlice.actions
 interface SettingsState {
   apiKey: string | null
   model: string
+  fontSize: number
+  textureEnabled: boolean
+  textureOpacity: number
 }
 
 const settingsSlice = createSlice({
   name: 'settings',
-  initialState: { apiKey: null, model: 'claude-sonnet-4-20250514' } as SettingsState,
+  initialState: {
+    apiKey: null,
+    model: 'claude-sonnet-4-20250514',
+    fontSize: 16,
+    textureEnabled: true,
+    textureOpacity: 1,
+  } as SettingsState,
   reducers: {
     setApiKey(state, action: PayloadAction<string | null>) {
       state.apiKey = action.payload
@@ -39,12 +48,24 @@ const settingsSlice = createSlice({
     setModel(state, action: PayloadAction<string>) {
       state.model = action.payload
     },
+    setFontSize(state, action: PayloadAction<number>) {
+      state.fontSize = action.payload
+    },
+    setTextureEnabled(state, action: PayloadAction<boolean>) {
+      state.textureEnabled = action.payload
+    },
+    setTextureOpacity(state, action: PayloadAction<number>) {
+      state.textureOpacity = action.payload
+    },
   },
 })
 
-export const { setApiKey, setModel } = settingsSlice.actions
+export const { setApiKey, setModel, setFontSize, setTextureEnabled, setTextureOpacity } = settingsSlice.actions
 export const selectApiKey = (state: RootState) => state.settings.apiKey
 export const selectModel = (state: RootState) => state.settings.model
+export const selectFontSize = (state: RootState) => state.settings.fontSize
+export const selectTextureEnabled = (state: RootState) => state.settings.textureEnabled
+export const selectTextureOpacity = (state: RootState) => state.settings.textureOpacity
 
 const rootReducer = combineReducers({
   readingProgress: readingProgressSlice.reducer,

@@ -4,7 +4,7 @@ import { Button } from '@src/components/ui/button'
 import { SelectionTooltip } from '@src/components/SelectionTooltip'
 import { ChatPanel } from '@src/components/ChatPanel'
 import { useTextSelection } from '@src/hooks/useTextSelection'
-import { useAppDispatch, useAppSelector, setChapterPosition } from '@src/store'
+import { useAppDispatch, useAppSelector, setChapterPosition, selectFontSize } from '@src/store'
 
 interface Book {
   id: string
@@ -36,7 +36,7 @@ function renderChapterContent(chapter: { title: string; content: string }) {
   return (
     <article className="mx-auto max-w-2xl px-8 pt-6 pb-24">
       <h1 className="text-3xl font-bold tracking-tight">{chapter.title}</h1>
-      <div className="mt-8 space-y-4 text-[1.05rem] leading-[1.8] text-content-secondary">
+      <div className="mt-8 space-y-4 leading-[1.8] text-content-secondary">
         {chapter.content.split('\n\n').map((block, i) => {
           if (block.startsWith('> ')) {
             return (
@@ -83,6 +83,7 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
   const savedPosition = useAppSelector(s => s.readingProgress.positions[book.id])
   const initialChapter = savedPosition ?? (book.chaptersRead > 0 ? book.chaptersRead - 1 : 0)
 
+  const fontSize = useAppSelector(selectFontSize)
   const chapters = getChapters(book)
   const chapterIndex = useAppSelector(s => s.readingProgress.positions[book.id]) ?? initialChapter
   const chapter = chapters[chapterIndex]
@@ -179,59 +180,62 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
         </button>
       </div>
 
-      {/* Content area with edge tap zones */}
-      <div className="relative flex-1 overflow-hidden">
-        {/* Left tap zone — previous chapter */}
-        {hasPrev && (
-          <div
-            className="absolute left-0 top-0 bottom-0 z-10 flex w-16 cursor-pointer items-center justify-center opacity-0 transition-opacity hover:opacity-100"
-            onClick={() => goChapter(-1)}
-          >
-            <div className="rounded-full bg-surface-muted/60 p-2 backdrop-blur-sm">
-              <ChevronLeft className="size-5 text-content-muted" />
+      {/* Content + chat panel in horizontal flex */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Content area with edge tap zones */}
+        <div className="relative flex-1 overflow-hidden">
+          {/* Left tap zone — previous chapter */}
+          {hasPrev && (
+            <div
+              className="absolute left-0 top-0 bottom-0 z-10 flex w-16 cursor-pointer items-center justify-center opacity-0 transition-opacity hover:opacity-100"
+              onClick={() => goChapter(-1)}
+            >
+              <div className="rounded-full bg-surface-muted/60 p-2 backdrop-blur-sm">
+                <ChevronLeft className="size-5 text-content-muted" />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Right tap zone — next chapter */}
-        {hasNext && (
-          <div
-            className="absolute right-0 top-0 bottom-0 z-10 flex w-16 cursor-pointer items-center justify-center opacity-0 transition-opacity hover:opacity-100"
-            onClick={() => goChapter(1)}
-          >
-            <div className="rounded-full bg-surface-muted/60 p-2 backdrop-blur-sm">
-              <ChevronRight className="size-5 text-content-muted" />
+          {/* Right tap zone — next chapter */}
+          {hasNext && (
+            <div
+              className="absolute right-0 top-0 bottom-0 z-10 flex w-16 cursor-pointer items-center justify-center opacity-0 transition-opacity hover:opacity-100"
+              onClick={() => goChapter(1)}
+            >
+              <div className="rounded-full bg-surface-muted/60 p-2 backdrop-blur-sm">
+                <ChevronRight className="size-5 text-content-muted" />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Scrollable chapter content */}
-        <main
-          ref={scrollRef}
-          className="h-full overflow-y-auto"
-        >
-          <article ref={articleRef}>
-            {renderChapterContent(chapter)}
-          </article>
-        </main>
+          {/* Scrollable chapter content */}
+          <main
+            ref={scrollRef}
+            className="h-full overflow-y-auto"
+          >
+            <article ref={articleRef} style={{ fontSize: `${fontSize}px` }}>
+              {renderChapterContent(chapter)}
+            </article>
+          </main>
+
+          {/* Selection tooltip */}
+          <SelectionTooltip
+            selectedText={selectedText}
+            selectionRect={selectionRect}
+            onAction={handleSelectionAction}
+          />
+        </div>
+
+        {/* Chat panel — sibling, pushes content */}
+        <ChatPanel
+          open={chatOpen}
+          onClose={handleCloseChat}
+          selectedText={chatSelectedText}
+          chapterContent={chapter.content}
+          initialPrompt={chatPrompt}
+          onMissingApiKey={() => setMissingKeyAlert(true)}
+        />
       </div>
-
-      {/* Selection tooltip */}
-      <SelectionTooltip
-        selectedText={selectedText}
-        selectionRect={selectionRect}
-        onAction={handleSelectionAction}
-      />
-
-      {/* Chat panel */}
-      <ChatPanel
-        open={chatOpen}
-        onClose={handleCloseChat}
-        selectedText={chatSelectedText}
-        chapterContent={chapter.content}
-        initialPrompt={chatPrompt}
-        onMissingApiKey={() => setMissingKeyAlert(true)}
-      />
 
       {/* Missing API key nudge */}
       {missingKeyAlert && (

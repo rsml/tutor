@@ -75,8 +75,8 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
   return (
     <div
       data-chat-panel
-      className={`fixed top-12 right-0 bottom-0 z-20 flex w-[420px] flex-col border-l border-border-default/50 bg-surface-base/95 backdrop-blur-sm transition-transform duration-300 ${
-        open ? 'translate-x-0' : 'translate-x-full'
+      className={`flex shrink-0 flex-col border-l border-border-default/50 bg-surface-base/95 backdrop-blur-sm transition-[width] duration-300 overflow-hidden ${
+        open ? 'w-[420px]' : 'w-0 border-l-0'
       }`}
     >
       {/* Header */}
