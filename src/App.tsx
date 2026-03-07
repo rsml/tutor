@@ -10,6 +10,7 @@ import {
   DialogFooter,
 } from '@src/components/ui/dialog'
 import { BookCard } from '@src/components/BookCard'
+import { StarRating } from '@src/components/StarRating'
 import { NoiseOverlay } from '@src/components/NoiseOverlay'
 import { SettingsMenu } from '@src/components/SettingsMenu'
 import { WizardModal } from '@src/components/WizardModal'
@@ -23,6 +24,10 @@ interface Book {
   title: string
   chaptersRead: number
   totalChapters: number
+  status?: string
+  rating?: number
+  finalQuizScore?: number
+  finalQuizTotal?: number
 }
 
 
@@ -39,6 +44,7 @@ export default function App() {
   const [contextMenu, setContextMenu] = useState<{ book: Book; x: number; y: number } | null>(null)
   const [renameDialog, setRenameDialog] = useState<{ book: Book; title: string } | null>(null)
   const [deleteDialog, setDeleteDialog] = useState<{ book: Book; input: string } | null>(null)
+  const [rateDialog, setRateDialog] = useState<{ book: Book; rating: number } | null>(null)
   const [serverAvailable, setServerAvailable] = useState(true)
   const furthest = useAppSelector(s => s.readingProgress.furthest)
   const dispatch = useAppDispatch()
@@ -104,11 +110,15 @@ export default function App() {
       if (res.ok) {
         const books = await res.json()
         setApiBooks(
-          books.map((b: { id: string; title: string; totalChapters: number; generatedUpTo: number }) => ({
+          books.map((b: { id: string; title: string; totalChapters: number; generatedUpTo: number; status?: string; rating?: number; finalQuizScore?: number; finalQuizTotal?: number }) => ({
             id: b.id,
             title: b.title,
             chaptersRead: 0,
             totalChapters: b.totalChapters,
+            status: b.status,
+            rating: b.rating,
+            finalQuizScore: b.finalQuizScore,
+            finalQuizTotal: b.finalQuizTotal,
           })),
         )
       }
@@ -233,6 +243,9 @@ export default function App() {
                   title={book.title}
                   chaptersRead={chaptersRead}
                   totalChapters={book.totalChapters}
+                  rating={book.rating}
+                  finalQuizScore={book.finalQuizScore}
+                  finalQuizTotal={book.finalQuizTotal}
                   onClick={() => setView({ type: 'reading', book })}
                   onContextMenu={apiBookIds.has(book.id) ? (e) => {
                     e.preventDefault()
@@ -260,6 +273,15 @@ export default function App() {
             className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors"
           >
             Rename
+          </button>
+          <button
+            onClick={() => {
+              setRateDialog({ book: contextMenu.book, rating: contextMenu.book.rating ?? 0 })
+              setContextMenu(null)
+            }}
+            className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors"
+          >
+            Rate
           </button>
           <button
             onClick={() => {
@@ -313,6 +335,43 @@ export default function App() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialog(null)}>Cancel</Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleteDialog?.input !== 'delete'}>OK</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rate dialog */}
+      <Dialog open={!!rateDialog} onOpenChange={open => { if (!open) setRateDialog(null) }}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Rate Book</DialogTitle>
+            <DialogDescription>{rateDialog?.book.title}</DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center py-4">
+            <StarRating
+              value={rateDialog?.rating ?? 0}
+              onChange={val => setRateDialog(prev => prev ? { ...prev, rating: val } : null)}
+              size="lg"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRateDialog(null)}>Cancel</Button>
+            <Button
+              onClick={async () => {
+                if (!rateDialog) return
+                try {
+                  await fetch(`/api/books/${rateDialog.book.id}/rating`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rating: rateDialog.rating }),
+                  })
+                  await fetchBooks()
+                } catch {}
+                setRateDialog(null)
+              }}
+              disabled={!rateDialog?.rating}
+            >
+              Save
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

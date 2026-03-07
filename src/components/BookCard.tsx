@@ -1,4 +1,5 @@
 import { NoiseOverlay } from '@src/components/NoiseOverlay'
+import { StarRating } from '@src/components/StarRating'
 
 function stringToHue(str: string): number {
   let hash = 0
@@ -12,11 +13,14 @@ interface BookCardProps {
   title: string
   chaptersRead: number
   totalChapters: number
+  rating?: number
+  finalQuizScore?: number
+  finalQuizTotal?: number
   onClick?: () => void
   onContextMenu?: (e: React.MouseEvent) => void
 }
 
-export function BookCard({ title, chaptersRead, totalChapters, onClick, onContextMenu }: BookCardProps) {
+export function BookCard({ title, chaptersRead, totalChapters, rating, finalQuizScore, finalQuizTotal, onClick, onContextMenu }: BookCardProps) {
   const hue = stringToHue(title)
   const progress = totalChapters > 0 ? chaptersRead / totalChapters : 0
 
@@ -54,11 +58,20 @@ export function BookCard({ title, chaptersRead, totalChapters, onClick, onContex
         <p className="line-clamp-1 text-[0.875em] font-medium text-content-primary">
           {title}
         </p>
-        <p className="mt-0.5 text-[0.75em] text-content-muted">
-          {chaptersRead === 0
-            ? `${totalChapters} chapters`
-            : `${chaptersRead} of ${totalChapters} chapters`}
-        </p>
+        {rating != null ? (
+          <div className="mt-0.5 flex items-center gap-2">
+            <StarRating value={rating} readonly size="sm" />
+            {finalQuizScore != null && finalQuizTotal != null && (
+              <span className="text-[0.75em] text-content-muted">{finalQuizScore}/{finalQuizTotal}</span>
+            )}
+          </div>
+        ) : (
+          <p className="mt-0.5 text-[0.75em] text-content-muted">
+            {chaptersRead === 0
+              ? `${totalChapters} chapters`
+              : `${chaptersRead} of ${totalChapters} chapters`}
+          </p>
+        )}
       </div>
     </div>
   )
