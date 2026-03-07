@@ -47,9 +47,10 @@ const DEFAULT_FONT_SIZE = 16
 interface SettingsMenuProps {
   apiKeyDialogOpen?: boolean
   onApiKeyDialogClose?: () => void
+  subtle?: boolean
 }
 
-export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose }: SettingsMenuProps = {}) {
+export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: SettingsMenuProps = {}) {
   const { theme, setTheme } = useTheme()
   const dispatch = useAppDispatch()
   const apiKey = useAppSelector(selectApiKey)
@@ -111,12 +112,12 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose }: Settings
               size="icon-sm"
               aria-label="Settings"
               style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-              className="relative"
+              className={`relative ${subtle ? 'text-content-muted/40 hover:text-content-muted' : ''}`}
             />
           }
         >
           <Settings className="size-4" />
-          {!apiKey && (
+          {!apiKey && !subtle && (
             <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-status-warn" />
           )}
         </DropdownMenuTrigger>

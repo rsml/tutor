@@ -168,7 +168,7 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
           >
             <ChevronRight className="size-4" />
           </Button>
-          <SettingsMenu />
+          <SettingsMenu subtle />
         </div>
       </header>
 
