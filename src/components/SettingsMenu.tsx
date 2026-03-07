@@ -68,6 +68,31 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
   const [internalDialogOpen, setInternalDialogOpen] = useState(false)
   const [dialogProvider, setDialogProvider] = useState<ProviderId>(activeProvider)
   const [keyInput, setKeyInput] = useState('')
+  const [profileConfigured, setProfileConfigured] = useState<boolean | null>(null)
+
+  // Check if learning profile has been set up
+  useEffect(() => {
+    fetch(apiUrl('/api/profile'))
+      .then(res => res.json())
+      .then(data => {
+        setProfileConfigured(!!data.aboutMe?.trim())
+      })
+      .catch(() => setProfileConfigured(false))
+  }, [])
+
+  // Re-check after interview or profile dialog closes
+  useEffect(() => {
+    if (!profileOpen && !interviewOpen) {
+      fetch(apiUrl('/api/profile'))
+        .then(res => res.json())
+        .then(data => setProfileConfigured(!!data.aboutMe?.trim()))
+        .catch(() => {})
+    }
+  }, [profileOpen, interviewOpen])
+
+  const needsApiKey = !hasApiKey
+  const needsProfile = profileConfigured === false
+  const hasAnyBadge = needsApiKey || needsProfile
 
   const dialogOpen = internalDialogOpen || (apiKeyDialogOpen ?? false)
   const setDialogOpen = (open: boolean) => {
@@ -149,7 +174,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
           }
         >
           <Settings className="size-4" />
-          {!hasApiKey && !subtle && (
+          {hasAnyBadge && !subtle && (
             <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-status-warn" />
           )}
         </DropdownMenuTrigger>
@@ -168,7 +193,10 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
             ) : (
               <>
                 AI Provider
-                <span className="ml-auto text-xs text-status-warn">Not set</span>
+                <span className="ml-auto flex items-center gap-1.5 text-xs text-status-warn">
+                  Not set
+                  <span className="size-1.5 rounded-full bg-status-warn" />
+                </span>
               </>
             )}
           </DropdownMenuItem>
@@ -176,6 +204,12 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, subtle }: 
           <DropdownMenuItem onClick={() => setProfileOpen(true)}>
             <User className="size-4" />
             Learning Profile
+            {needsProfile && (
+              <span className="ml-auto flex items-center gap-1.5 text-xs text-status-warn">
+                Not set
+                <span className="size-1.5 rounded-full bg-status-warn" />
+              </span>
+            )}
           </DropdownMenuItem>
 
           {/* Quick model switch for active provider */}

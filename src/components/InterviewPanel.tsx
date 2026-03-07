@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { X, SendHorizontal, CheckCircle2 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import { ChatMessage } from '@src/components/ChatMessage'
@@ -68,7 +69,7 @@ export function InterviewPanel({ open, onClose, onMissingApiKey }: InterviewPane
 
   if (!open) return null
 
-  return (
+  return createPortal(
     <>
       {/* Backdrop */}
       <div
@@ -142,6 +143,7 @@ export function InterviewPanel({ open, onClose, onMissingApiKey }: InterviewPane
           )}
         </div>
       </div>
-    </>
+    </>,
+    document.body
   )
 }

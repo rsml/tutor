@@ -33,7 +33,11 @@ export function ChatMessage({ message, selectedText, isFirst }: ChatMessageProps
             <SafeMarkdown>{message.content}</SafeMarkdown>
           </div>
         ) : (
-          <span className="inline-block size-1.5 animate-pulse rounded-full bg-content-muted" />
+          <span className="inline-flex items-center gap-1 py-0.5">
+            <span className="size-1.5 rounded-full bg-content-muted animate-[typing-dot_1.4s_ease-in-out_infinite]" />
+            <span className="size-1.5 rounded-full bg-content-muted animate-[typing-dot_1.4s_ease-in-out_0.2s_infinite]" />
+            <span className="size-1.5 rounded-full bg-content-muted animate-[typing-dot_1.4s_ease-in-out_0.4s_infinite]" />
+          </span>
         )}
       </div>
     </div>

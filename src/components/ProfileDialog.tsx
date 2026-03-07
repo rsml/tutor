@@ -156,6 +156,19 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkil
         </DialogHeader>
 
         <div className="grid gap-4 py-2">
+          {/* Prior Knowledge */}
+          <div className="grid gap-2">
+            <span className="text-sm font-medium text-content-primary">Prior Knowledge</span>
+            <button
+              type="button"
+              onClick={onOpenSkills}
+              className="flex items-center justify-between gap-3 rounded-lg border border-border-default/50 px-3 py-2 text-sm text-content-secondary transition-colors hover:bg-surface-raised hover:text-content-primary"
+            >
+              <span>{skills.length > 0 ? `${skills.length} skill${skills.length !== 1 ? 's' : ''}` : 'No skills added'}</span>
+              <ChevronRight className="size-4 text-content-muted" />
+            </button>
+          </div>
+
           {/* About Me */}
           <div className="grid gap-1.5">
             <div className="flex items-center justify-between">
@@ -170,7 +183,7 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkil
 
             {showConfirm && (
               <div className="flex items-center justify-between gap-2 rounded-lg border border-status-warn/30 bg-status-warn/10 px-3 py-2 text-xs text-content-secondary">
-                <span>This will replace your About Me and preferences.</span>
+                <span>This will replace your About Me, preferences, and style settings. Prior knowledge is kept.</span>
                 <div className="flex gap-1.5 shrink-0">
                   <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => setShowConfirm(false)}>
                     Cancel
@@ -213,19 +226,6 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkil
                 </button>
               </label>
             ))}
-          </div>
-
-          {/* Prior Knowledge */}
-          <div className="grid gap-2">
-            <span className="text-sm font-medium text-content-primary">Prior Knowledge</span>
-            <button
-              type="button"
-              onClick={onOpenSkills}
-              className="flex items-center justify-between gap-3 rounded-lg border border-border-default/50 px-3 py-2 text-sm text-content-secondary transition-colors hover:bg-surface-raised hover:text-content-primary"
-            >
-              <span>{skills.length > 0 ? `${skills.length} skill${skills.length !== 1 ? 's' : ''}` : 'No skills added'}</span>
-              <ChevronRight className="size-4 text-content-muted" />
-            </button>
           </div>
 
           {/* Slider Preferences */}

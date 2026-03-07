@@ -1,5 +1,4 @@
 import Fastify from 'fastify'
-import cors from '@fastify/cors'
 import rateLimit from '@fastify/rate-limit'
 import { chatRoutes } from './routes/chat.js'
 import { bookRoutes } from './routes/books.js'
@@ -30,17 +29,26 @@ export async function startServer(port = 3147, host = '127.0.0.1') {
     },
   })
 
-  await fastify.register(cors, {
-    origin: (origin, cb) => {
-      // Allow requests with no origin (Electron, curl, etc.)
-      if (!origin || ALLOWED_ORIGINS.includes(origin)) {
-        cb(null, true)
-      } else {
-        cb(new Error('Not allowed by CORS'), false)
-      }
-    },
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type'],
+  // Manual CORS via onRequest hook — sets headers on reply.raw so they
+  // survive streaming routes that use reply.raw.writeHead().
+  // @fastify/cors uses reply.header() which only applies during reply.send(),
+  // so streaming routes that bypass send() would lose CORS headers.
+  fastify.addHook('onRequest', async (request, reply) => {
+    const origin = request.headers.origin
+    if (origin && !ALLOWED_ORIGINS.includes(origin)) {
+      reply.status(403).send({ error: 'Not allowed by CORS' })
+      return
+    }
+    if (origin) {
+      reply.raw.setHeader('Access-Control-Allow-Origin', origin)
+      reply.raw.setHeader('Vary', 'Origin')
+    }
+    if (request.method === 'OPTIONS') {
+      reply.raw.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
+      reply.raw.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+      reply.status(204).send()
+      return
+    }
   })
 
   await fastify.register(rateLimit, { global: false })
