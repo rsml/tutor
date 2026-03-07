@@ -10,6 +10,17 @@ export default defineConfig({
     electron({
       main: {
         entry: 'electron/main.ts',
+        vite: {
+          build: {
+            rollupOptions: {
+              external: (id) => {
+                if (id.startsWith('node:')) return true
+                if (/^[a-z@]/.test(id) && !id.startsWith('.') && !id.startsWith('/')) return true
+                return false
+              },
+            },
+          },
+        },
       },
       preload: {
         input: 'electron/preload.ts',
