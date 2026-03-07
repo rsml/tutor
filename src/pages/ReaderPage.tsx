@@ -5,8 +5,10 @@ import { SelectionTooltip } from '@src/components/SelectionTooltip'
 import { ChatPanel } from '@src/components/ChatPanel'
 import { SettingsMenu } from '@src/components/SettingsMenu'
 import { useTextSelection } from '@src/hooks/useTextSelection'
-import { useAppDispatch, useAppSelector, setChapterPosition, setChapterFeedback, setChapterQuizResult, recordQuizAttempt, selectFontSize, selectModel, selectActiveProvider } from '@src/store'
+import { useSectionNavigation } from '@src/hooks/useSectionNavigation'
+import { store, useAppDispatch, useAppSelector, setPosition, setChapterFeedback, setChapterQuizResult, recordQuizAttempt, selectFontSize, selectModel, selectActiveProvider } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
+import { cn } from '@src/lib/utils'
 import { SafeMarkdown } from '@src/components/SafeMarkdown'
 import { QuizPanel } from '@src/components/QuizPanel'
 import { FeedbackForm } from '@src/components/FeedbackForm'
@@ -26,17 +28,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
   onQuizReview?: () => void
 }) {
   const dispatch = useAppDispatch()
-  const savedPosition = useAppSelector(s => s.readingProgress.positions[book.id])
-  const initialChapter = savedPosition ?? (book.chaptersRead > 0 ? book.chaptersRead - 1 : 0)
-
   const fontSize = useAppSelector(selectFontSize)
-  const chapterIndex = useAppSelector(s => s.readingProgress.positions[book.id]) ?? initialChapter
-  const hasPrev = chapterIndex > 0
-  const hasNext = chapterIndex < book.totalChapters - 1
-
-  // Fetch chapter content from API
-  const [chapterContent, setChapterContent] = useState<string | null>(null)
-  const [chapterLoading, setChapterLoading] = useState(true)
 
   type Phase = 'reading' | 'quiz' | 'feedback' | 'generating' | 'final-quiz' | 'rating' | 'complete'
   const [phase, setPhase] = useState<Phase>('reading')
@@ -56,43 +48,30 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
   const model = useAppSelector(selectModel)
   const provider = useAppSelector(selectActiveProvider)
 
-  const isOnLastGenerated = chapterIndex + 1 === generatedUpTo && generatedUpTo < book.totalChapters
-  const isLastChapter = chapterIndex + 1 === book.totalChapters
-  const isOnLastChapterReady = isLastChapter && generatedUpTo >= book.totalChapters
-
-  useEffect(() => {
-    let cancelled = false
-    setChapterLoading(true)
-    setChapterContent(null)
-
-    const chapterNum = chapterIndex + 1
-    fetch(apiUrl(`/api/books/${book.id}/chapters/${chapterNum}`))
-      .then(res => {
-        if (!res.ok) throw new Error('Not found')
-        return res.json()
-      })
-      .then(data => {
-        if (!cancelled) {
-          setChapterContent(data.content)
-          setChapterLoading(false)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setChapterContent(null)
-          setChapterLoading(false)
-        }
-      })
-
-    return () => { cancelled = true }
-  }, [book.id, chapterIndex])
-
   useEffect(() => {
     fetch(apiUrl(`/api/books/${book.id}`))
       .then(res => res.json())
       .then(data => setGeneratedUpTo(data.generatedUpTo))
       .catch(() => {})
   }, [book.id])
+
+  const {
+    chapterIndex, sectionIndex, sections, currentSection,
+    fullChapterContent, loading: chapterLoading,
+    hasPrev, hasNext,
+    isLastSectionOfLastGenerated, isLastSectionOfBook,
+    isLastChapter, sectionLabel,
+    goNext, goPrev,
+  } = useSectionNavigation({ bookId: book.id, totalChapters: book.totalChapters, generatedUpTo })
+
+  // Save initial position on mount
+  useEffect(() => {
+    const pos = store.getState().readingProgress.positions[book.id]
+    if (!pos) {
+      const initialChapter = book.chaptersRead > 0 ? book.chaptersRead - 1 : 0
+      dispatch(setPosition({ bookId: book.id, chapter: initialChapter, section: 0 }))
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const scrollRef = useRef<HTMLElement>(null)
   const articleRef = useRef<HTMLElement>(null)
@@ -130,7 +109,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
           return
         }
       }
-    } catch {}
+    } catch { /* empty */ }
     setPhase('feedback')
     scrollRef.current?.scrollTo({ top: 0 })
   }, [book.id, chapterIndex])
@@ -274,7 +253,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
               if (streamingRafRef.current) cancelAnimationFrame(streamingRafRef.current)
               const nextIndex = chapterIndex + 1
               setGeneratedUpTo(data.chapterNum)
-              dispatch(setChapterPosition({ bookId: book.id, chapterIndex: nextIndex }))
+              dispatch(setPosition({ bookId: book.id, chapter: nextIndex, section: 0 }))
               setPhase('reading')
               scrollRef.current?.scrollTo({ top: 0 })
             } else if (data.type === 'error') {
@@ -288,22 +267,10 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
     }
   }, [book.id, chapterIndex, quizAnswers, model, provider, dispatch])
 
-  // Page turn
-  const goChapter = useCallback((delta: number) => {
-    const next = chapterIndex + delta
-    if (next >= 0 && next < book.totalChapters) {
-      dispatch(setChapterPosition({ bookId: book.id, chapterIndex: next }))
-      setPhase('reading')
-      scrollRef.current?.scrollTo({ top: 0 })
-    }
-  }, [chapterIndex, book.totalChapters, dispatch, book.id])
-
-  // Save initial position on mount
+  // Scroll to top on section change
   useEffect(() => {
-    if (savedPosition == null) {
-      dispatch(setChapterPosition({ bookId: book.id, chapterIndex: initialChapter }))
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    scrollRef.current?.scrollTo({ top: 0 })
+  }, [chapterIndex, sectionIndex])
 
   return (
     <div className="flex h-screen flex-col text-content-primary">
@@ -322,23 +289,23 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
           <span className="mr-1 text-xs text-content-muted">
-            {chapterIndex + 1} / {book.totalChapters}
+            {sectionLabel}
           </span>
           <Button
             variant="ghost"
             size="icon-sm"
-            onClick={() => goChapter(-1)}
+            onClick={goPrev}
             disabled={!hasPrev}
-            aria-label="Previous chapter"
+            aria-label="Previous section"
           >
             <ChevronLeft className="size-4" />
           </Button>
           <Button
             variant="ghost"
             size="icon-sm"
-            onClick={() => goChapter(1)}
+            onClick={goNext}
             disabled={!hasNext}
-            aria-label="Next chapter"
+            aria-label="Next section"
           >
             <ChevronRight className="size-4" />
           </Button>
@@ -368,11 +335,11 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
 
         {/* Content area with edge tap zones */}
         <div className="relative flex-1 overflow-hidden">
-          {/* Left tap zone — previous chapter */}
+          {/* Left tap zone — previous section */}
           {hasPrev && (
             <div
               className="absolute left-0 top-0 bottom-0 z-10 flex w-16 cursor-pointer items-center justify-center opacity-0 transition-opacity hover:opacity-100"
-              onClick={() => goChapter(-1)}
+              onClick={goPrev}
             >
               <div className="rounded-full bg-surface-muted/60 p-2 backdrop-blur-sm">
                 <ChevronLeft className="size-5 text-content-muted" />
@@ -380,11 +347,11 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
             </div>
           )}
 
-          {/* Right tap zone — next chapter */}
+          {/* Right tap zone — next section */}
           {hasNext && (
             <div
               className="absolute right-0 top-0 bottom-0 z-10 flex w-16 cursor-pointer items-center justify-center opacity-0 transition-opacity hover:opacity-100"
-              onClick={() => goChapter(1)}
+              onClick={goNext}
             >
               <div className="rounded-full bg-surface-muted/60 p-2 backdrop-blur-sm">
                 <ChevronRight className="size-5 text-content-muted" />
@@ -400,24 +367,37 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
             <article ref={articleRef} style={{ fontSize: `${fontSize}px` }}>
               {phase === 'reading' && (
                 <div className="mx-auto max-w-2xl px-8 pb-24">
+                  {/* Section progress dots */}
+                  {sections.length > 1 && (
+                    <div className="flex items-center justify-center gap-1.5 py-1.5 border-b border-border-default/30">
+                      {sections.map((_, i) => (
+                        <div key={i} className={cn(
+                          "h-1.5 rounded-full transition-all",
+                          i === sectionIndex ? "w-4 bg-[oklch(0.55_0.20_285)]"
+                            : i < sectionIndex ? "w-1.5 bg-content-muted/40"
+                            : "w-1.5 bg-content-muted/20"
+                        )} />
+                      ))}
+                    </div>
+                  )}
                   {chapterLoading ? (
                     <div className="flex items-center gap-2 pt-12 text-content-muted">
                       <Loader2 className="size-4 animate-spin" />
                       <span className="text-sm">Loading chapter...</span>
                     </div>
-                  ) : chapterContent ? (
+                  ) : currentSection ? (
                     <>
                       <div className="reader-prose">
-                        <SafeMarkdown>{chapterContent}</SafeMarkdown>
+                        <SafeMarkdown>{currentSection.markdown}</SafeMarkdown>
                       </div>
-                      {(isOnLastGenerated || isOnLastChapterReady) && (
+                      {(isLastSectionOfLastGenerated || isLastSectionOfBook) && (
                         <div className="mt-12 flex justify-center">
                           <Button
                             size="lg"
-                            onClick={isOnLastChapterReady ? handleFinishBook : handleKeepGoing}
+                            onClick={isLastSectionOfBook ? handleFinishBook : handleKeepGoing}
                             className="bg-[oklch(0.55_0.20_285)] text-white font-semibold hover:bg-[oklch(0.50_0.22_285)]"
                           >
-                            {isOnLastChapterReady ? 'Finish Book' : 'Keep Going'}
+                            {isLastSectionOfBook ? 'Finish Book' : 'Keep Going'}
                           </Button>
                         </div>
                       )}
@@ -533,7 +513,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
           open={chatOpen}
           onClose={handleCloseChat}
           selectedText={chatSelectedText}
-          chapterContent={chapterContent ?? ''}
+          chapterContent={fullChapterContent ?? ''}
           initialPrompt={chatPrompt}
           onMissingApiKey={() => setMissingKeyAlert(true)}
         />
