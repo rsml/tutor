@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { toast } from 'sonner'
 import { Plus } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import {
@@ -50,6 +51,7 @@ export default function App() {
   const [deleteDialog, setDeleteDialog] = useState<{ book: Book; input: string } | null>(null)
   const [rateDialog, setRateDialog] = useState<{ book: Book; rating: number } | null>(null)
   const [overviewBook, setOverviewBook] = useState<Book | null>(null)
+  const [mutating, setMutating] = useState(false)
   const [serverAvailable, setServerAvailable] = useState(true)
   const furthest = useAppSelector(s => s.readingProgress.furthest)
   const dispatch = useAppDispatch()
@@ -156,7 +158,7 @@ export default function App() {
         )
       }
     } catch {
-      // Server may not be running
+      toast.error('Failed to load books — is the server running?')
     }
   }, [])
 
@@ -182,6 +184,7 @@ export default function App() {
     if (!renameDialog) return
     const trimmed = renameDialog.title.trim()
     if (!trimmed) return
+    setMutating(true)
     try {
       const res = await fetch(apiUrl(`/api/books/${renameDialog.book.id}`), {
         method: 'PATCH',
@@ -189,18 +192,29 @@ export default function App() {
         body: JSON.stringify({ title: trimmed }),
       })
       if (res.ok) await fetchBooks()
-    } catch { /* server unreachable */ }
+      else toast.error('Failed to rename book')
+    } catch {
+      toast.error('Failed to rename book — server unreachable')
+    } finally {
+      setMutating(false)
+    }
     setRenameDialog(null)
   }
 
   const handleDelete = async () => {
     if (!deleteDialog || deleteDialog.input !== 'delete') return
+    setMutating(true)
     try {
       const res = await fetch(apiUrl(`/api/books/${deleteDialog.book.id}`), {
         method: 'DELETE',
       })
       if (res.ok) await fetchBooks()
-    } catch { /* server unreachable */ }
+      else toast.error('Failed to delete book')
+    } catch {
+      toast.error('Failed to delete book — server unreachable')
+    } finally {
+      setMutating(false)
+    }
     setDeleteDialog(null)
   }
 
@@ -372,7 +386,7 @@ export default function App() {
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setRenameDialog(null)}>Cancel</Button>
-            <Button onClick={handleRename} disabled={!renameDialog?.title.trim()}>OK</Button>
+            <Button onClick={handleRename} disabled={!renameDialog?.title.trim() || mutating}>OK</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -396,7 +410,7 @@ export default function App() {
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialog(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleteDialog?.input !== 'delete'}>OK</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleteDialog?.input !== 'delete' || mutating}>OK</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -420,17 +434,23 @@ export default function App() {
             <Button
               onClick={async () => {
                 if (!rateDialog) return
+                setMutating(true)
                 try {
-                  await fetch(apiUrl(`/api/books/${rateDialog.book.id}/rating`), {
+                  const res = await fetch(apiUrl(`/api/books/${rateDialog.book.id}/rating`), {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ rating: rateDialog.rating }),
                   })
-                  await fetchBooks()
-                } catch {}
+                  if (res.ok) await fetchBooks()
+                  else toast.error('Failed to save rating')
+                } catch {
+                  toast.error('Failed to save rating — server unreachable')
+                } finally {
+                  setMutating(false)
+                }
                 setRateDialog(null)
               }}
-              disabled={!rateDialog?.rating}
+              disabled={!rateDialog?.rating || mutating}
             >
               Save
             </Button>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { BookOpen, ChevronDown, Sparkles, Loader2 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import {
@@ -61,7 +62,7 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
       setDetailsOpen(true)
       if (data.reasoning) setReasoning(data.reasoning)
     } catch {
-      // Silent fail — user can still type manually
+      toast.error('Failed to get suggestion — try again or type manually')
     } finally {
       setSuggesting(false)
     }

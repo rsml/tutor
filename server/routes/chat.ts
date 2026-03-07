@@ -7,7 +7,7 @@ import { ChatBodySchema } from '../schemas.js'
 const AI_TIMEOUT_MS = 5 * 60 * 1000
 
 export async function chatRoutes(fastify: FastifyInstance) {
-  fastify.post<{ Body: unknown }>('/api/chat', async (request, reply) => {
+  fastify.post<{ Body: unknown }>('/api/chat', { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (request, reply) => {
     let body: {
       model: string
       provider?: string

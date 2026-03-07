@@ -5,6 +5,7 @@ import { PersistGate } from 'redux-persist/integration/react'
 import { store, persistor } from './store'
 import { ThemeProvider } from './components/ThemeProvider'
 import { initApiBase } from './lib/api-base'
+import { Toaster } from 'sonner'
 import App from './App'
 import './index.css'
 
@@ -15,6 +16,7 @@ initApiBase().then(() => {
         <PersistGate loading={null} persistor={persistor}>
           <ThemeProvider>
             <App />
+            <Toaster position="bottom-right" theme="dark" richColors />
           </ThemeProvider>
         </PersistGate>
       </Provider>

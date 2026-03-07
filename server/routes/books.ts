@@ -122,6 +122,8 @@ async function validateChapterNum(bookId: string, num: number): Promise<void> {
   }
 }
 
+const generationLocks = new Map<string, boolean>()
+
 export async function bookRoutes(fastify: FastifyInstance) {
   fastify.get('/api/books', async () => {
     return store.listBooks()
@@ -199,7 +201,7 @@ export async function bookRoutes(fastify: FastifyInstance) {
   fastify.post<{
     Params: { id: string }
     Body: unknown
-  }>('/api/books/:id/generate-next', { schema: { params: bookIdSchema } }, async (request, reply) => {
+  }>('/api/books/:id/generate-next', { schema: { params: bookIdSchema }, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     let body: { model: string; provider?: string }
     try {
       body = GenerateNextBodySchema.parse(request.body)
@@ -213,11 +215,17 @@ export async function bookRoutes(fastify: FastifyInstance) {
     const { model, provider } = body
     const bookId = request.params.id
 
+    if (generationLocks.get(bookId)) {
+      return reply.status(409).send({ error: 'Generation already in progress for this book' })
+    }
+    generationLocks.set(bookId, true)
+
     const meta = await store.getBook(bookId)
     const toc = await store.getToc(bookId)
     const nextNum = meta.generatedUpTo + 1
 
     if (nextNum > meta.totalChapters) {
+      generationLocks.delete(bookId)
       return reply.status(400).send({ error: 'All chapters already generated' })
     }
 
@@ -313,6 +321,8 @@ Write this chapter now.`,
         type: 'error',
         message: error instanceof Error ? error.message : 'Generation failed',
       })
+    } finally {
+      generationLocks.delete(bookId)
     }
 
     reply.raw.end()
@@ -438,7 +448,7 @@ ${priorQuestions.map(q => `  - ${q}`).join('\n')}`,
     }
   })
 
-  fastify.post<{ Body: unknown }>('/api/books', async (request, reply) => {
+  fastify.post<{ Body: unknown }>('/api/books', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     let body: { topic: string; details?: string; model: string; provider?: string }
     try {
       body = CreateBookBodySchema.parse(request.body)
