@@ -3,7 +3,6 @@ import { BookOpen, ChevronDown } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import {
   Dialog,
-  DialogTrigger,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -12,27 +11,26 @@ import {
 } from '@src/components/ui/dialog'
 
 interface WizardModalProps {
-  trigger: React.ReactElement
+  open: boolean
+  onOpenChange: (open: boolean) => void
   onCreate: (topic: string, details: string) => void
 }
 
-export function WizardModal({ trigger, onCreate }: WizardModalProps) {
-  const [open, setOpen] = useState(false)
+export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) {
   const [topic, setTopic] = useState('')
   const [details, setDetails] = useState('')
   const [detailsOpen, setDetailsOpen] = useState(true)
 
   const handleCreate = () => {
     if (!topic.trim()) return
-    setOpen(false)
+    onOpenChange(false)
     onCreate(topic.trim(), details.trim())
     setTopic('')
     setDetails('')
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={trigger} />
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Create a new book</DialogTitle>

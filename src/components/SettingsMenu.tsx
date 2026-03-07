@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Settings, Sun, Moon, Monitor, Key } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import {
@@ -31,14 +31,33 @@ const MODELS = [
   { value: 'claude-opus-4-20250514', label: 'Claude Opus' },
 ]
 
-export function SettingsMenu() {
+interface SettingsMenuProps {
+  apiKeyDialogOpen?: boolean
+  onApiKeyDialogClose?: () => void
+}
+
+export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose }: SettingsMenuProps = {}) {
   const { theme, setTheme } = useTheme()
   const dispatch = useAppDispatch()
   const apiKey = useAppSelector(selectApiKey)
   const model = useAppSelector(selectModel)
-  const [dialogOpen, setDialogOpen] = useState(false)
+  const [internalDialogOpen, setInternalDialogOpen] = useState(false)
   const [keyInput, setKeyInput] = useState('')
   const [selectedModel, setSelectedModel] = useState(model)
+
+  const dialogOpen = internalDialogOpen || (apiKeyDialogOpen ?? false)
+  const setDialogOpen = (open: boolean) => {
+    setInternalDialogOpen(open)
+    if (!open) onApiKeyDialogClose?.()
+  }
+
+  // Initialize inputs when dialog opens externally
+  useEffect(() => {
+    if (apiKeyDialogOpen) {
+      setKeyInput(apiKey ?? '')
+      setSelectedModel(model)
+    }
+  }, [apiKeyDialogOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const openDialog = () => {
     setKeyInput(apiKey ?? '')

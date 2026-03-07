@@ -35,19 +35,29 @@ type View =
 export default function App() {
   const [view, setView] = useState<View>({ type: 'library' })
   const [apiBooks, setApiBooks] = useState<Book[]>([])
+  const [wizardOpen, setWizardOpen] = useState(false)
+  const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false)
   const furthest = useAppSelector(s => s.readingProgress.furthest)
   const dispatch = useAppDispatch()
-  const existingKey = useAppSelector(selectApiKey)
+  const apiKey = useAppSelector(selectApiKey)
 
   useEffect(() => {
     window.electronAPI?.loadApiKey().then(key => {
       if (key) {
         dispatch(setApiKey(key))
-      } else if (existingKey) {
-        window.electronAPI?.saveApiKey(existingKey)
+      } else if (apiKey) {
+        window.electronAPI?.saveApiKey(apiKey)
       }
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleNewBook = () => {
+    if (!apiKey) {
+      setApiKeyDialogOpen(true)
+    } else {
+      setWizardOpen(true)
+    }
+  }
 
   const fetchBooks = useCallback(async () => {
     try {
@@ -121,19 +131,23 @@ export default function App() {
         </span>
 
         <div className="ml-auto flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          <Button
+            size="sm"
+            onClick={handleNewBook}
+            className="bg-[oklch(0.55_0.20_285)] text-white hover:bg-[oklch(0.50_0.22_285)]"
+          >
+            <Plus data-icon="inline-start" className="size-4" />
+            New Book
+          </Button>
           <WizardModal
+            open={wizardOpen}
+            onOpenChange={setWizardOpen}
             onCreate={handleCreate}
-            trigger={
-              <Button
-                size="sm"
-                className="bg-[oklch(0.55_0.20_285)] text-white hover:bg-[oklch(0.50_0.22_285)]"
-              >
-                <Plus data-icon="inline-start" className="size-4" />
-                New Book
-              </Button>
-            }
           />
-          <SettingsMenu />
+          <SettingsMenu
+            apiKeyDialogOpen={apiKeyDialogOpen}
+            onApiKeyDialogClose={() => setApiKeyDialogOpen(false)}
+          />
         </div>
       </header>
 
