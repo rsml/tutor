@@ -265,6 +265,61 @@ Write this chapter now.`,
     return { ok: true }
   })
 
+  fastify.post<{
+    Params: { id: string }
+    Body: { apiKey: string; model: string; provider?: string }
+  }>('/api/books/:id/final-quiz', async (request) => {
+    const { apiKey, model, provider } = request.body
+    const bookId = request.params.id
+    const meta = await store.getBook(bookId)
+    const toc = await store.getToc(bookId)
+
+    // Gather all chapter summaries (first 300 chars each to stay within context)
+    const chapterSummaries: string[] = []
+    for (let i = 1; i <= meta.generatedUpTo; i++) {
+      try {
+        const content = await store.getChapter(bookId, i)
+        chapterSummaries.push(`Chapter ${i} "${toc.chapters[i - 1]?.title}": ${content.slice(0, 300)}...`)
+      } catch { /* skip */ }
+    }
+
+    // Gather all prior quiz data to avoid repeating questions
+    const allFeedback = await store.getAllFeedback(bookId)
+    const priorQuestions = allFeedback.flatMap(fb =>
+      fb.quiz.questions.map(q => q.question)
+    )
+
+    const result = await generateObject({
+      model: createModelClient(provider ?? 'anthropic', apiKey, model),
+      schema: z.object({
+        questions: z.array(z.object({
+          question: z.string(),
+          options: z.array(z.string()).length(4),
+          correctIndex: z.number().int().min(0).max(3),
+        })).length(10),
+      }),
+      prompt: `You are creating a final comprehensive quiz for a book the reader has just finished.
+
+Book: ${meta.title}
+Topic: ${meta.prompt}
+
+Table of Contents:
+${toc.chapters.map((ch, i) => `${i + 1}. ${ch.title} — ${ch.description}`).join('\n')}
+
+Chapter summaries:
+${chapterSummaries.join('\n\n')}
+
+Generate exactly 10 multiple-choice questions that test SYNTHESIS and CROSS-CHAPTER understanding. Each question should:
+- Require knowledge from 2+ chapters to answer correctly
+- Test connections between concepts, not just recall
+- Have 4 options with exactly one correct answer
+- Be meaningfully different from these previously asked questions:
+${priorQuestions.map(q => `  - ${q}`).join('\n')}`,
+    })
+
+    return result.object
+  })
+
   fastify.post<{ Body: CreateBookBody }>('/api/books', async (request, reply) => {
     const { topic, details, apiKey, model, provider } = request.body
 
