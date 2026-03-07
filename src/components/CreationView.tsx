@@ -3,7 +3,7 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { useAppSelector, selectApiKey, selectModel } from '@src/store'
+import { useAppSelector, selectApiKey, selectModel, selectFontSize } from '@src/store'
 
 type Phase = 'toc' | 'chapter' | 'done' | 'error'
 
@@ -17,6 +17,7 @@ interface CreationViewProps {
 export function CreationView({ topic, details, onComplete, onCancel }: CreationViewProps) {
   const apiKey = useAppSelector(selectApiKey)
   const model = useAppSelector(selectModel)
+  const fontSize = useAppSelector(selectFontSize)
 
   const [phase, setPhase] = useState<Phase>('toc')
   const [tocContent, setTocContent] = useState('')
@@ -175,7 +176,7 @@ export function CreationView({ topic, details, onComplete, onCancel }: CreationV
         >
           <div className="mx-auto max-w-2xl px-8 py-8">
             {tocContent ? (
-              <div className="creation-markdown">
+              <div className="creation-markdown" style={{ fontSize: `${fontSize}px` }}>
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{tocContent}</ReactMarkdown>
               </div>
             ) : (
@@ -196,7 +197,7 @@ export function CreationView({ topic, details, onComplete, onCancel }: CreationV
         >
           <div className="mx-auto max-w-2xl px-8 py-8">
             {chapterContent ? (
-              <div className="creation-markdown">
+              <div className="creation-markdown" style={{ fontSize: `${fontSize}px` }}>
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{chapterContent}</ReactMarkdown>
               </div>
             ) : phase === 'toc' ? (

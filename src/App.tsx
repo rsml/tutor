@@ -7,7 +7,7 @@ import { SettingsMenu } from '@src/components/SettingsMenu'
 import { WizardModal } from '@src/components/WizardModal'
 import { CreationView } from '@src/components/CreationView'
 import { ReaderPage } from '@src/pages/ReaderPage'
-import { useAppSelector, useAppDispatch, setApiKey, selectApiKey } from '@src/store'
+import { useAppSelector, useAppDispatch, setApiKey, selectApiKey, selectFontSize } from '@src/store'
 
 interface Book {
   id: string
@@ -40,6 +40,7 @@ export default function App() {
   const furthest = useAppSelector(s => s.readingProgress.furthest)
   const dispatch = useAppDispatch()
   const apiKey = useAppSelector(selectApiKey)
+  const fontSize = useAppSelector(selectFontSize)
 
   useEffect(() => {
     window.electronAPI?.loadApiKey().then(key => {
@@ -152,7 +153,7 @@ export default function App() {
       </header>
 
       {/* Library grid */}
-      <main className="flex-1 overflow-y-auto px-8 py-8">
+      <main className="flex-1 overflow-y-auto px-8 py-8" style={{ fontSize: `${fontSize}px` }}>
         <div className="mx-auto max-w-7xl">
           <div className="grid grid-cols-4 gap-8 xl:grid-cols-5">
             {allBooks.map((book) => {

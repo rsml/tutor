@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@src/components/ui/button'
 import { SelectionTooltip } from '@src/components/SelectionTooltip'
 import { ChatPanel } from '@src/components/ChatPanel'
+import { SettingsMenu } from '@src/components/SettingsMenu'
 import { useTextSelection } from '@src/hooks/useTextSelection'
 import { useAppDispatch, useAppSelector, setChapterPosition, selectFontSize } from '@src/store'
 
@@ -167,6 +168,7 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
           >
             <ChevronRight className="size-4" />
           </Button>
+          <SettingsMenu />
         </div>
       </header>
 

@@ -31,7 +31,7 @@ export function BookCard({ title, chaptersRead, totalChapters, onClick }: BookCa
         <div className="relative flex h-full flex-col items-center justify-center p-5">
           <NoiseOverlay opacity={0.5} position="absolute" />
           <div className="h-px w-8 bg-white/30" />
-          <h3 className="mt-3 mb-3 text-center text-base leading-snug font-semibold text-white/90">
+          <h3 className="mt-3 mb-3 text-center text-[1em] leading-snug font-semibold text-white/90">
             {title}
           </h3>
           <div className="h-px w-8 bg-white/30" />
@@ -50,10 +50,10 @@ export function BookCard({ title, chaptersRead, totalChapters, onClick }: BookCa
 
       {/* Meta */}
       <div className="mt-2.5 px-0.5">
-        <p className="line-clamp-1 text-sm font-medium text-content-primary">
+        <p className="line-clamp-1 text-[0.875em] font-medium text-content-primary">
           {title}
         </p>
-        <p className="mt-0.5 text-xs text-content-muted">
+        <p className="mt-0.5 text-[0.75em] text-content-muted">
           {chaptersRead === 0
             ? `${totalChapters} chapters`
             : `${chaptersRead} of ${totalChapters} chapters`}
