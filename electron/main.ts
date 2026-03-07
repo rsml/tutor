@@ -175,6 +175,9 @@ ipcMain.handle('apiKey:remove', async () => {
 })
 
 app.whenReady().then(() => {
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setIcon(getAppIcon())
+  }
   Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate))
   createWindow()
 })
