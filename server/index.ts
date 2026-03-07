@@ -39,6 +39,8 @@ export async function startServer(port = 3147, host = '127.0.0.1') {
         cb(new Error('Not allowed by CORS'), false)
       }
     },
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type'],
   })
 
   await fastify.register(rateLimit, { global: false })
