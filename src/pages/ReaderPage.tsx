@@ -51,7 +51,7 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
     setChapterContent(null)
 
     const chapterNum = chapterIndex + 1
-    fetch(`http://localhost:3147/api/books/${book.id}/chapters/${chapterNum}`)
+    fetch(`/api/books/${book.id}/chapters/${chapterNum}`)
       .then(res => {
         if (!res.ok) throw new Error('Not found')
         return res.json()
@@ -73,7 +73,7 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
   }, [book.id, chapterIndex])
 
   useEffect(() => {
-    fetch(`http://localhost:3147/api/books/${book.id}`)
+    fetch(`/api/books/${book.id}`)
       .then(res => res.json())
       .then(data => setGeneratedUpTo(data.generatedUpTo))
       .catch(() => {})
@@ -105,7 +105,7 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
 
   const handleKeepGoing = useCallback(async () => {
     try {
-      const res = await fetch(`http://localhost:3147/api/books/${book.id}/chapters/${chapterIndex + 1}/quiz`)
+      const res = await fetch(`/api/books/${book.id}/chapters/${chapterIndex + 1}/quiz`)
       if (res.ok) {
         const data = await res.json()
         if (data.questions?.length > 0) {
@@ -134,7 +134,7 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
 
   const handleFeedbackSubmit = useCallback(async (liked: string, disliked: string) => {
     try {
-      await fetch(`http://localhost:3147/api/books/${book.id}/chapters/${chapterIndex + 1}/feedback`, {
+      await fetch(`/api/books/${book.id}/chapters/${chapterIndex + 1}/feedback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ liked, disliked, quizAnswers }),
@@ -146,7 +146,7 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
     scrollRef.current?.scrollTo({ top: 0 })
 
     try {
-      const res = await fetch(`http://localhost:3147/api/books/${book.id}/generate-next`, {
+      const res = await fetch(`/api/books/${book.id}/generate-next`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apiKey, model, provider }),

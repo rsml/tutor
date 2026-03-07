@@ -66,7 +66,7 @@ export default function App() {
   useEffect(() => {
     const check = async () => {
       try {
-        const res = await fetch('http://localhost:3147/api/health')
+        const res = await fetch('/api/health')
         setServerAvailable(res.ok)
       } catch {
         setServerAvailable(false)
@@ -100,7 +100,7 @@ export default function App() {
 
   const fetchBooks = useCallback(async () => {
     try {
-      const res = await fetch('http://localhost:3147/api/books')
+      const res = await fetch('/api/books')
       if (res.ok) {
         const books = await res.json()
         setApiBooks(
@@ -140,7 +140,7 @@ export default function App() {
     const trimmed = renameDialog.title.trim()
     if (!trimmed) return
     try {
-      const res = await fetch(`http://localhost:3147/api/books/${renameDialog.book.id}`, {
+      const res = await fetch(`/api/books/${renameDialog.book.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: trimmed }),
@@ -153,7 +153,7 @@ export default function App() {
   const handleDelete = async () => {
     if (!deleteDialog || deleteDialog.input !== 'delete') return
     try {
-      const res = await fetch(`http://localhost:3147/api/books/${deleteDialog.book.id}`, {
+      const res = await fetch(`/api/books/${deleteDialog.book.id}`, {
         method: 'DELETE',
       })
       if (res.ok) await fetchBooks()

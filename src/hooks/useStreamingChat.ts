@@ -31,7 +31,7 @@ export function useStreamingChat({ apiKey, model, provider, chapterContent, sele
     abortRef.current = controller
 
     try {
-      const res = await fetch('http://localhost:3147/api/chat', {
+      const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

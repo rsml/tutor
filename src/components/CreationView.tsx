@@ -39,7 +39,7 @@ export function CreationView({ topic, details, onComplete, onCancel }: CreationV
     }
 
     try {
-      const res = await fetch('http://localhost:3147/api/books', {
+      const res = await fetch('/api/books', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic, details, apiKey, model, provider }),
