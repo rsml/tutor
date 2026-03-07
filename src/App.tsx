@@ -15,6 +15,7 @@ import { NoiseOverlay } from '@src/components/NoiseOverlay'
 import { SettingsMenu } from '@src/components/SettingsMenu'
 import { WizardModal } from '@src/components/WizardModal'
 import { CreationView } from '@src/components/CreationView'
+import { BookOverviewModal } from '@src/components/BookOverviewModal'
 import { ReaderPage } from '@src/pages/ReaderPage'
 import { QuizReviewPage } from '@src/pages/QuizReviewPage'
 import { useAppSelector, useAppDispatch, setProviderApiKey, selectApiKey, selectFontSize } from '@src/store'
@@ -407,6 +408,13 @@ export default function App() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Book overview modal */}
+      <BookOverviewModal
+        open={!!overviewBook}
+        onOpenChange={(open) => { if (!open) setOverviewBook(null) }}
+        book={overviewBook ?? { id: '', title: '', totalChapters: 0 }}
+      />
     </div>
   )
 }
