@@ -1,11 +1,28 @@
 {
-  "fill" : {
-    "automatic-gradient" : "extended-srgb:0.00000,0.53333,1.00000,1.00000"
-  },
+  "fill-specializations" : [
+    {
+      "value" : "system-dark"
+    },
+    {
+      "appearance" : "light",
+      "value" : "system-dark"
+    },
+    {
+      "appearance" : "dark",
+      "value" : "system-dark"
+    },
+    {
+      "idiom" : "square",
+      "value" : "system-dark"
+    }
+  ],
   "groups" : [
     {
+      "blur-material" : null,
       "layers" : [
         {
+          "glass" : true,
+          "hidden" : false,
           "image-name" : "book-transparent.png",
           "name" : "book-transparent",
           "position" : {
@@ -21,6 +38,7 @@
         "kind" : "neutral",
         "opacity" : 0.5
       },
+      "specular" : true,
       "translucency" : {
         "enabled" : true,
         "value" : 0.5
