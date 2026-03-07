@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { X, Sparkles, Loader2 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import { useAppSelector, selectModel, selectActiveProvider, selectHasApiKey } from '@src/store'
@@ -135,7 +136,7 @@ export function SkillsPanel({ open, onClose }: SkillsPanelProps) {
 
   if (!open) return null
 
-  return (
+  return createPortal(
     <>
       {/* Backdrop */}
       <div
@@ -211,7 +212,7 @@ export function SkillsPanel({ open, onClose }: SkillsPanelProps) {
         <div className="shrink-0 border-t border-border-default/50 p-3">
           <Button
             variant="outline"
-            className="w-full gap-2"
+            className="w-full gap-2 border-[var(--color-ai)]/30 text-[var(--color-ai)] hover:bg-[var(--color-ai)]/10 hover:text-[var(--color-ai-hover)]"
             onClick={handleSuggest}
             disabled={suggesting || !hasApiKey || !loaded}
           >
@@ -224,6 +225,7 @@ export function SkillsPanel({ open, onClose }: SkillsPanelProps) {
           </Button>
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   )
 }

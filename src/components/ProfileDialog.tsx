@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Sparkles } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import {
   Dialog,
@@ -162,7 +162,8 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkil
               <label htmlFor="about-me" className="text-sm font-medium text-content-primary">
                 About Me
               </label>
-              <Button variant="ghost" size="sm" onClick={handleInterviewClick}>
+              <Button variant="ghost" size="sm" onClick={handleInterviewClick} className="gap-1.5 text-[var(--color-ai)] hover:text-[var(--color-ai-hover)] hover:bg-[var(--color-ai)]/10">
+                <Sparkles className="size-3.5" />
                 Interview Me
               </Button>
             </div>

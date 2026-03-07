@@ -128,7 +128,7 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
             size="sm"
             onClick={handleSuggest}
             disabled={!hasApiKey || suggesting}
-            className="gap-1.5 text-xs text-content-muted hover:text-[oklch(0.55_0.20_285)]"
+            className="gap-1.5 text-xs text-[var(--color-ai)] hover:text-[var(--color-ai-hover)] hover:bg-[var(--color-ai)]/10"
             title="Suggest a book based on your learning history"
           >
             {suggesting ? (
