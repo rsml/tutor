@@ -216,9 +216,6 @@ Write this chapter now.`,
       }
 
       meta.generatedUpTo = nextNum
-      if (nextNum >= meta.totalChapters) {
-        meta.status = 'complete'
-      }
       meta.updatedAt = new Date().toISOString()
       await store.saveBook(meta)
 
