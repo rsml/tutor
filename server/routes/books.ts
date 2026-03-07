@@ -255,11 +255,9 @@ Write this chapter now.`,
     meta.rating = request.body.rating
     if (request.body.finalQuizScore !== undefined) {
       meta.finalQuizScore = request.body.finalQuizScore
-    }
-    if (request.body.finalQuizTotal !== undefined) {
       meta.finalQuizTotal = request.body.finalQuizTotal
+      meta.status = 'complete'
     }
-    meta.status = 'complete'
     meta.updatedAt = new Date().toISOString()
     await store.saveBook(meta)
     return { ok: true }
