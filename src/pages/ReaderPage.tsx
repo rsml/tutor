@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { ArrowLeft, BarChart3, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@src/components/ui/button'
 import { SelectionTooltip } from '@src/components/SelectionTooltip'
@@ -21,7 +21,11 @@ interface Book {
   totalChapters: number
 }
 
-export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void }) {
+export function ReaderPage({ book, onBack, onQuizReview }: {
+  book: Book
+  onBack: () => void
+  onQuizReview?: () => void
+}) {
   const dispatch = useAppDispatch()
   const savedPosition = useAppSelector(s => s.readingProgress.positions[book.id])
   const initialChapter = savedPosition ?? (book.chaptersRead > 0 ? book.chaptersRead - 1 : 0)
@@ -340,6 +344,16 @@ export function ReaderPage({ book, onBack }: { book: Book; onBack: () => void })
           >
             <ChevronRight className="size-4" />
           </Button>
+          {onQuizReview && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={onQuizReview}
+              aria-label="Quiz review"
+            >
+              <BarChart3 className="size-4" />
+            </Button>
+          )}
           <SettingsMenu subtle />
         </div>
       </header>

@@ -191,7 +191,8 @@ export default function App() {
     return (
       <ReaderPage
         book={view.book}
-        onBack={() => setView({ type: 'library' })}
+        onBack={() => { fetchBooks(); setView({ type: 'library' }) }}
+        onQuizReview={() => setView({ type: 'quiz-review', book: view.book })}
       />
     )
   }
