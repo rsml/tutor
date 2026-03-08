@@ -445,22 +445,6 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
                 className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 font-mono text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
               />
             </div>
-
-            <div className="grid gap-1.5">
-              <label htmlFor="model" className="text-sm font-medium text-content-primary">
-                Model
-              </label>
-              <select
-                id="model"
-                value={dialogConfig?.model ?? dialogDef.defaultModel}
-                onChange={e => dispatch(setProviderModel({ provider: dialogProvider, model: e.target.value }))}
-                className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
-              >
-                {dialogDef.models.map(m => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
-                ))}
-              </select>
-            </div>
           </div>
 
           <DialogFooter>
