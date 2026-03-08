@@ -125,16 +125,16 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
         <DialogFooter className="flex-row justify-between sm:justify-between">
           <Button
             variant="ghost"
-            size="sm"
+            size="lg"
             onClick={handleSuggest}
             disabled={!hasApiKey || suggesting}
-            className="gap-1.5 text-xs text-[var(--color-ai)] hover:text-[var(--color-ai-hover)] hover:bg-[var(--color-ai)]/10"
+            className="gap-1.5 text-[var(--color-ai)] hover:text-[var(--color-ai-hover)] hover:bg-[var(--color-ai)]/10"
             title="Suggest a book based on your learning history"
           >
             {suggesting ? (
-              <Loader2 className="size-3.5 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
             ) : (
-              <Sparkles className="size-3.5" />
+              <Sparkles className="size-4" />
             )}
             Suggest
           </Button>
