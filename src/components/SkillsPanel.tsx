@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Sparkles, Loader2 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
-import { useAppSelector, selectModel, selectActiveProvider, selectHasApiKey } from '@src/store'
+import { useAppSelector, selectFunctionModel, selectHasApiKey } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
 
 interface Skill {
@@ -16,8 +16,7 @@ interface SkillsPanelProps {
 }
 
 export function SkillsPanel({ open, onClose }: SkillsPanelProps) {
-  const model = useAppSelector(selectModel)
-  const provider = useAppSelector(selectActiveProvider)
+  const { provider, model } = useAppSelector(selectFunctionModel('profile'))
   const hasApiKey = useAppSelector(selectHasApiKey)
 
   const [skills, setSkills] = useState<Skill[]>([])

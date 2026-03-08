@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import { SafeMarkdown } from '@src/components/SafeMarkdown'
-import { useAppSelector, selectHasApiKey, selectModel, selectActiveProvider, selectFontSize } from '@src/store'
+import { useAppSelector, selectHasApiKey, selectFunctionModel, selectFontSize } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
 
 type Phase = 'toc' | 'chapter' | 'done' | 'error'
@@ -16,8 +16,8 @@ interface CreationViewProps {
 
 export function CreationView({ topic, details, onComplete, onCancel }: CreationViewProps) {
   const hasApiKey = useAppSelector(selectHasApiKey)
-  const model = useAppSelector(selectModel)
-  const provider = useAppSelector(selectActiveProvider)
+  const { provider, model } = useAppSelector(selectFunctionModel('generation'))
+  const { provider: quizProvider, model: quizModel } = useAppSelector(selectFunctionModel('quiz'))
   const fontSize = useAppSelector(selectFontSize)
 
   const [phase, setPhase] = useState<Phase>('toc')
@@ -46,7 +46,7 @@ export function CreationView({ topic, details, onComplete, onCancel }: CreationV
       const res = await fetch(apiUrl('/api/books'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, details, model, provider }),
+        body: JSON.stringify({ topic, details, model, provider, quizModel, quizProvider }),
       })
 
       if (!res.ok || !res.body) {
@@ -123,7 +123,7 @@ export function CreationView({ topic, details, onComplete, onCancel }: CreationV
       setError(err instanceof Error ? err.message : 'Connection failed')
       setPhase('error')
     }
-  }, [hasApiKey, model, provider, topic, details])
+  }, [hasApiKey, model, provider, quizModel, quizProvider, topic, details])
 
   useEffect(() => {
     if (!startedRef.current) {

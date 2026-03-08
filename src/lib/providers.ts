@@ -52,3 +52,12 @@ export const PROVIDERS: Record<ProviderId, ProviderDef> = {
 }
 
 export const PROVIDER_IDS: ProviderId[] = ['anthropic', 'openai', 'google']
+
+export type AiFunctionGroup = 'generation' | 'quiz' | 'chat' | 'profile'
+
+export const FUNCTION_GROUPS: { id: AiFunctionGroup; label: string; description: string }[] = [
+  { id: 'generation', label: 'Book Generation', description: 'TOC, chapters, skill classification' },
+  { id: 'quiz', label: 'Quizzes', description: 'Chapter quizzes & final quiz' },
+  { id: 'chat', label: 'Inline Chat', description: 'Sentence explanations' },
+  { id: 'profile', label: 'Profile & Suggestions', description: 'Interview, skill & book suggestions' },
+]

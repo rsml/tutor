@@ -273,7 +273,7 @@ export async function bookRoutes(fastify: FastifyInstance) {
     Params: { id: string }
     Body: unknown
   }>('/api/books/:id/generate-next', { schema: { params: bookIdSchema }, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
-    let body: { model: string; provider?: string }
+    let body: { model: string; provider?: string; quizModel?: string; quizProvider?: string }
     try {
       body = GenerateNextBodySchema.parse(request.body)
     } catch (err) {
@@ -283,7 +283,7 @@ export async function bookRoutes(fastify: FastifyInstance) {
       throw err
     }
 
-    const { model, provider } = body
+    const { model, provider, quizModel, quizProvider } = body
     const bookId = request.params.id
 
     if (generationLocks.get(bookId)) {
@@ -376,7 +376,7 @@ Write this chapter now.`,
 
       // Generate quiz
       try {
-        const quiz = await generateQuiz(provider ?? 'anthropic', model, chapterText)
+        const quiz = await generateQuiz(quizProvider ?? provider ?? 'anthropic', quizModel ?? model, chapterText)
         await store.saveQuiz(bookId, nextNum, quiz)
       } catch {
         // Quiz generation failure is non-fatal
@@ -520,7 +520,7 @@ ${priorQuestions.map(q => `  - ${q}`).join('\n')}`,
   })
 
   fastify.post<{ Body: unknown }>('/api/books', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
-    let body: { topic: string; details?: string; model: string; provider?: string }
+    let body: { topic: string; details?: string; model: string; provider?: string; quizModel?: string; quizProvider?: string }
     try {
       body = CreateBookBodySchema.parse(request.body)
     } catch (err) {
@@ -530,7 +530,7 @@ ${priorQuestions.map(q => `  - ${q}`).join('\n')}`,
       throw err
     }
 
-    const { topic, details, model, provider } = body
+    const { topic, details, model, provider, quizModel, quizProvider } = body
 
     const bookId = randomUUID().slice(0, 12)
 
@@ -683,7 +683,7 @@ Write this chapter now.`,
 
       // Generate quiz for chapter 1
       try {
-        const quiz = await generateQuiz(provider ?? 'anthropic', model, chapterText)
+        const quiz = await generateQuiz(quizProvider ?? provider ?? 'anthropic', quizModel ?? model, chapterText)
         await store.saveQuiz(bookId, 1, quiz)
       } catch {
         // Quiz generation failure is non-fatal

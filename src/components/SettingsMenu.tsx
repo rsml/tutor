@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Settings, Sun, Moon, Monitor, Type, Layers, Check, User, BarChart3 } from 'lucide-react'
+import { Settings, Sun, Moon, Monitor, Type, Layers, Check, User, BarChart3, Sliders } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import {
   Dialog,
@@ -20,6 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuGroup,
 } from '@src/components/ui/dropdown-menu'
+import { ModelAssignmentDialog } from '@src/components/ModelAssignmentDialog'
 import { ProfileDialog } from '@src/components/ProfileDialog'
 import { InterviewPanel } from '@src/components/InterviewPanel'
 import { SkillsPanel } from '@src/components/SkillsPanel'
@@ -66,6 +67,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
   const [profileOpen, setProfileOpen] = useState(false)
   const [interviewOpen, setInterviewOpen] = useState(false)
   const [skillsOpen, setSkillsOpen] = useState(false)
+  const [modelAssignOpen, setModelAssignOpen] = useState(false)
   const [internalDialogOpen, setInternalDialogOpen] = useState(false)
   const [dialogProvider, setDialogProvider] = useState<ProviderId>(activeProvider)
   const [keyInput, setKeyInput] = useState('')
@@ -235,6 +237,13 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
                   ))}
                 </DropdownMenuRadioGroup>
               </DropdownMenuGroup>
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuItem onClick={() => setModelAssignOpen(true)}>
+                <Sliders className="size-4" />
+                Model Assignment
+              </DropdownMenuItem>
             </>
           )}
 
@@ -453,6 +462,8 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
           setProfileOpen(true)
         }}
       />
+
+      <ModelAssignmentDialog open={modelAssignOpen} onOpenChange={setModelAssignOpen} />
     </>
   )
 }

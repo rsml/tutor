@@ -171,6 +171,8 @@ export const CompleteProfileSchema = z.object({
 export const CreateBookBodySchema = AiRequestSchema.extend({
   topic: z.string().min(1).max(500),
   details: z.string().max(2000).optional(),
+  quizModel: ModelSchema.optional(),
+  quizProvider: ProviderSchema.optional(),
 })
 
 export const FeedbackBodySchema = z.object({
@@ -179,7 +181,10 @@ export const FeedbackBodySchema = z.object({
   quizAnswers: z.array(z.number().int().min(0).max(3)).max(20).optional(),
 })
 
-export const GenerateNextBodySchema = AiRequestSchema
+export const GenerateNextBodySchema = AiRequestSchema.extend({
+  quizModel: ModelSchema.optional(),
+  quizProvider: ProviderSchema.optional(),
+})
 
 export const FinalQuizBodySchema = AiRequestSchema
 

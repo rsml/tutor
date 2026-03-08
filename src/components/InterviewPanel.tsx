@@ -4,7 +4,7 @@ import { X, SendHorizontal, CheckCircle2 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import { ChatMessage } from '@src/components/ChatMessage'
 import { useInterviewChat } from '@src/hooks/useInterviewChat'
-import { useAppSelector, selectHasApiKey, selectModel, selectActiveProvider } from '@src/store'
+import { useAppSelector, selectHasApiKey, selectFunctionModel } from '@src/store'
 
 interface InterviewPanelProps {
   open: boolean
@@ -14,8 +14,7 @@ interface InterviewPanelProps {
 
 export function InterviewPanel({ open, onClose, onMissingApiKey }: InterviewPanelProps) {
   const hasApiKey = useAppSelector(selectHasApiKey)
-  const model = useAppSelector(selectModel)
-  const provider = useAppSelector(selectActiveProvider)
+  const { provider, model } = useAppSelector(selectFunctionModel('profile'))
   const { messages, isStreaming, isComplete, profileResult, sendMessage, clearMessages } = useInterviewChat({ model, provider })
   const [input, setInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)

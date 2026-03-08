@@ -10,7 +10,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@src/components/ui/dialog'
-import { useAppSelector, selectModel, selectActiveProvider, selectHasApiKey } from '@src/store'
+import { useAppSelector, selectFunctionModel, selectHasApiKey } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
 import { store } from '@src/store'
 
@@ -26,8 +26,7 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
   const [detailsOpen, setDetailsOpen] = useState(true)
   const [suggesting, setSuggesting] = useState(false)
   const [reasoning, setReasoning] = useState<string | null>(null)
-  const model = useAppSelector(selectModel)
-  const provider = useAppSelector(selectActiveProvider)
+  const { provider, model } = useAppSelector(selectFunctionModel('profile'))
   const hasApiKey = useAppSelector(selectHasApiKey)
 
   const handleCreate = () => {

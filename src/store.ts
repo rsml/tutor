@@ -2,7 +2,7 @@ import { combineReducers, configureStore, createSlice, type PayloadAction } from
 import { useDispatch, useSelector } from 'react-redux'
 import { persistStore, persistReducer, createTransform, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER } from 'redux-persist'
 import storage from 'redux-persist/lib/storage'
-import type { ProviderId } from '@src/lib/providers'
+import type { ProviderId, AiFunctionGroup } from '@src/lib/providers'
 import quizHistoryReducer from '@src/store/quizHistorySlice'
 
 interface QuizResult {
@@ -98,6 +98,11 @@ export interface ProviderConfig {
   model: string
 }
 
+export interface FunctionModelOverride {
+  provider: ProviderId
+  model: string
+}
+
 export interface SettingsState {
   // Legacy fields (ignored after migration)
   apiKey?: string | null
@@ -105,6 +110,7 @@ export interface SettingsState {
   // Multi-provider
   activeProvider: ProviderId
   providers: Record<ProviderId, ProviderConfig>
+  functionModels: Partial<Record<AiFunctionGroup, FunctionModelOverride>>
   fontSize: number
   textureEnabled: boolean
   textureOpacity: number
@@ -120,6 +126,7 @@ const settingsSlice = createSlice({
       openai: { apiKey: null, model: 'gpt-4o' },
       google: { apiKey: null, model: 'gemini-2.0-flash' },
     },
+    functionModels: {},
     fontSize: 16,
     textureEnabled: true,
     textureOpacity: 1,
@@ -147,6 +154,13 @@ const settingsSlice = createSlice({
     setLibraryTab(state, action: PayloadAction<SettingsState['libraryTab']>) {
       state.libraryTab = action.payload
     },
+    setFunctionModel(state, action: PayloadAction<{ group: AiFunctionGroup; override: FunctionModelOverride }>) {
+      if (!state.functionModels) state.functionModels = {}
+      state.functionModels[action.payload.group] = action.payload.override
+    },
+    clearFunctionModel(state, action: PayloadAction<{ group: AiFunctionGroup }>) {
+      if (state.functionModels) delete state.functionModels[action.payload.group]
+    },
   },
 })
 
@@ -158,6 +172,8 @@ export const {
   setTextureEnabled,
   setTextureOpacity,
   setLibraryTab,
+  setFunctionModel,
+  clearFunctionModel,
 } = settingsSlice.actions
 
 // Derived selectors — return active provider's key/model
@@ -170,6 +186,12 @@ export const selectFontSize = (state: RootState) => state.settings.fontSize
 export const selectTextureEnabled = (state: RootState) => state.settings.textureEnabled
 export const selectTextureOpacity = (state: RootState) => state.settings.textureOpacity
 export const selectLibraryTab = (state: RootState) => state.settings.libraryTab
+export const selectFunctionModel = (group: AiFunctionGroup) => (state: RootState): { provider: ProviderId; model: string } => {
+  const override = state.settings.functionModels?.[group]
+  if (override) return override
+  const p = state.settings.activeProvider
+  return { provider: p, model: state.settings.providers[p]?.model ?? '' }
+}
 
 const rootReducer = combineReducers({
   readingProgress: readingProgressSlice.reducer,
@@ -193,6 +215,7 @@ const stripApiKeysTransform = createTransform(
     ...inbound,
     apiKey: undefined,
     model: undefined,
+    functionModels: inbound.functionModels ?? {},
     providers: {
       anthropic: { ...inbound.providers.anthropic, apiKey: null },
       openai: { ...inbound.providers.openai, apiKey: null },
@@ -210,11 +233,12 @@ const stripApiKeysTransform = createTransform(
           openai: { apiKey: null, model: 'gpt-4o' },
           google: { apiKey: null, model: 'gemini-2.0-flash' },
         },
+        functionModels: {},
         apiKey: undefined,
         model: undefined,
       }
     }
-    return outbound
+    return { ...outbound, functionModels: outbound.functionModels ?? {} }
   },
   { whitelist: ['settings'] },
 )
