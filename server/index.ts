@@ -10,6 +10,15 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3147',
 ]
 
+function isAllowedOrigin(origin: string): boolean {
+  if (ALLOWED_ORIGINS.includes(origin)) return true
+  // Allow null origin (file:// protocol in Electron)
+  if (origin === 'null') return true
+  // Allow any localhost/127.0.0.1 origin (single-user app, server is localhost-only)
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return true
+  return false
+}
+
 export async function startServer(port = 3147, host = '127.0.0.1') {
   const fastify = Fastify({
     logger: {
@@ -35,7 +44,7 @@ export async function startServer(port = 3147, host = '127.0.0.1') {
   // so streaming routes that bypass send() would lose CORS headers.
   fastify.addHook('onRequest', async (request, reply) => {
     const origin = request.headers.origin
-    if (origin && !ALLOWED_ORIGINS.includes(origin)) {
+    if (origin && !isAllowedOrigin(origin)) {
       reply.status(403).send({ error: 'Not allowed by CORS' })
       return
     }

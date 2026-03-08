@@ -125,12 +125,32 @@ ai-books/
 | `GET` | `/api/profile` | Get learning profile |
 | `PUT` | `/api/profile` | Update learning profile |
 
+## Electron Packaging
+
+This is an Electron app using `vite-plugin-electron`. Three modes exist with different behaviors:
+
+| Mode | Command | Renderer loads from | API routing | Origin header |
+|------|---------|--------------------|--------------|----|
+| **Dev** | `pnpm electron:dev` | `http://localhost:5173` (Vite HMR) | Direct to `http://127.0.0.1:{port}` | `http://localhost:5173` |
+| **Preview** | `pnpm electron:preview` | `file://…/dist/index.html` | Direct to `http://127.0.0.1:{port}` | `null` |
+| **Build** | `pnpm electron:build` | `file://…/app.asar/dist/index.html` | Direct to `http://127.0.0.1:{port}` | `null` |
+
+### Critical conventions
+
+- **Address**: Always use `127.0.0.1` (not `localhost`) for server communication — avoids IPv6 mismatch on macOS
+- **CORS**: Server must accept `Origin: null` (file:// protocol) and any `localhost`/`127.0.0.1` origin — enforced in `server/index.ts:isAllowedOrigin()`
+- **CSP**: Both `index.html` meta tag and `electron/main.ts` header must allow `http://localhost:*` AND `http://127.0.0.1:*` in `connect-src`
+- **pnpm + electron-builder**: `.npmrc` requires `node-linker=hoisted` — pnpm's default symlink strategy breaks electron-builder's dependency resolution. If a transitive dep is missing from the packaged app, add it explicitly to `dependencies` in `package.json`.
+- **Never modify `index.html` or `package.json` to match build output** — `dist/` is the build target, source files must keep source references (`/src/main.tsx`)
+
 ## Development
 
 ```bash
 pnpm test              # Run all tests
-pnpm dev:server        # Fastify on port 3147
-pnpm dev               # Vite on port 5173
+pnpm electron:dev      # Dev mode (Vite + Electron + HMR)
+pnpm electron:preview  # Build then run (test production rendering)
+pnpm electron:build    # Build + package DMG
+pnpm dev:server        # Fastify standalone on port 3147
 ```
 
 ## Conventions

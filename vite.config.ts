@@ -12,6 +12,7 @@ export default defineConfig({
         entry: 'electron/main.ts',
         vite: {
           build: {
+            emptyOutDir: true,
             rollupOptions: {
               external: (id) => {
                 if (id.startsWith('node:')) return true
