@@ -4,7 +4,7 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { getKey } from './key-store.js'
 
 const VALID_PROVIDERS = ['anthropic', 'openai', 'google']
-const MODEL_REGEX = /^[a-zA-Z0-9._:\/-]{1,100}$/
+const MODEL_REGEX = /^[a-zA-Z0-9._:/-]{1,100}$/
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createModelClient(provider: string, model: string): any {

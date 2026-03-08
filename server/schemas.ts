@@ -147,7 +147,7 @@ export type Feedback = z.infer<typeof FeedbackSchema>
 
 export const ProviderSchema = z.enum(['anthropic', 'openai', 'google'])
 
-const ModelSchema = z.string().min(1).max(100).regex(/^[a-zA-Z0-9._:\/-]{1,100}$/)
+const ModelSchema = z.string().min(1).max(100).regex(/^[a-zA-Z0-9._:/-]{1,100}$/)
 
 export const AiRequestSchema = z.object({
   model: ModelSchema,

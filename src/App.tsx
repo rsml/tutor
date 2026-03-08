@@ -224,6 +224,34 @@ export default function App() {
     setDeleteDialog(null)
   }
 
+  const apiBookIds = new Set(apiBooks.map(b => b.id))
+  const allBooks = apiBooks
+
+  const classifyBook = useCallback((book: Book): 'finished' | 'in-progress' | 'not-started' => {
+    if (book.rating != null) return 'finished'
+    if (furthest[book.id] != null) return 'in-progress'
+    return 'not-started'
+  }, [furthest])
+
+  const { sortedBooks, filteredBooks, tabCounts } = useMemo(() => {
+    const classOrder = { 'in-progress': 0, 'not-started': 1, 'finished': 2 } as const
+    const bookClasses = new Map(allBooks.map(b => [b.id, classifyBook(b)]))
+
+    // Sort: in-progress first, then not-started, then finished
+    const sorted = [...allBooks].sort((a, b) => {
+      return classOrder[bookClasses.get(a.id)!] - classOrder[bookClasses.get(b.id)!]
+    })
+
+    const filtered = libraryTab === 'all'
+      ? sorted
+      : sorted.filter(b => bookClasses.get(b.id) === libraryTab)
+
+    const counts = { all: allBooks.length, 'in-progress': 0, 'not-started': 0, finished: 0 }
+    for (const cls of bookClasses.values()) counts[cls]++
+
+    return { sortedBooks: sorted, filteredBooks: filtered, tabCounts: counts }
+  }, [allBooks, libraryTab, classifyBook])
+
   if (view.type === 'creating') {
     return (
       <CreationView
@@ -272,34 +300,6 @@ export default function App() {
       />
     )
   }
-
-  const apiBookIds = new Set(apiBooks.map(b => b.id))
-  const allBooks = apiBooks
-
-  const classifyBook = useCallback((book: Book): 'finished' | 'in-progress' | 'not-started' => {
-    if (book.rating != null) return 'finished'
-    if (furthest[book.id] != null) return 'in-progress'
-    return 'not-started'
-  }, [furthest])
-
-  const { sortedBooks, filteredBooks, tabCounts } = useMemo(() => {
-    const classOrder = { 'in-progress': 0, 'not-started': 1, 'finished': 2 } as const
-    const bookClasses = new Map(allBooks.map(b => [b.id, classifyBook(b)]))
-
-    // Sort: in-progress first, then not-started, then finished
-    const sorted = [...allBooks].sort((a, b) => {
-      return classOrder[bookClasses.get(a.id)!] - classOrder[bookClasses.get(b.id)!]
-    })
-
-    const filtered = libraryTab === 'all'
-      ? sorted
-      : sorted.filter(b => bookClasses.get(b.id) === libraryTab)
-
-    const counts = { all: allBooks.length, 'in-progress': 0, 'not-started': 0, finished: 0 }
-    for (const cls of bookClasses.values()) counts[cls]++
-
-    return { sortedBooks: sorted, filteredBooks: filtered, tabCounts: counts }
-  }, [allBooks, libraryTab, classifyBook])
 
   return (
     <div className="flex h-screen flex-col text-content-primary">

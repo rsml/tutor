@@ -143,7 +143,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ liked, disliked }),
       })
-    } catch {}
+    } catch { /* fire-and-forget */ }
 
     setFinalQuizLoading(true)
     setPhase('final-quiz')
@@ -159,7 +159,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
         const data = await res.json()
         setFinalQuizQuestions(data.questions)
       }
-    } catch {}
+    } catch { /* fire-and-forget */ }
     setFinalQuizLoading(false)
   }, [book.id, chapterIndex, model, provider, dispatch])
 
@@ -178,7 +178,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rating: bookRating, finalQuizScore, finalQuizTotal }),
       })
-    } catch {}
+    } catch { /* fire-and-forget */ }
     setPhase('complete')
     scrollRef.current?.scrollTo({ top: 0 })
   }, [book.id, bookRating, finalQuizScore, finalQuizTotal])
@@ -222,7 +222,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ liked, disliked, quizAnswers }),
       })
-    } catch {}
+    } catch { /* fire-and-forget */ }
 
     setPhase('generating')
     setStreamingContent('')
@@ -274,7 +274,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
             } else if (data.type === 'error') {
               setPhase('reading')
             }
-          } catch {}
+          } catch { /* fire-and-forget */ }
         }
       }
     } catch {
