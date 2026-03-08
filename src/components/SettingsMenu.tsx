@@ -37,11 +37,12 @@ import {
   selectTextureOpacity,
   setActiveProvider,
   setProviderApiKey,
-  setProviderModel,
   setFontSize,
   setReadingWidth,
   setTextureEnabled,
   setTextureOpacity,
+  selectModelAssignmentSeen,
+  setModelAssignmentSeen,
 } from '@src/store'
 import { PROVIDERS, PROVIDER_IDS, type ProviderId } from '@src/lib/providers'
 import { apiUrl } from '@src/lib/api-base'
@@ -70,6 +71,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
   const readingWidth = useAppSelector(selectReadingWidth)
   const textureEnabled = useAppSelector(selectTextureEnabled)
   const textureOpacity = useAppSelector(selectTextureOpacity)
+  const modelAssignmentSeen = useAppSelector(selectModelAssignmentSeen)
 
   const [profileOpen, setProfileOpen] = useState(false)
   const [interviewOpen, setInterviewOpen] = useState(false)
@@ -214,6 +216,21 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
             )}
           </DropdownMenuItem>
 
+          {hasApiKey && (
+            <>
+              <DropdownMenuItem onClick={() => { dispatch(setModelAssignmentSeen(true)); setModelAssignOpen(true) }}>
+                <Sliders className="size-4" />
+                Model Assignment
+                {!modelAssignmentSeen && (
+                  <span className="ml-auto rounded-full bg-[oklch(0.55_0.20_285)] px-1.5 py-0.5 text-[10px] font-medium leading-none text-white">
+                    New
+                  </span>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
+
           <DropdownMenuItem onClick={() => setProfileOpen(true)}>
             <User className="size-4" />
             Learning Profile
@@ -229,33 +246,6 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
             <BarChart3 className="size-4" />
             Review Progress
           </DropdownMenuItem>
-
-          {/* Quick model switch for active provider */}
-          {hasApiKey && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Model</DropdownMenuLabel>
-                <DropdownMenuRadioGroup
-                  value={activeModel}
-                  onValueChange={v => dispatch(setProviderModel({ provider: activeProvider, model: v }))}
-                >
-                  {activeDef.models.map(m => (
-                    <DropdownMenuRadioItem key={m.value} value={m.value}>
-                      {m.label}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuGroup>
-
-              <DropdownMenuSeparator />
-
-              <DropdownMenuItem onClick={() => setModelAssignOpen(true)}>
-                <Sliders className="size-4" />
-                Model Assignment
-              </DropdownMenuItem>
-            </>
-          )}
 
           <DropdownMenuSeparator />
 

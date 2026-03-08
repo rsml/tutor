@@ -111,6 +111,7 @@ export interface SettingsState {
   activeProvider: ProviderId
   providers: Record<ProviderId, ProviderConfig>
   functionModels: Partial<Record<AiFunctionGroup, FunctionModelOverride>>
+  modelAssignmentSeen: boolean
   fontSize: number
   readingWidth: number
   textureEnabled: boolean
@@ -128,6 +129,7 @@ const settingsSlice = createSlice({
       google: { apiKey: null, model: 'gemini-2.0-flash' },
     },
     functionModels: {},
+    modelAssignmentSeen: false,
     fontSize: 16,
     readingWidth: 768,
     textureEnabled: true,
@@ -166,6 +168,9 @@ const settingsSlice = createSlice({
     clearFunctionModel(state, action: PayloadAction<{ group: AiFunctionGroup }>) {
       if (state.functionModels) delete state.functionModels[action.payload.group]
     },
+    setModelAssignmentSeen(state, action: PayloadAction<boolean>) {
+      state.modelAssignmentSeen = action.payload
+    },
   },
 })
 
@@ -180,6 +185,7 @@ export const {
   setLibraryTab,
   setFunctionModel,
   clearFunctionModel,
+  setModelAssignmentSeen,
 } = settingsSlice.actions
 
 // Derived selectors — return active provider's key/model
@@ -193,6 +199,7 @@ export const selectReadingWidth = (state: RootState) => state.settings.readingWi
 export const selectTextureEnabled = (state: RootState) => state.settings.textureEnabled
 export const selectTextureOpacity = (state: RootState) => state.settings.textureOpacity
 export const selectLibraryTab = (state: RootState) => state.settings.libraryTab
+export const selectModelAssignmentSeen = (state: RootState) => state.settings.modelAssignmentSeen
 export const selectFunctionModel = (group: AiFunctionGroup) => (state: RootState): { provider: ProviderId; model: string } => {
   const override = state.settings.functionModels?.[group]
   if (override) return override
