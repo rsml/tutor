@@ -33,6 +33,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
   type Phase = 'reading' | 'quiz' | 'feedback' | 'generating' | 'final-quiz' | 'rating' | 'complete'
   const [phase, setPhase] = useState<Phase>('reading')
   const [generatedUpTo, setGeneratedUpTo] = useState(book.totalChapters)
+  const [tocTitles, setTocTitles] = useState<string[]>([])
   const [quizQuestions, setQuizQuestions] = useState<Array<{ question: string; options: string[]; correctIndex: number }>>([])
   const [quizAnswers, setQuizAnswers] = useState<number[]>([])
   const [streamingContent, setStreamingContent] = useState('')
@@ -47,8 +48,6 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
 
   const model = useAppSelector(selectModel)
   const provider = useAppSelector(selectActiveProvider)
-
-  const [tocTitles, setTocTitles] = useState<string[]>([])
 
   useEffect(() => {
     fetch(apiUrl(`/api/books/${book.id}`))
@@ -453,9 +452,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
                       <h1 className="text-2xl font-bold tracking-tight text-content-primary">
                         {tocTitles[chapterIndex + 1] ?? `Chapter ${chapterIndex + 2}`}
                       </h1>
-                      <div className="mt-6 flex items-center gap-1.5 text-content-faint">
-                        <span className="inline-block h-5 w-px animate-pulse bg-content-muted" />
-                      </div>
+                      <span className="mt-6 inline-block h-5 w-px animate-pulse bg-content-muted" />
                     </div>
                   )}
                 </div>
