@@ -6,7 +6,7 @@ import { ChatPanel } from '@src/components/ChatPanel'
 import { SettingsMenu } from '@src/components/SettingsMenu'
 import { useTextSelection } from '@src/hooks/useTextSelection'
 import { useSectionNavigation } from '@src/hooks/useSectionNavigation'
-import { store, useAppDispatch, useAppSelector, setPosition, setChapterFeedback, setChapterQuizResult, recordQuizAttempt, selectFontSize, selectFunctionModel } from '@src/store'
+import { store, useAppDispatch, useAppSelector, setPosition, setChapterFeedback, setChapterQuizResult, recordQuizAttempt, selectFontSize, selectReadingWidth, selectFunctionModel } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
 import { cn } from '@src/lib/utils'
 import { SafeMarkdown } from '@src/components/SafeMarkdown'
@@ -29,11 +29,13 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
 }) {
   const dispatch = useAppDispatch()
   const fontSize = useAppSelector(selectFontSize)
+  const readingWidth = useAppSelector(selectReadingWidth)
 
   type Phase = 'reading' | 'quiz' | 'feedback' | 'generating' | 'final-quiz' | 'rating' | 'complete'
   const [phase, setPhase] = useState<Phase>('reading')
   const [generatedUpTo, setGeneratedUpTo] = useState(book.totalChapters)
-  const [tocTitles, setTocTitles] = useState<string[]>([])
+  const [tocChapters, setTocChapters] = useState<{ title: string; description: string }[]>([])
+  const [showToc, setShowToc] = useState(false)
   const [quizQuestions, setQuizQuestions] = useState<Array<{ question: string; options: string[]; correctIndex: number }>>([])
   const [quizAnswers, setQuizAnswers] = useState<number[]>([])
   const [streamingContent, setStreamingContent] = useState('')
@@ -57,7 +59,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
       .catch(() => {})
     fetch(apiUrl(`/api/books/${book.id}/toc`))
       .then(res => res.json())
-      .then(data => setTocTitles(data.chapters?.map((c: { title: string }) => c.title) ?? []))
+      .then(data => setTocChapters(data.chapters?.map((c: { title: string; description?: string }) => ({ title: c.title, description: c.description ?? '' })) ?? []))
       .catch(() => {})
   }, [book.id])
 
@@ -364,14 +366,28 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
           <nav className="flex overflow-x-auto scrollbar-none">
-            {tocTitles.map((title, i) => {
+            <button
+              onClick={() => setShowToc(true)}
+              className={cn(
+                'relative shrink-0 whitespace-nowrap px-4 py-2 text-xs font-medium transition-colors',
+                showToc
+                  ? 'text-content-primary'
+                  : 'text-content-muted hover:text-content-secondary',
+              )}
+            >
+              Table of Contents
+              {showToc && (
+                <span className="absolute inset-x-0 -bottom-px h-0.5 bg-content-primary rounded-full" />
+              )}
+            </button>
+            {tocChapters.map((ch, i) => {
               const isGenerated = i < generatedUpTo
               if (!isGenerated) return null
-              const isActive = i === chapterIndex
+              const isActive = !showToc && i === chapterIndex
               return (
                 <button
                   key={i}
-                  onClick={() => goToChapter(i, 0)}
+                  onClick={() => { setShowToc(false); goToChapter(i, 0) }}
                   className={cn(
                     'relative shrink-0 whitespace-nowrap px-4 py-2 text-xs font-medium transition-colors',
                     isActive
@@ -432,8 +448,42 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
             className="h-full overflow-y-auto pt-12"
           >
             <article ref={articleRef} style={{ fontSize: `${fontSize}px` }}>
-              {phase === 'reading' && (
-                <div className="mx-auto max-w-3xl px-8 pb-24">
+              {phase === 'reading' && showToc && (
+                <div className="mx-auto px-8 pb-24" style={{ maxWidth: readingWidth }}>
+                  <h1 className="text-2xl font-bold tracking-tight text-content-primary">Table of Contents</h1>
+                  <div className="mt-6 space-y-1">
+                    {tocChapters.map((ch, i) => {
+                      const isGenerated = i < generatedUpTo
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => { if (isGenerated) { setShowToc(false); goToChapter(i, 0) } }}
+                          className={cn(
+                            'flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left transition-colors',
+                            isGenerated
+                              ? 'hover:bg-surface-muted/50 cursor-pointer'
+                              : 'opacity-40 cursor-default',
+                          )}
+                        >
+                          <span className="self-center text-sm font-medium text-content-muted w-10 shrink-0">{i + 1}</span>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-medium text-content-primary">{ch.title}</span>
+                            {ch.description && (
+                              <p className="mt-0.5 text-xs text-content-muted leading-relaxed">{ch.description}</p>
+                            )}
+                          </div>
+                          {!isGenerated && (
+                            <span className="text-xs text-content-faint shrink-0 pt-0.5">Not yet generated</span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {phase === 'reading' && !showToc && (
+                <div className="mx-auto px-8 pb-24" style={{ maxWidth: readingWidth }}>
                   {/* Section progress dots */}
                   {sections.length > 1 && (
                     <div className="flex items-center justify-center gap-1.5 py-1.5 border-b border-border-default/30">
@@ -494,7 +544,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
               )}
 
               {phase === 'generating' && (
-                <div className="mx-auto max-w-3xl px-8 pb-24">
+                <div className="mx-auto px-8 pb-24" style={{ maxWidth: readingWidth }}>
                   {streamingContent ? (
                     <div className="reader-prose">
                       <SafeMarkdown>{streamingContent}</SafeMarkdown>
@@ -502,7 +552,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
                   ) : (
                     <div className="pt-8">
                       <h1 className="text-2xl font-bold tracking-tight text-content-primary">
-                        {tocTitles[chapterIndex + 1] ?? `Chapter ${chapterIndex + 2}`}
+                        {tocChapters[chapterIndex + 1]?.title ?? `Chapter ${chapterIndex + 2}`}
                       </h1>
                       <span className="mt-6 inline-block h-5 w-px animate-pulse bg-content-muted" />
                     </div>
@@ -512,7 +562,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
 
               {phase === 'final-quiz' && (
                 finalQuizLoading || finalQuizQuestions.length === 0 ? (
-                  <div className="mx-auto max-w-3xl px-8 py-8">
+                  <div className="mx-auto px-8 py-8" style={{ maxWidth: readingWidth }}>
                     <div className="flex items-center gap-2 pt-12 text-content-muted">
                       <Loader2 className="size-4 animate-spin" />
                       <span className="text-sm">Generating your final quiz...</span>

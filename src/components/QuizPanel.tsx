@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@src/components/ui/button'
 import { CheckCircle2, XCircle } from 'lucide-react'
+import { useAppSelector, selectReadingWidth } from '@src/store'
 
 interface QuizQuestion {
   question: string
@@ -17,6 +18,7 @@ interface QuizPanelProps {
 }
 
 export function QuizPanel({ questions, onComplete, onSkip, title, subtitle }: QuizPanelProps) {
+  const readingWidth = useAppSelector(selectReadingWidth)
   const [answers, setAnswers] = useState<(number | null)[]>(
     Array(questions.length).fill(null),
   )
@@ -37,7 +39,7 @@ export function QuizPanel({ questions, onComplete, onSkip, title, subtitle }: Qu
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-8 py-8">
+    <div className="mx-auto px-8 py-8" style={{ maxWidth: readingWidth }}>
       <h2 className="text-xl font-semibold tracking-tight">{title ?? 'Quick Quiz'}</h2>
       <p className="mt-1 text-sm text-content-muted">
         {subtitle ?? 'Test your understanding of this chapter.'}

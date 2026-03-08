@@ -112,6 +112,7 @@ export interface SettingsState {
   providers: Record<ProviderId, ProviderConfig>
   functionModels: Partial<Record<AiFunctionGroup, FunctionModelOverride>>
   fontSize: number
+  readingWidth: number
   textureEnabled: boolean
   textureOpacity: number
   libraryTab: 'all' | 'in-progress' | 'not-started' | 'finished'
@@ -128,6 +129,7 @@ const settingsSlice = createSlice({
     },
     functionModels: {},
     fontSize: 16,
+    readingWidth: 768,
     textureEnabled: true,
     textureOpacity: 1,
     libraryTab: 'all' as const,
@@ -144,6 +146,9 @@ const settingsSlice = createSlice({
     },
     setFontSize(state, action: PayloadAction<number>) {
       state.fontSize = action.payload
+    },
+    setReadingWidth(state, action: PayloadAction<number>) {
+      state.readingWidth = action.payload
     },
     setTextureEnabled(state, action: PayloadAction<boolean>) {
       state.textureEnabled = action.payload
@@ -169,6 +174,7 @@ export const {
   setProviderApiKey,
   setProviderModel,
   setFontSize,
+  setReadingWidth,
   setTextureEnabled,
   setTextureOpacity,
   setLibraryTab,
@@ -183,6 +189,7 @@ export const selectModel = (state: RootState) => state.settings.providers[state.
 export const selectActiveProvider = (state: RootState) => state.settings.activeProvider
 export const selectProviders = (state: RootState) => state.settings.providers
 export const selectFontSize = (state: RootState) => state.settings.fontSize
+export const selectReadingWidth = (state: RootState) => state.settings.readingWidth
 export const selectTextureEnabled = (state: RootState) => state.settings.textureEnabled
 export const selectTextureOpacity = (state: RootState) => state.settings.textureOpacity
 export const selectLibraryTab = (state: RootState) => state.settings.libraryTab

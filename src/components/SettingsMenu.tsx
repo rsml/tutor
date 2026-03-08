@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Settings, Sun, Moon, Monitor, Type, Layers, Check, User, BarChart3, Sliders } from 'lucide-react'
+import { Settings, Sun, Moon, Monitor, Type, Layers, Check, User, BarChart3, Sliders, MoveHorizontal } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import {
   Dialog,
@@ -32,12 +32,14 @@ import {
   selectActiveProvider,
   selectProviders,
   selectFontSize,
+  selectReadingWidth,
   selectTextureEnabled,
   selectTextureOpacity,
   setActiveProvider,
   setProviderApiKey,
   setProviderModel,
   setFontSize,
+  setReadingWidth,
   setTextureEnabled,
   setTextureOpacity,
 } from '@src/store'
@@ -46,6 +48,10 @@ import { apiUrl } from '@src/lib/api-base'
 
 const FONT_SIZES = [12, 13, 14, 15, 16, 17, 18, 20, 22]
 const DEFAULT_FONT_SIZE = 16
+
+const READING_WIDTHS = [560, 640, 768, 896, 1024, 99999]
+const READING_WIDTH_LABELS = ['Narrow', 'Medium', 'Default', 'Wide', 'Extra Wide', 'Full']
+const DEFAULT_READING_WIDTH = 768
 
 interface SettingsMenuProps {
   apiKeyDialogOpen?: boolean
@@ -61,6 +67,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
   const activeProvider = useAppSelector(selectActiveProvider)
   const providers = useAppSelector(selectProviders)
   const fontSize = useAppSelector(selectFontSize)
+  const readingWidth = useAppSelector(selectReadingWidth)
   const textureEnabled = useAppSelector(selectTextureEnabled)
   const textureOpacity = useAppSelector(selectTextureOpacity)
 
@@ -158,6 +165,9 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
 
   const fontSizeIndex = FONT_SIZES.indexOf(fontSize)
   const defaultIndex = FONT_SIZES.indexOf(DEFAULT_FONT_SIZE)
+  const readingWidthIndex = READING_WIDTHS.indexOf(readingWidth)
+  const defaultWidthIndex = READING_WIDTHS.indexOf(DEFAULT_READING_WIDTH)
+  const readingWidthLabel = READING_WIDTH_LABELS[readingWidthIndex >= 0 ? readingWidthIndex : defaultWidthIndex]
 
   const dialogDef = PROVIDERS[dialogProvider]
   const dialogConfig = providers[dialogProvider]
@@ -296,6 +306,41 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
                   >
                     <div className={`h-1.5 w-px ${i === defaultIndex ? 'bg-content-primary' : 'bg-content-muted/30'}`} />
                     {i === defaultIndex && (
+                      <span className="absolute top-2 left-1/2 -translate-x-1/2 text-[9px] whitespace-nowrap">default</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DropdownMenuSeparator />
+
+          {/* Reading Width */}
+          <div className="px-2 pt-1.5 pb-5">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-2">
+              <MoveHorizontal className="size-3.5" />
+              Reading Width
+              <span className="ml-auto tabular-nums">{readingWidthLabel}</span>
+            </div>
+            <div className="relative px-1">
+              <input
+                type="range"
+                min={0}
+                max={READING_WIDTHS.length - 1}
+                value={readingWidthIndex >= 0 ? readingWidthIndex : defaultWidthIndex}
+                onChange={e => dispatch(setReadingWidth(READING_WIDTHS[parseInt(e.target.value)]))}
+                className="w-full accent-[oklch(0.55_0.20_285)] cursor-pointer"
+                onPointerDown={e => e.stopPropagation()}
+              />
+              <div className="flex justify-between px-2 -mt-0.5">
+                {READING_WIDTHS.map((_, i) => (
+                  <div
+                    key={i}
+                    className={`relative flex flex-col items-center ${i === defaultWidthIndex ? 'text-content-primary' : 'text-content-muted/40'}`}
+                  >
+                    <div className={`h-1.5 w-px ${i === defaultWidthIndex ? 'bg-content-primary' : 'bg-content-muted/30'}`} />
+                    {i === defaultWidthIndex && (
                       <span className="absolute top-2 left-1/2 -translate-x-1/2 text-[9px] whitespace-nowrap">default</span>
                     )}
                   </div>

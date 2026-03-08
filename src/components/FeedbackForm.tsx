@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Button } from '@src/components/ui/button'
+import { useAppSelector, selectReadingWidth } from '@src/store'
 
 interface FeedbackFormProps {
   chapterNum: number
@@ -8,11 +9,12 @@ interface FeedbackFormProps {
 }
 
 export function FeedbackForm({ chapterNum, onSubmit, submitLabel }: FeedbackFormProps) {
+  const readingWidth = useAppSelector(selectReadingWidth)
   const [liked, setLiked] = useState('')
   const [disliked, setDisliked] = useState('')
 
   return (
-    <div className="mx-auto max-w-3xl px-8 py-8">
+    <div className="mx-auto px-8 py-8" style={{ maxWidth: readingWidth }}>
       <h2 className="text-xl font-semibold tracking-tight">Chapter {chapterNum} Feedback</h2>
       <p className="mt-1 text-sm text-content-muted">
         Your feedback shapes how the next chapter is written.
