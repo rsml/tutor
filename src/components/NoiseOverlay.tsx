@@ -51,7 +51,7 @@ export function NoiseOverlay({ opacity = 1, position = 'fixed' }: NoiseOverlayPr
         position,
         backgroundSize: '128px',
         zIndex: position === 'fixed' ? 9999 : undefined,
-        opacity: (0.01 + 0.07 * textureOpacity) * opacity,
+        opacity: (0.01 + 0.028 * textureOpacity) * opacity,
       }}
       aria-hidden="true"
     />
