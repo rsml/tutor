@@ -79,15 +79,6 @@ export function QuizReviewPage({ book, onBack, onBackToReader }: {
         className="relative z-30 flex h-12 shrink-0 items-center border-b border-border-default/50 bg-surface-base/90 px-4 backdrop-blur-sm"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
-        <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-          <button
-            onClick={onBack}
-            className="inline-flex items-center gap-1.5 p-1 text-content-muted/50 transition-colors hover:text-content-muted"
-          >
-            <ArrowLeft className="size-4" />
-          </button>
-        </div>
-
         <span className="absolute inset-x-0 pointer-events-none text-center text-sm font-semibold tracking-tight">
           {book.title} — Quiz Review
         </span>
@@ -111,7 +102,16 @@ export function QuizReviewPage({ book, onBack, onBackToReader }: {
       </header>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto px-8 py-6">
+      <div className="relative flex-1 overflow-hidden">
+        {/* Back button — overlays top-left of content area, below header */}
+        <button
+          onClick={onBack}
+          className="absolute left-6 top-3 z-20 inline-flex items-center gap-1.5 p-2 text-content-muted/50 transition-colors hover:text-content-muted"
+        >
+          <ArrowLeft className="size-5" />
+        </button>
+
+      <main className="h-full overflow-y-auto px-8 py-6">
         <div className="mx-auto max-w-3xl">
           {!summary.hasAnyData ? (
             <div className="flex flex-col items-center gap-3 pt-24 text-content-muted">
@@ -181,6 +181,7 @@ export function QuizReviewPage({ book, onBack, onBackToReader }: {
           )}
         </div>
       </main>
+      </div>
     </div>
   )
 }
