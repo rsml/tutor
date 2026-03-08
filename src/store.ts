@@ -108,6 +108,7 @@ export interface SettingsState {
   fontSize: number
   textureEnabled: boolean
   textureOpacity: number
+  libraryTab: 'all' | 'in-progress' | 'not-started' | 'finished'
 }
 
 const settingsSlice = createSlice({
@@ -122,6 +123,7 @@ const settingsSlice = createSlice({
     fontSize: 16,
     textureEnabled: true,
     textureOpacity: 1,
+    libraryTab: 'all' as const,
   } as SettingsState,
   reducers: {
     setActiveProvider(state, action: PayloadAction<ProviderId>) {
@@ -142,6 +144,9 @@ const settingsSlice = createSlice({
     setTextureOpacity(state, action: PayloadAction<number>) {
       state.textureOpacity = action.payload
     },
+    setLibraryTab(state, action: PayloadAction<SettingsState['libraryTab']>) {
+      state.libraryTab = action.payload
+    },
   },
 })
 
@@ -152,6 +157,7 @@ export const {
   setFontSize,
   setTextureEnabled,
   setTextureOpacity,
+  setLibraryTab,
 } = settingsSlice.actions
 
 // Derived selectors — return active provider's key/model
@@ -163,6 +169,7 @@ export const selectProviders = (state: RootState) => state.settings.providers
 export const selectFontSize = (state: RootState) => state.settings.fontSize
 export const selectTextureEnabled = (state: RootState) => state.settings.textureEnabled
 export const selectTextureOpacity = (state: RootState) => state.settings.textureOpacity
+export const selectLibraryTab = (state: RootState) => state.settings.libraryTab
 
 const rootReducer = combineReducers({
   readingProgress: readingProgressSlice.reducer,

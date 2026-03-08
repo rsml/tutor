@@ -21,7 +21,8 @@ import { ReaderPage } from '@src/pages/ReaderPage'
 import { QuizReviewPage } from '@src/pages/QuizReviewPage'
 import { ReviewProgressPage } from '@src/pages/ReviewProgressPage'
 import { SkillDetailPage } from '@src/pages/SkillDetailPage'
-import { useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize } from '@src/store'
+import { useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize, selectLibraryTab, setLibraryTab } from '@src/store'
+import { cn } from '@src/lib/utils'
 import { PROVIDER_IDS } from '@src/lib/providers'
 import { apiUrl } from '@src/lib/api-base'
 
@@ -61,6 +62,7 @@ export default function App() {
   const dispatch = useAppDispatch()
   const hasApiKey = useAppSelector(selectHasApiKey)
   const fontSize = useAppSelector(selectFontSize)
+  const libraryTab = useAppSelector(selectLibraryTab)
 
   useEffect(() => {
     if (window.electronAPI) {
@@ -274,6 +276,32 @@ export default function App() {
   const apiBookIds = new Set(apiBooks.map(b => b.id))
   const allBooks = apiBooks
 
+  const classifyBook = (book: Book): 'finished' | 'in-progress' | 'not-started' => {
+    if (book.rating != null) return 'finished'
+    if (furthest[book.id] != null) return 'in-progress'
+    return 'not-started'
+  }
+
+  // Sort: in-progress first (by furthest desc), then not-started, then finished
+  const sortedBooks = [...allBooks].sort((a, b) => {
+    const classOrder = { 'in-progress': 0, 'not-started': 1, 'finished': 2 }
+    const ca = classOrder[classifyBook(a)]
+    const cb = classOrder[classifyBook(b)]
+    if (ca !== cb) return ca - cb
+    return 0
+  })
+
+  const filteredBooks = libraryTab === 'all'
+    ? sortedBooks
+    : sortedBooks.filter(b => classifyBook(b) === libraryTab)
+
+  const tabCounts = {
+    all: allBooks.length,
+    'in-progress': allBooks.filter(b => classifyBook(b) === 'in-progress').length,
+    'not-started': allBooks.filter(b => classifyBook(b) === 'not-started').length,
+    finished: allBooks.filter(b => classifyBook(b) === 'finished').length,
+  }
+
   return (
     <div className="flex h-screen flex-col text-content-primary">
       <NoiseOverlay />
@@ -309,6 +337,46 @@ export default function App() {
         </div>
       </header>
 
+      {/* Filter tabs */}
+      {allBooks.length > 0 && (
+        <div className="border-b border-border-default/50 bg-surface-base/90 backdrop-blur-sm px-8">
+          <div className="mx-auto max-w-7xl">
+            <nav className="flex gap-6">
+              {([
+                ['all', 'All'],
+                ['in-progress', 'In Progress'],
+                ['not-started', 'Not Started'],
+                ['finished', 'Finished'],
+              ] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => dispatch(setLibraryTab(key))}
+                  className={cn(
+                    'relative py-2.5 text-sm font-medium transition-colors',
+                    libraryTab === key
+                      ? 'text-content-primary'
+                      : 'text-content-muted hover:text-content-primary',
+                  )}
+                >
+                  {label}
+                  {tabCounts[key] > 0 && (
+                    <span className={cn(
+                      'ml-1.5 text-xs',
+                      libraryTab === key ? 'text-content-muted' : 'text-content-faint',
+                    )}>
+                      {tabCounts[key]}
+                    </span>
+                  )}
+                  {libraryTab === key && (
+                    <span className="absolute inset-x-0 -bottom-px h-0.5 bg-content-primary rounded-full" />
+                  )}
+                </button>
+              ))}
+            </nav>
+          </div>
+        </div>
+      )}
+
       {/* Library grid */}
       <main className="flex-1 overflow-y-auto px-8 py-8" style={{ fontSize: `${fontSize}px` }}>
         <div className="mx-auto max-w-7xl">
@@ -326,9 +394,14 @@ export default function App() {
                 New Book
               </Button>
             </div>
+          ) : filteredBooks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-32 text-center">
+              <BookOpen className="size-12 text-content-faint" />
+              <p className="mt-4 text-sm text-content-muted">No books match this filter.</p>
+            </div>
           ) : (
             <div className="grid grid-cols-4 gap-8 xl:grid-cols-5">
-              {allBooks.map((book) => {
+              {filteredBooks.map((book) => {
                 const reduxProgress = furthest[book.id]
                 const chaptersRead = reduxProgress != null
                   ? reduxProgress + 1
