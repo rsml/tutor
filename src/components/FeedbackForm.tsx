@@ -12,7 +12,7 @@ export function FeedbackForm({ chapterNum, onSubmit, submitLabel }: FeedbackForm
   const [disliked, setDisliked] = useState('')
 
   return (
-    <div className="mx-auto max-w-2xl px-8 py-8">
+    <div className="mx-auto max-w-3xl px-8 py-8">
       <h2 className="text-xl font-semibold tracking-tight">Chapter {chapterNum} Feedback</h2>
       <p className="mt-1 text-sm text-content-muted">
         Your feedback shapes how the next chapter is written.

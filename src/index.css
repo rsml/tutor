@@ -229,6 +229,15 @@
   30% { opacity: 1; transform: translateY(-2px); }
 }
 
+/* Hide scrollbar for tab strips */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 /* Prevent native overscroll on reader scroll container */
 #reader-scroll {
   overscroll-behavior-y: none;

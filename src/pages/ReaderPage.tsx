@@ -39,6 +39,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
   const [streamingContent, setStreamingContent] = useState('')
   const streamingBufferRef = useRef('')
   const streamingRafRef = useRef<number | null>(null)
+  const userHasScrolledRef = useRef(false)
 
   const [finalQuizQuestions, setFinalQuizQuestions] = useState<Array<{ question: string; options: string[]; correctIndex: number }>>([])
   const [finalQuizScore, setFinalQuizScore] = useState(0)
@@ -65,8 +66,8 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
     fullChapterContent, loading: chapterLoading,
     hasPrev, hasNext,
     isLastSectionOfLastGenerated, isLastSectionOfBook,
-    isLastChapter, sectionLabel,
-    goNext, goPrev,
+    isLastChapter,
+    goNext, goPrev, goToChapter,
   } = useSectionNavigation({ bookId: book.id, totalChapters: book.totalChapters, generatedUpTo })
 
   // Save initial position on mount
@@ -282,6 +283,45 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
     }
   }, [book.id, chapterIndex, quizAnswers, genModel, genProvider, quizModel, quizProvider, dispatch])
 
+  // Auto-scroll during streaming, but stop if user scrolls manually
+  useEffect(() => {
+    if (phase !== 'generating' || !streamingContent) return
+    if (userHasScrolledRef.current) return
+    const el = scrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [phase, streamingContent])
+
+  // Detect user scroll during streaming to disable auto-scroll
+  useEffect(() => {
+    if (phase !== 'generating') {
+      userHasScrolledRef.current = false
+      return
+    }
+    const el = scrollRef.current
+    if (!el) return
+    let lastScrollTop = el.scrollTop
+    let ticking = false
+    const handleScroll = () => {
+      if (ticking) return
+      ticking = true
+      requestAnimationFrame(() => {
+        ticking = false
+        const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 40
+        // User scrolled up (away from bottom) — they're reading
+        if (el.scrollTop < lastScrollTop && !atBottom) {
+          userHasScrolledRef.current = true
+        }
+        // User scrolled back to bottom — re-enable auto-scroll
+        if (atBottom) {
+          userHasScrolledRef.current = false
+        }
+        lastScrollTop = el.scrollTop
+      })
+    }
+    el.addEventListener('scroll', handleScroll, { passive: true })
+    return () => el.removeEventListener('scroll', handleScroll)
+  }, [phase])
+
   // Scroll to top on section change
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 })
@@ -298,32 +338,11 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
           {book.title}
         </span>
 
-        {/* Chapter nav */}
+        {/* Right controls */}
         <div
           className="ml-auto flex items-center gap-1"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
-          <span className="mr-1 text-xs text-content-muted">
-            {sectionLabel}
-          </span>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={goPrev}
-            disabled={!hasPrev}
-            aria-label="Previous section"
-          >
-            <ChevronLeft className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={goNext}
-            disabled={!hasNext}
-            aria-label="Next section"
-          >
-            <ChevronRight className="size-4" />
-          </Button>
           {onQuizReview && (
             <Button
               variant="ghost"
@@ -337,6 +356,39 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
           <SettingsMenu subtle />
         </div>
       </header>
+
+      {/* Chapter tabs */}
+      {phase === 'reading' && (
+        <div
+          className="z-20 shrink-0 border-b border-border-default/50 bg-surface-base/90 backdrop-blur-sm"
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        >
+          <nav className="flex overflow-x-auto scrollbar-none">
+            {tocTitles.map((title, i) => {
+              const isGenerated = i < generatedUpTo
+              if (!isGenerated) return null
+              const isActive = i === chapterIndex
+              return (
+                <button
+                  key={i}
+                  onClick={() => goToChapter(i, 0)}
+                  className={cn(
+                    'relative shrink-0 whitespace-nowrap px-4 py-2 text-xs font-medium transition-colors',
+                    isActive
+                      ? 'text-content-primary'
+                      : 'text-content-muted hover:text-content-secondary',
+                  )}
+                >
+                  Chapter {i + 1}
+                  {isActive && (
+                    <span className="absolute inset-x-0 -bottom-px h-0.5 bg-content-primary rounded-full" />
+                  )}
+                </button>
+              )
+            })}
+          </nav>
+        </div>
+      )}
 
       {/* Content + chat panel in horizontal flex */}
       <div className="relative flex flex-1 overflow-hidden">
@@ -381,7 +433,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
           >
             <article ref={articleRef} style={{ fontSize: `${fontSize}px` }}>
               {phase === 'reading' && (
-                <div className="mx-auto max-w-2xl px-8 pb-24">
+                <div className="mx-auto max-w-3xl px-8 pb-24">
                   {/* Section progress dots */}
                   {sections.length > 1 && (
                     <div className="flex items-center justify-center gap-1.5 py-1.5 border-b border-border-default/30">
@@ -442,7 +494,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
               )}
 
               {phase === 'generating' && (
-                <div className="mx-auto max-w-2xl px-8 pb-24">
+                <div className="mx-auto max-w-3xl px-8 pb-24">
                   {streamingContent ? (
                     <div className="reader-prose">
                       <SafeMarkdown>{streamingContent}</SafeMarkdown>
@@ -460,7 +512,7 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
 
               {phase === 'final-quiz' && (
                 finalQuizLoading || finalQuizQuestions.length === 0 ? (
-                  <div className="mx-auto max-w-2xl px-8 py-8">
+                  <div className="mx-auto max-w-3xl px-8 py-8">
                     <div className="flex items-center gap-2 pt-12 text-content-muted">
                       <Loader2 className="size-4 animate-spin" />
                       <span className="text-sm">Generating your final quiz...</span>

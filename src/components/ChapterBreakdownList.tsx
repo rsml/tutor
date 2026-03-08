@@ -92,7 +92,11 @@ export function ChapterBreakdownList({ bookId, chapters, tocTitles, sortMode, on
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-content-primary">{q.question}</p>
-                        {!answer.correct && (
+                        {answer.correct ? (
+                          <p className="mt-1 text-xs text-green-400">
+                            {q.options[q.correctIndex]}
+                          </p>
+                        ) : (
                           <div className="mt-1 space-y-0.5">
                             <p className="text-xs text-red-400">
                               Your answer: {q.options[answer.selectedAnswer]}

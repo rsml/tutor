@@ -37,7 +37,7 @@ export function QuizPanel({ questions, onComplete, onSkip, title, subtitle }: Qu
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-8 py-8">
+    <div className="mx-auto max-w-3xl px-8 py-8">
       <h2 className="text-xl font-semibold tracking-tight">{title ?? 'Quick Quiz'}</h2>
       <p className="mt-1 text-sm text-content-muted">
         {subtitle ?? 'Test your understanding of this chapter.'}
