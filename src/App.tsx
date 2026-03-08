@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
 import { Plus, BookOpen } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
@@ -276,31 +276,30 @@ export default function App() {
   const apiBookIds = new Set(apiBooks.map(b => b.id))
   const allBooks = apiBooks
 
-  const classifyBook = (book: Book): 'finished' | 'in-progress' | 'not-started' => {
+  const classifyBook = useCallback((book: Book): 'finished' | 'in-progress' | 'not-started' => {
     if (book.rating != null) return 'finished'
     if (furthest[book.id] != null) return 'in-progress'
     return 'not-started'
-  }
+  }, [furthest])
 
-  // Sort: in-progress first (by furthest desc), then not-started, then finished
-  const sortedBooks = [...allBooks].sort((a, b) => {
-    const classOrder = { 'in-progress': 0, 'not-started': 1, 'finished': 2 }
-    const ca = classOrder[classifyBook(a)]
-    const cb = classOrder[classifyBook(b)]
-    if (ca !== cb) return ca - cb
-    return 0
-  })
+  const { sortedBooks, filteredBooks, tabCounts } = useMemo(() => {
+    const classOrder = { 'in-progress': 0, 'not-started': 1, 'finished': 2 } as const
+    const bookClasses = new Map(allBooks.map(b => [b.id, classifyBook(b)]))
 
-  const filteredBooks = libraryTab === 'all'
-    ? sortedBooks
-    : sortedBooks.filter(b => classifyBook(b) === libraryTab)
+    // Sort: in-progress first, then not-started, then finished
+    const sorted = [...allBooks].sort((a, b) => {
+      return classOrder[bookClasses.get(a.id)!] - classOrder[bookClasses.get(b.id)!]
+    })
 
-  const tabCounts = {
-    all: allBooks.length,
-    'in-progress': allBooks.filter(b => classifyBook(b) === 'in-progress').length,
-    'not-started': allBooks.filter(b => classifyBook(b) === 'not-started').length,
-    finished: allBooks.filter(b => classifyBook(b) === 'finished').length,
-  }
+    const filtered = libraryTab === 'all'
+      ? sorted
+      : sorted.filter(b => bookClasses.get(b.id) === libraryTab)
+
+    const counts = { all: allBooks.length, 'in-progress': 0, 'not-started': 0, finished: 0 }
+    for (const cls of bookClasses.values()) counts[cls]++
+
+    return { sortedBooks: sorted, filteredBooks: filtered, tabCounts: counts }
+  }, [allBooks, libraryTab, classifyBook])
 
   return (
     <div className="flex h-screen flex-col text-content-primary">
