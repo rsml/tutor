@@ -63,10 +63,6 @@ const SLIDER_PREFS: Array<{
   { key: 'formalityLevel', label: 'Formality', left: 'Casual', right: 'Academic' },
 ]
 
-const DEFAULT_ABOUT = `CTO, expert in frontend/UX/mobile, mid-level at backend/infrastructure, learning to be better at backend and infra
-
-mental models that grow, right metaphors that aren't too loose or leaky`
-
 const DEFAULT_PREFS: Preferences = {
   explainComplexTermsSimply: true,
   codeExamples: true,
@@ -83,7 +79,7 @@ const DEFAULT_PREFS: Preferences = {
 }
 
 export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkills }: ProfileDialogProps) {
-  const [aboutMe, setAboutMe] = useState(DEFAULT_ABOUT)
+  const [aboutMe, setAboutMe] = useState('')
   const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFS)
   const [skills, setSkills] = useState<Skill[]>([])
   const [saving, setSaving] = useState(false)
