@@ -48,10 +48,16 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
   const model = useAppSelector(selectModel)
   const provider = useAppSelector(selectActiveProvider)
 
+  const [tocTitles, setTocTitles] = useState<string[]>([])
+
   useEffect(() => {
     fetch(apiUrl(`/api/books/${book.id}`))
       .then(res => res.json())
       .then(data => setGeneratedUpTo(data.generatedUpTo))
+      .catch(() => {})
+    fetch(apiUrl(`/api/books/${book.id}/toc`))
+      .then(res => res.json())
+      .then(data => setTocTitles(data.chapters?.map((c: { title: string }) => c.title) ?? []))
       .catch(() => {})
   }, [book.id])
 
@@ -443,9 +449,13 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
                       <SafeMarkdown>{streamingContent}</SafeMarkdown>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 pt-12 text-content-muted">
-                      <Loader2 className="size-4 animate-spin" />
-                      <span className="text-sm">Generating chapter {chapterIndex + 2}...</span>
+                    <div className="pt-8">
+                      <h1 className="text-2xl font-bold tracking-tight text-content-primary">
+                        {tocTitles[chapterIndex + 1] ?? `Chapter ${chapterIndex + 2}`}
+                      </h1>
+                      <div className="mt-6 flex items-center gap-1.5 text-content-faint">
+                        <span className="inline-block h-5 w-px animate-pulse bg-content-muted" />
+                      </div>
                     </div>
                   )}
                 </div>
