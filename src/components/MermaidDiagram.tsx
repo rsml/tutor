@@ -1,11 +1,9 @@
 import { useEffect, useId, useState } from 'react'
 import mermaid from 'mermaid'
+import { formatHex, parse } from 'culori'
 
-// Convert OKLCH color string to hex using canvas (Chromium supports OKLCH natively)
-function oklchToHex(oklch: string): string {
-  const ctx = document.createElement('canvas').getContext('2d')!
-  ctx.fillStyle = oklch
-  return ctx.fillStyle // returns #rrggbb hex
+function oklchToHex(color: string): string {
+  return formatHex(parse(color))!
 }
 
 // OKLCH palette for dark mode — perceptually uniform contrast
@@ -31,79 +29,87 @@ const P = {
     .map(h => `oklch(0.30 0.07 ${h})`),
 } as const
 
+// Convert entire palette to hex for mermaid compatibility
+const H = {
+  ...Object.fromEntries(
+    Object.entries(P).filter(([k]) => k !== 'cScale').map(([k, v]) => [k, oklchToHex(v as string)])
+  ),
+  cScale: P.cScale.map(oklchToHex),
+} as { [K in keyof typeof P]: K extends 'cScale' ? string[] : string }
+
 const themeCSS = `
 /* Node shapes */
 .node rect, .node polygon, .node circle, .node ellipse,
 .node .label-container {
-  stroke: ${P.nodeBorder} !important;
+  stroke: ${H.nodeBorder} !important;
 }
 .nodeLabel, .node .label {
-  fill: ${P.nodeText} !important;
-  color: ${P.nodeText} !important;
+  fill: ${H.nodeText} !important;
+  color: ${H.nodeText} !important;
 }
 
 /* Edge labels — high contrast */
 .edgeLabel {
-  background-color: ${P.edgeLabelBg} !important;
-  color: ${P.edgeLabelText} !important;
+  background-color: ${H.edgeLabelBg} !important;
+  color: ${H.edgeLabelText} !important;
 }
 .edgeLabel rect {
-  fill: ${P.edgeLabelBg} !important;
+  fill: ${H.edgeLabelBg} !important;
   opacity: 1 !important;
 }
 .edgeLabel span, .edgeLabel p {
-  color: ${P.edgeLabelText} !important;
+  color: ${H.edgeLabelText} !important;
 }
 
 /* Edge paths */
 .edgePath path {
-  stroke: ${P.edgeLine} !important;
+  stroke: ${H.edgeLine} !important;
 }
 .arrowheadPath, marker path {
-  fill: ${P.edgeLine} !important;
-  stroke: ${P.edgeLine} !important;
+  fill: ${H.edgeLine} !important;
+  stroke: ${H.edgeLine} !important;
 }
 
 /* Clusters / subgraphs */
 .cluster rect {
-  fill: ${P.clusterBg} !important;
-  stroke: ${P.clusterBorder} !important;
+  fill: ${H.clusterBg} !important;
+  stroke: ${H.clusterBorder} !important;
 }
 .cluster span, .cluster .nodeLabel {
-  color: ${P.noteText} !important;
-  fill: ${P.noteText} !important;
+  color: ${H.noteText} !important;
+  fill: ${H.noteText} !important;
 }
 
 /* Sequence diagram */
 .actor {
-  fill: ${P.primary} !important;
-  stroke: ${P.nodeBorder} !important;
+  fill: ${H.primary} !important;
+  stroke: ${H.nodeBorder} !important;
 }
 text.actor > tspan {
-  fill: ${P.nodeText} !important;
+  fill: ${H.nodeText} !important;
 }
 .activation0, .activation1, .activation2 {
-  fill: ${P.tertiary} !important;
-  stroke: ${P.nodeBorder} !important;
+  fill: ${H.tertiary} !important;
+  stroke: ${H.nodeBorder} !important;
 }
 line[class^="messageLine"], .messageLine0, .messageLine1 {
-  stroke: ${P.edgeLine} !important;
+  stroke: ${H.edgeLine} !important;
 }
 .messageText {
-  fill: ${P.edgeLabelText} !important;
+  fill: ${H.edgeLabelText} !important;
 }
 .labelText, .loopText tspan {
-  fill: ${P.noteText} !important;
+  fill: ${H.noteText} !important;
 }
 .loopLine {
-  stroke: ${P.clusterBorder} !important;
+  stroke: ${H.clusterBorder} !important;
 }
 .note {
-  fill: ${P.noteBg} !important;
-  stroke: ${P.clusterBorder} !important;
+  fill: ${H.noteBg} !important;
+  stroke: ${H.clusterBorder} !important;
 }
 .noteText {
-  fill: ${P.noteText} !important;
+  fill: ${H.noteText} !important;
 }
 `
 
@@ -114,64 +120,64 @@ mermaid.initialize({
   themeVariables: {
     // Base
     background: 'transparent',
-    mainBkg: oklchToHex(P.primary),
+    mainBkg: H.primary,
     fontFamily: '-apple-system, BlinkMacSystemFont, SF Pro, system-ui, sans-serif',
     fontSize: '14px',
 
     // Primary palette (nodes, arrows)
-    primaryColor: oklchToHex(P.primary),
-    primaryTextColor: oklchToHex(P.nodeText),
-    primaryBorderColor: oklchToHex(P.nodeBorder),
-    secondaryColor: oklchToHex(P.secondary),
-    secondaryTextColor: oklchToHex(P.nodeText),
-    secondaryBorderColor: oklchToHex(P.nodeBorder),
-    tertiaryColor: oklchToHex(P.tertiary),
-    tertiaryTextColor: oklchToHex(P.nodeText),
-    tertiaryBorderColor: oklchToHex(P.nodeBorder),
+    primaryColor: H.primary,
+    primaryTextColor: H.nodeText,
+    primaryBorderColor: H.nodeBorder,
+    secondaryColor: H.secondary,
+    secondaryTextColor: H.nodeText,
+    secondaryBorderColor: H.nodeBorder,
+    tertiaryColor: H.tertiary,
+    tertiaryTextColor: H.nodeText,
+    tertiaryBorderColor: H.nodeBorder,
 
     // Lines & edges
-    lineColor: oklchToHex(P.edgeLine),
-    edgeLabelBackground: oklchToHex(P.edgeLabelBg),
-    labelTextColor: oklchToHex(P.edgeLabelText),
+    lineColor: H.edgeLine,
+    edgeLabelBackground: H.edgeLabelBg,
+    labelTextColor: H.edgeLabelText,
 
     // Node defaults (flowchart)
-    nodeBorder: oklchToHex(P.nodeBorder),
-    nodeTextColor: oklchToHex(P.nodeText),
+    nodeBorder: H.nodeBorder,
+    nodeTextColor: H.nodeText,
 
     // Cluster / subgraph
-    clusterBkg: oklchToHex(P.clusterBg),
-    clusterBorder: oklchToHex(P.clusterBorder),
+    clusterBkg: H.clusterBg,
+    clusterBorder: H.clusterBorder,
 
     // Color scale overrides (prevents pastel defaults)
-    ...Object.fromEntries(P.cScale.flatMap((c, i) => [
-      [`cScale${i}`, oklchToHex(c)],
-      [`cScalePeer${i}`, oklchToHex(P.nodeText)],
-      [`cScaleLabel${i}`, oklchToHex(P.nodeText)],
+    ...Object.fromEntries(H.cScale.flatMap((c, i) => [
+      [`cScale${i}`, c],
+      [`cScalePeer${i}`, H.nodeText],
+      [`cScaleLabel${i}`, H.nodeText],
     ])),
 
     // Note styling
-    noteBkgColor: oklchToHex(P.noteBg),
-    noteTextColor: oklchToHex(P.noteText),
-    noteBorderColor: oklchToHex(P.clusterBorder),
+    noteBkgColor: H.noteBg,
+    noteTextColor: H.noteText,
+    noteBorderColor: H.clusterBorder,
 
     // Sequence diagram specific
-    actorBkg: oklchToHex(P.primary),
-    actorTextColor: oklchToHex(P.nodeText),
-    actorBorder: oklchToHex(P.nodeBorder),
-    activationBorderColor: oklchToHex(P.nodeBorder),
-    activationBkgColor: oklchToHex(P.tertiary),
-    signalColor: oklchToHex(P.edgeLabelText),
+    actorBkg: H.primary,
+    actorTextColor: H.nodeText,
+    actorBorder: H.nodeBorder,
+    activationBorderColor: H.nodeBorder,
+    activationBkgColor: H.tertiary,
+    signalColor: H.edgeLabelText,
 
     // State diagram
-    labelColor: oklchToHex(P.edgeLabelText),
+    labelColor: H.edgeLabelText,
 
     // Pie chart — use cScale hues for variety
-    pie1: oklchToHex(P.cScale[0]),
-    pie2: oklchToHex(P.cScale[1]),
-    pie3: oklchToHex(P.cScale[4]),
-    pie4: oklchToHex(P.cScale[5]),
-    pie5: oklchToHex(P.cScale[7]),
-    pie6: oklchToHex(P.cScale[9]),
+    pie1: H.cScale[0],
+    pie2: H.cScale[1],
+    pie3: H.cScale[4],
+    pie4: H.cScale[5],
+    pie5: H.cScale[7],
+    pie6: H.cScale[9],
   },
 })
 
