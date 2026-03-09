@@ -10,6 +10,9 @@ export function useTextSelection(containerRef: React.RefObject<HTMLElement | nul
   const [selectedText, setSelectedText] = useState('')
   const [selectionRect, setSelectionRect] = useState<DOMRect | null>(null)
   const lastScrollY = useRef(0)
+  const selectedTextRef = useRef('')
+
+  useEffect(() => { selectedTextRef.current = selectedText }, [selectedText])
 
   const clearSelection = useCallback(() => {
     setSelectedText('')
@@ -49,8 +52,9 @@ export function useTextSelection(containerRef: React.RefObject<HTMLElement | nul
       if (target.closest('[data-selection-tooltip]')) return
       if (target.closest('[data-chat-panel]')) return
 
-      const sel = window.getSelection()
-      if (!sel?.toString().trim()) {
+      // Only clear if we have an active selection (tooltip is showing).
+      // Avoids killing drag-selections at mousedown before they start.
+      if (selectedTextRef.current) {
         clearSelection()
       }
     }
@@ -67,8 +71,11 @@ export function useTextSelection(containerRef: React.RefObject<HTMLElement | nul
 
     const handleSelectionChange = () => {
       const sel = window.getSelection()
-      if (!sel?.toString().trim()) {
-        clearSelection()
+      if (!sel?.toString().trim() && selectedTextRef.current) {
+        // Only clear React state — don't call removeAllRanges() which
+        // would interfere with in-progress drag selections
+        setSelectedText('')
+        setSelectionRect(null)
       }
     }
 
