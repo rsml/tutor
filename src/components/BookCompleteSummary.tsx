@@ -8,7 +8,8 @@ interface BookCompleteSummaryProps {
   rating: number
   finalQuizScore: number
   finalQuizTotal: number
-  onBackToLibrary: () => void
+  onUpdateProfile: () => void
+  onSkip: () => void
 }
 
 export function BookCompleteSummary({
@@ -17,7 +18,8 @@ export function BookCompleteSummary({
   rating,
   finalQuizScore,
   finalQuizTotal,
-  onBackToLibrary,
+  onUpdateProfile,
+  onSkip,
 }: BookCompleteSummaryProps) {
   const percentage = Math.round((finalQuizScore / finalQuizTotal) * 100)
 
@@ -48,14 +50,20 @@ export function BookCompleteSummary({
           </div>
         </div>
 
-        <div className="mt-10">
+        <div className="mt-10 flex flex-col items-center gap-3">
           <Button
             size="lg"
-            onClick={onBackToLibrary}
+            onClick={onUpdateProfile}
             className="bg-[oklch(0.55_0.20_285)] text-white font-semibold hover:bg-[oklch(0.50_0.22_285)]"
           >
-            Back to Library
+            Update Learning Profile
           </Button>
+          <button
+            onClick={onSkip}
+            className="text-sm text-content-muted/70 underline underline-offset-2 hover:text-content-muted"
+          >
+            Skip
+          </button>
         </div>
       </div>
     </div>

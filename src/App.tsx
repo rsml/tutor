@@ -21,6 +21,7 @@ import { ReaderPage } from '@src/pages/ReaderPage'
 import { QuizReviewPage } from '@src/pages/QuizReviewPage'
 import { ReviewProgressPage } from '@src/pages/ReviewProgressPage'
 import { SkillDetailPage } from '@src/pages/SkillDetailPage'
+import { ProfileUpdatePage } from '@src/pages/ProfileUpdatePage'
 import { useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize, selectLibraryTab, setLibraryTab } from '@src/store'
 import { cn } from '@src/lib/utils'
 import { PROVIDER_IDS } from '@src/lib/providers'
@@ -45,6 +46,7 @@ type View =
   | { type: 'quiz-review'; book: Book }
   | { type: 'review-progress' }
   | { type: 'skill-detail'; skillName: string }
+  | { type: 'profile-update'; bookId: string; bookTitle: string }
 
 export default function App() {
   const [view, setView] = useState<View>({ type: 'library' })
@@ -269,6 +271,7 @@ export default function App() {
         book={view.book}
         onBack={() => { fetchBooks(); setView({ type: 'library' }) }}
         onQuizReview={() => setView({ type: 'quiz-review', book: view.book })}
+        onUpdateProfile={() => setView({ type: 'profile-update', bookId: view.book.id, bookTitle: view.book.title })}
       />
     )
   }
@@ -297,6 +300,16 @@ export default function App() {
       <SkillDetailPage
         skillName={view.skillName}
         onBack={() => setView({ type: 'review-progress' })}
+      />
+    )
+  }
+
+  if (view.type === 'profile-update') {
+    return (
+      <ProfileUpdatePage
+        bookId={view.bookId}
+        bookTitle={view.bookTitle}
+        onComplete={() => { fetchBooks(); setView({ type: 'library' }) }}
       />
     )
   }

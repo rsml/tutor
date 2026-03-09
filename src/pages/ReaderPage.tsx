@@ -22,10 +22,11 @@ interface Book {
   totalChapters: number
 }
 
-export function ReaderPage({ book, onBack, onQuizReview }: {
+export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
   book: Book
   onBack: () => void
   onQuizReview?: () => void
+  onUpdateProfile?: () => void
 }) {
   const dispatch = useAppDispatch()
   const fontSize = useAppSelector(selectFontSize)
@@ -365,44 +366,74 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
           className="z-20 shrink-0 border-b border-border-default/50 bg-surface-base/90 backdrop-blur-sm"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
-          <nav className="flex overflow-x-auto scrollbar-none">
-            <button
-              onClick={() => setShowToc(true)}
-              className={cn(
-                'relative shrink-0 whitespace-nowrap px-4 py-2 text-xs font-medium transition-colors',
-                showToc
-                  ? 'text-content-primary'
-                  : 'text-content-muted hover:text-content-secondary',
-              )}
-            >
-              Table of Contents
-              {showToc && (
-                <span className="absolute inset-x-0 -bottom-px h-0.5 bg-content-primary rounded-full" />
-              )}
-            </button>
-            {tocChapters.map((ch, i) => {
-              const isGenerated = i < generatedUpTo
-              if (!isGenerated) return null
-              const isActive = !showToc && i === chapterIndex
-              return (
-                <button
-                  key={i}
-                  onClick={() => { setShowToc(false); goToChapter(i, 0) }}
-                  className={cn(
-                    'relative shrink-0 whitespace-nowrap px-4 py-2 text-xs font-medium transition-colors',
-                    isActive
-                      ? 'text-content-primary'
-                      : 'text-content-muted hover:text-content-secondary',
-                  )}
-                >
-                  Chapter {i + 1}
-                  {isActive && (
-                    <span className="absolute inset-x-0 -bottom-px h-0.5 bg-content-primary rounded-full" />
-                  )}
-                </button>
-              )
-            })}
-          </nav>
+          <div className="flex items-center justify-between">
+            <nav className="flex min-w-0 overflow-x-auto scrollbar-none">
+              <button
+                onClick={() => setShowToc(true)}
+                className={cn(
+                  'relative shrink-0 whitespace-nowrap px-4 py-2 text-xs font-medium transition-colors',
+                  showToc
+                    ? 'text-content-primary'
+                    : 'text-content-muted hover:text-content-secondary',
+                )}
+              >
+                Table of Contents
+                {showToc && (
+                  <span className="absolute inset-x-0 -bottom-px h-0.5 bg-content-primary rounded-full" />
+                )}
+              </button>
+              {tocChapters.map((ch, i) => {
+                const isGenerated = i < generatedUpTo
+                if (!isGenerated) return null
+                const isActive = !showToc && i === chapterIndex
+                return (
+                  <button
+                    key={i}
+                    onClick={() => { setShowToc(false); goToChapter(i, 0) }}
+                    className={cn(
+                      'relative shrink-0 whitespace-nowrap px-4 py-2 text-xs font-medium transition-colors',
+                      isActive
+                        ? 'text-content-primary'
+                        : 'text-content-muted hover:text-content-secondary',
+                    )}
+                  >
+                    Chapter {i + 1}
+                    {isActive && (
+                      <span className="absolute inset-x-0 -bottom-px h-0.5 bg-content-primary rounded-full" />
+                    )}
+                  </button>
+                )
+              })}
+            </nav>
+            <div className="flex shrink-0 items-center gap-0.5 pr-2">
+              <button
+                onClick={goPrev}
+                disabled={!hasPrev}
+                className={cn(
+                  'rounded-md p-1 transition-colors',
+                  hasPrev
+                    ? 'text-content-muted hover:text-content-primary hover:bg-surface-muted/50'
+                    : 'text-content-muted/20 cursor-default',
+                )}
+                aria-label="Previous section"
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+              <button
+                onClick={goNext}
+                disabled={!hasNext}
+                className={cn(
+                  'rounded-md p-1 transition-colors',
+                  hasNext
+                    ? 'text-content-muted hover:text-content-primary hover:bg-surface-muted/50'
+                    : 'text-content-muted/20 cursor-default',
+                )}
+                aria-label="Next section"
+              >
+                <ChevronRight className="size-4" />
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -418,30 +449,6 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
 
         {/* Content area with edge tap zones */}
         <div className="relative flex-1 overflow-hidden">
-          {/* Left tap zone — previous section */}
-          {hasPrev && (
-            <div
-              className="absolute left-0 top-0 bottom-0 z-10 flex w-16 cursor-pointer items-center justify-center opacity-0 transition-opacity hover:opacity-100"
-              onClick={goPrev}
-            >
-              <div className="rounded-full bg-surface-muted/60 p-2 backdrop-blur-sm">
-                <ChevronLeft className="size-5 text-content-muted" />
-              </div>
-            </div>
-          )}
-
-          {/* Right tap zone — next section */}
-          {hasNext && (
-            <div
-              className="absolute right-0 top-0 bottom-0 z-10 flex w-16 cursor-pointer items-center justify-center opacity-0 transition-opacity hover:opacity-100"
-              onClick={goNext}
-            >
-              <div className="rounded-full bg-surface-muted/60 p-2 backdrop-blur-sm">
-                <ChevronRight className="size-5 text-content-muted" />
-              </div>
-            </div>
-          )}
-
           {/* Scrollable chapter content */}
           <main
             ref={scrollRef}
@@ -613,11 +620,36 @@ export function ReaderPage({ book, onBack, onQuizReview }: {
                   rating={bookRating}
                   finalQuizScore={finalQuizScore}
                   finalQuizTotal={finalQuizTotal}
-                  onBackToLibrary={onBack}
+                  onUpdateProfile={onUpdateProfile ?? onBack}
+                  onSkip={onBack}
                 />
               )}
             </article>
           </main>
+
+          {/* Left tap zone — previous section */}
+          {hasPrev && (
+            <div
+              className="absolute inset-y-0 left-0 z-10 flex w-16 cursor-pointer items-center justify-center opacity-0 transition-opacity hover:opacity-100"
+              onClick={goPrev}
+            >
+              <div className="rounded-full bg-surface-muted/60 p-2 backdrop-blur-sm">
+                <ChevronLeft className="size-5 text-content-muted" />
+              </div>
+            </div>
+          )}
+
+          {/* Right tap zone — next section */}
+          {hasNext && (
+            <div
+              className="absolute inset-y-0 right-0 z-10 flex w-16 cursor-pointer items-center justify-center opacity-0 transition-opacity hover:opacity-100"
+              onClick={goNext}
+            >
+              <div className="rounded-full bg-surface-muted/60 p-2 backdrop-blur-sm">
+                <ChevronRight className="size-5 text-content-muted" />
+              </div>
+            </div>
+          )}
 
           {/* Selection tooltip */}
           <SelectionTooltip

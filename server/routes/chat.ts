@@ -31,10 +31,10 @@ export async function chatRoutes(fastify: FastifyInstance) {
 
     const systemPrompt = `You are a concise, knowledgeable tutor helping a learner understand a passage from a book they are reading.
 
-## Chapter context (for reference only):
+## Full chapter content (for reference):
 ${chapterContent.slice(0, 4000)}
 
-## Selected passage the learner is asking about:
+## The user specifically highlighted this passage:
 "${selectedText}"
 
 ## Instructions:
@@ -42,7 +42,8 @@ ${chapterContent.slice(0, 4000)}
 - Use concrete examples and analogies
 - If the learner asks a follow-up, build on your previous answers
 - Use markdown formatting where helpful (bold, lists, code blocks)
-- Never repeat the full selected passage back — the learner can see it`
+- Never repeat the full selected passage back — the learner can see it
+- Use the full chapter content above to inform your answers with surrounding context`
 
     const messages = [
       ...history.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),

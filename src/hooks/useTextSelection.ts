@@ -65,14 +65,23 @@ export function useTextSelection(containerRef: React.RefObject<HTMLElement | nul
       if (e.key === 'Escape') clearSelection()
     }
 
+    const handleSelectionChange = () => {
+      const sel = window.getSelection()
+      if (!sel?.toString().trim()) {
+        clearSelection()
+      }
+    }
+
     container.addEventListener('mouseup', handleMouseUp)
     document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('selectionchange', handleSelectionChange)
     window.addEventListener('scroll', handleScroll, true)
     document.addEventListener('keydown', handleKeyDown)
 
     return () => {
       container.removeEventListener('mouseup', handleMouseUp)
       document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('selectionchange', handleSelectionChange)
       window.removeEventListener('scroll', handleScroll, true)
       document.removeEventListener('keydown', handleKeyDown)
     }
