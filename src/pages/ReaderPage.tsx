@@ -330,6 +330,24 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     scrollRef.current?.scrollTo({ top: 0 })
   }, [chapterIndex, sectionIndex])
 
+  // Cmd+Left/Right keyboard navigation
+  useEffect(() => {
+    if (phase !== 'reading') return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey && e.key === 'ArrowLeft') {
+        e.preventDefault()
+        goPrev()
+      } else if (e.metaKey && e.key === 'ArrowRight') {
+        e.preventDefault()
+        goNext()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [phase, goPrev, goNext])
+
   return (
     <div className="flex h-screen flex-col text-content-primary">
       {/* Header — drag region */}
@@ -361,7 +379,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
       </header>
 
       {/* Chapter tabs */}
-      {phase === 'reading' && (
+      {(phase === 'reading' || phase === 'generating') && (
         <div
           className="z-20 shrink-0 border-b border-border-default/50 bg-surface-base/90 backdrop-blur-sm"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
@@ -389,7 +407,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
                 return (
                   <button
                     key={i}
-                    onClick={() => { setShowToc(false); goToChapter(i, 0) }}
+                    onClick={() => { if (phase === 'generating') return; setShowToc(false); goToChapter(i, 0) }}
                     className={cn(
                       'relative shrink-0 whitespace-nowrap px-4 py-2 text-xs font-medium transition-colors',
                       isActive
@@ -404,6 +422,15 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
                   </button>
                 )
               })}
+              {phase === 'generating' && (
+                <span
+                  className="relative inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-4 py-2 text-xs font-medium text-content-primary"
+                >
+                  <Loader2 className="size-3 animate-spin" />
+                  Chapter {chapterIndex + 2}
+                  <span className="absolute inset-x-0 -bottom-px h-0.5 bg-content-primary rounded-full" />
+                </span>
+              )}
             </nav>
             <div className="flex shrink-0 items-center gap-0.5 pr-2">
               <button
@@ -521,7 +548,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
                             onClick={isLastSectionOfBook ? handleFinishBook : handleKeepGoing}
                             className="bg-[oklch(0.55_0.20_285)] text-white font-semibold hover:bg-[oklch(0.50_0.22_285)]"
                           >
-                            {isLastSectionOfBook ? 'Finish Book' : 'Keep Going'}
+                            {isLastSectionOfBook ? 'Finish Book' : 'Next Chapter'}
                           </Button>
                         </div>
                       )}

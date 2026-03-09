@@ -103,7 +103,7 @@ export function useSectionNavigation({
   const isLastSectionOfLastGenerated = isOnLastGeneratedChapter && isLastSectionOfChapter
   const isLastSectionOfBook = isLastChapter && isLastSectionOfChapter && generatedUpTo >= totalChapters
 
-  const hasNext = !(isLastChapter && isLastSectionOfChapter)
+  const hasNext = !(isLastChapter && isLastSectionOfChapter) && !isLastSectionOfLastGenerated
   const hasPrev = !(chapterIndex === 0 && sectionIndex === 0)
 
   const currentSection = sections[sectionIndex] ?? null
@@ -119,7 +119,7 @@ export function useSectionNavigation({
   const goNext = useCallback(() => {
     if (!isLastSectionOfChapter) {
       dispatch(setPosition({ bookId, chapter: chapterIndex, section: sectionIndex + 1 }))
-    } else if (!isLastChapter) {
+    } else if (!isLastChapter && chapterIndex + 1 < generatedUpTo) {
       // Mark current chapter as completed on the server
       fetch(apiUrl(`/api/books/${bookId}/progress/${chapterIndex + 1}`), {
         method: 'PUT',
@@ -128,7 +128,7 @@ export function useSectionNavigation({
       }).catch(() => {})
       dispatch(setPosition({ bookId, chapter: chapterIndex + 1, section: 0 }))
     }
-  }, [dispatch, bookId, chapterIndex, sectionIndex, isLastSectionOfChapter, isLastChapter])
+  }, [dispatch, bookId, chapterIndex, sectionIndex, isLastSectionOfChapter, isLastChapter, generatedUpTo])
 
   const goPrev = useCallback(async () => {
     if (sectionIndex > 0) {
