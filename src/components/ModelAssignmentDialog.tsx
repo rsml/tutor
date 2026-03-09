@@ -12,6 +12,8 @@ import {
   selectProviders,
   setFunctionModel,
   clearFunctionModel,
+  setActiveProvider,
+  setProviderModel,
 } from '@src/store'
 import { PROVIDERS, PROVIDER_IDS, FUNCTION_GROUPS, type ProviderId, type AiFunctionGroup } from '@src/lib/providers'
 
@@ -26,8 +28,14 @@ export function ModelAssignmentDialog({ open, onOpenChange }: ModelAssignmentDia
   const providers = useAppSelector(selectProviders)
   const functionModels = useAppSelector(state => state.settings.functionModels ?? {})
 
-  const activeDef = PROVIDERS[activeProvider]
-  const activeModelLabel = activeDef.models.find(m => m.value === providers[activeProvider]?.model)?.label ?? providers[activeProvider]?.model
+  const currentModel = providers[activeProvider]?.model
+
+  const handleDefaultChange = (value: string) => {
+    const [provider, ...modelParts] = value.split(':')
+    const pid = provider as ProviderId
+    dispatch(setActiveProvider(pid))
+    dispatch(setProviderModel({ provider: pid, model: modelParts.join(':') }))
+  }
 
   const handleChange = (group: AiFunctionGroup, value: string) => {
     if (value === 'default') {
@@ -57,9 +65,37 @@ export function ModelAssignmentDialog({ open, onOpenChange }: ModelAssignmentDia
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-1 rounded-lg border border-border-default/50 bg-surface-muted/30 px-3 py-2 text-xs text-content-muted">
-          <span className="font-medium text-content-secondary">Default:</span>{' '}
-          {activeDef.name} / {activeModelLabel}
+        <div className="grid gap-1">
+          <div className="flex items-baseline gap-2">
+            <label htmlFor="fn-model-default" className="text-sm font-medium text-content-primary">
+              Default
+            </label>
+            <span className="text-xs text-content-muted">Fallback model for all functions</span>
+          </div>
+          <select
+            id="fn-model-default"
+            value={`${activeProvider}:${currentModel}`}
+            onChange={e => handleDefaultChange(e.target.value)}
+            className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+          >
+            {PROVIDER_IDS.map(pid => {
+              const def = PROVIDERS[pid]
+              const hasKey = !!providers[pid]?.apiKey
+              return (
+                <optgroup key={pid} label={def.name}>
+                  {def.models.map(m => (
+                    <option
+                      key={`${pid}:${m.value}`}
+                      value={`${pid}:${m.value}`}
+                      disabled={!hasKey}
+                    >
+                      {m.label}{!hasKey ? ' (no key)' : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              )
+            })}
+          </select>
         </div>
 
         <div className="space-y-3">
