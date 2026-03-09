@@ -70,6 +70,10 @@ export function useTextSelection(containerRef: React.RefObject<HTMLElement | nul
     }
 
     const handleSelectionChange = () => {
+      // Don't clear selection state while user interacts with tooltip/chat
+      const active = document.activeElement
+      if (active?.closest('[data-selection-tooltip]') || active?.closest('[data-chat-panel]')) return
+
       const sel = window.getSelection()
       if (!sel?.toString().trim() && selectedTextRef.current) {
         // Only clear React state — don't call removeAllRanges() which
