@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+const HIGHLIGHT_NAME = 'selection-highlight'
+
 interface TextSelection {
   selectedText: string
   selectionRect: DOMRect | null
@@ -14,11 +16,22 @@ export function useTextSelection(containerRef: React.RefObject<HTMLElement | nul
 
   useEffect(() => { selectedTextRef.current = selectedText }, [selectedText])
 
+  const setCustomHighlight = useCallback((range: Range) => {
+    // CSS Custom Highlight API — persists visually even when native selection
+    // is cleared by focusing an input
+    CSS.highlights.set(HIGHLIGHT_NAME, new Highlight(range))
+  }, [])
+
+  const clearCustomHighlight = useCallback(() => {
+    CSS.highlights.delete(HIGHLIGHT_NAME)
+  }, [])
+
   const clearSelection = useCallback(() => {
     setSelectedText('')
     setSelectionRect(null)
+    clearCustomHighlight()
     window.getSelection()?.removeAllRanges()
-  }, [])
+  }, [clearCustomHighlight])
 
   useEffect(() => {
     const container = containerRef.current
@@ -42,6 +55,7 @@ export function useTextSelection(containerRef: React.RefObject<HTMLElement | nul
         const rect = range.getBoundingClientRect()
         setSelectedText(text)
         setSelectionRect(rect)
+        setCustomHighlight(range.cloneRange())
         lastScrollY.current = window.scrollY
       })
     }
@@ -80,6 +94,7 @@ export function useTextSelection(containerRef: React.RefObject<HTMLElement | nul
         // would interfere with in-progress drag selections
         setSelectedText('')
         setSelectionRect(null)
+        clearCustomHighlight()
       }
     }
 
@@ -96,7 +111,7 @@ export function useTextSelection(containerRef: React.RefObject<HTMLElement | nul
       window.removeEventListener('scroll', handleScroll, true)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [containerRef, clearSelection])
+  }, [containerRef, clearSelection, setCustomHighlight, clearCustomHighlight])
 
   return { selectedText, selectionRect, clearSelection }
 }

@@ -221,6 +221,10 @@
   ::selection {
     @apply bg-border-focus/20 text-content-primary;
   }
+  /* CSS Custom Highlight — persists when native selection is cleared by input focus */
+  ::highlight(selection-highlight) {
+    @apply bg-border-focus/20 text-content-primary;
+  }
 }
 
 /* Typing indicator dots */
