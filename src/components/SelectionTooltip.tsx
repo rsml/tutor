@@ -39,6 +39,13 @@ export function SelectionTooltip({ selectedText, selectionRect, onAction }: Sele
       data-selection-tooltip
       className="fixed z-30 -translate-x-1/2 -translate-y-full"
       style={{ top, left }}
+      onMouseDown={(e) => {
+        // Prevent browser from clearing text selection when clicking tooltip
+        // Allow default for inputs so they can receive focus
+        if (!(e.target instanceof HTMLInputElement)) {
+          e.preventDefault()
+        }
+      }}
     >
       <div className="flex flex-col gap-1.5 rounded-xl border border-border-default/50 bg-surface-overlay/95 p-1.5 shadow-lg backdrop-blur-sm">
         <div className="flex items-center gap-0.5">
