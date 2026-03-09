@@ -629,25 +629,27 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
 
           {/* Left tap zone — previous section */}
           {hasPrev && (
-            <div
-              className="absolute inset-y-0 left-0 z-10 flex w-16 cursor-pointer items-center justify-center opacity-0 transition-opacity hover:opacity-100"
-              onClick={goPrev}
-            >
-              <div className="rounded-full bg-surface-muted/60 p-2 backdrop-blur-sm">
+            <div className="absolute inset-y-0 left-0 z-10 flex w-16 pointer-events-none items-center justify-center">
+              <button
+                className="pointer-events-auto cursor-pointer rounded-full bg-surface-muted/60 p-2 backdrop-blur-sm opacity-0 transition-opacity hover:opacity-100"
+                onClick={goPrev}
+                aria-label="Previous section"
+              >
                 <ChevronLeft className="size-5 text-content-muted" />
-              </div>
+              </button>
             </div>
           )}
 
           {/* Right tap zone — next section */}
           {hasNext && (
-            <div
-              className="absolute inset-y-0 right-0 z-10 flex w-16 cursor-pointer items-center justify-center opacity-0 transition-opacity hover:opacity-100"
-              onClick={goNext}
-            >
-              <div className="rounded-full bg-surface-muted/60 p-2 backdrop-blur-sm">
+            <div className="absolute inset-y-0 right-0 z-10 flex w-16 pointer-events-none items-center justify-center">
+              <button
+                className="pointer-events-auto cursor-pointer rounded-full bg-surface-muted/60 p-2 backdrop-blur-sm opacity-0 transition-opacity hover:opacity-100"
+                onClick={goNext}
+                aria-label="Next section"
+              >
                 <ChevronRight className="size-5 text-content-muted" />
-              </div>
+              </button>
             </div>
           )}
 
