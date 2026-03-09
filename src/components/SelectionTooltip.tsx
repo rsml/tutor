@@ -40,10 +40,12 @@ export function SelectionTooltip({ selectedText, selectionRect, onAction }: Sele
       className="fixed z-30 -translate-x-1/2 -translate-y-full"
       style={{ top, left }}
       onMouseDown={(e) => {
-        // Prevent browser from clearing text selection when clicking tooltip
-        // Allow default for inputs so they can receive focus
-        if (!(e.target instanceof HTMLInputElement)) {
-          e.preventDefault()
+        // Prevent browser from clearing text selection for ALL clicks inside tooltip
+        e.preventDefault()
+        e.stopPropagation()
+        // Restore input focusability that preventDefault suppresses
+        if (e.target instanceof HTMLInputElement) {
+          e.target.focus()
         }
       }}
     >
