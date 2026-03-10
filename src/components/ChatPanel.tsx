@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { X, SendHorizontal } from 'lucide-react'
 import { ChatMessage } from '@src/components/ChatMessage'
 import { useStreamingChat } from '@src/hooks/useStreamingChat'
@@ -11,9 +11,12 @@ interface ChatPanelProps {
   chapterContent: string
   initialPrompt: string | null
   onMissingApiKey: () => void
+  pendingNewChat: { text: string; prompt: string } | null
+  onConfirmNewChat: () => void
+  onDismissNewChat: () => void
 }
 
-export function ChatPanel({ open, onClose, selectedText, chapterContent, initialPrompt, onMissingApiKey }: ChatPanelProps) {
+export function ChatPanel({ open, onClose, selectedText, chapterContent, initialPrompt, onMissingApiKey, pendingNewChat, onConfirmNewChat, onDismissNewChat }: ChatPanelProps) {
   const hasApiKey = useAppSelector(selectHasApiKey)
   const { provider, model } = useAppSelector(selectFunctionModel('chat'))
   const { messages, isStreaming, sendMessage, clearMessages } = useStreamingChat({
@@ -23,8 +26,10 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
     selectedText,
   })
   const [input, setInput] = useState('')
+  const [width, setWidth] = useState(420)
   const scrollRef = useRef<HTMLDivElement>(null)
   const sentInitialRef = useRef(false)
+  const userHasScrolledRef = useRef(false)
 
   // Send initial prompt when panel opens with a new selection
   useEffect(() => {
@@ -46,11 +51,63 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
     }
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-scroll to bottom
+  // Smart auto-scroll: respect user's scroll position during streaming
   useEffect(() => {
+    if (userHasScrolledRef.current) return
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
   }, [messages])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    let lastScrollTop = el.scrollTop
+    let ticking = false
+    const handleScroll = () => {
+      if (ticking) return
+      ticking = true
+      requestAnimationFrame(() => {
+        ticking = false
+        const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 40
+        if (el.scrollTop < lastScrollTop && !atBottom) {
+          userHasScrolledRef.current = true
+        }
+        if (atBottom) {
+          userHasScrolledRef.current = false
+        }
+        lastScrollTop = el.scrollTop
+      })
+    }
+    el.addEventListener('scroll', handleScroll, { passive: true })
+    return () => el.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  // Reset auto-scroll when new streaming starts
+  useEffect(() => {
+    if (isStreaming) userHasScrolledRef.current = false
+  }, [isStreaming])
+
+  // Resize handle
+  const startResize = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startWidth = width
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const delta = startX - ev.clientX
+      setWidth(Math.min(700, Math.max(320, startWidth + delta)))
+    }
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }, [width])
 
   // Escape closes panel
   useEffect(() => {
@@ -75,10 +132,19 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
   return (
     <div
       data-chat-panel
-      className={`flex shrink-0 flex-col border-l border-border-default/50 bg-surface-base/95 backdrop-blur-sm transition-[width] duration-300 overflow-hidden ${
-        open ? 'w-[420px]' : 'w-0 border-l-0'
+      className={`relative flex shrink-0 flex-col border-l border-border-default/50 bg-surface-base/95 backdrop-blur-sm transition-[width] duration-300 overflow-hidden ${
+        !open ? 'w-0 border-l-0' : ''
       }`}
+      style={{ width: open ? width : 0 }}
     >
+      {/* Resize handle */}
+      <div
+        onMouseDown={startResize}
+        className="absolute left-0 top-0 bottom-0 z-10 flex w-1.5 cursor-col-resize items-center justify-center hover:bg-border-default/30 transition-colors"
+      >
+        <div className="h-8 w-0.5 rounded-full bg-content-muted/30" />
+      </div>
+
       {/* Header */}
       <div className="flex h-11 shrink-0 items-center justify-between border-b border-border-default/50 px-4">
         <span className="text-sm font-medium text-content-primary">Chat</span>
@@ -89,6 +155,32 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
           <X className="size-4" />
         </button>
       </div>
+
+      {/* Pending new chat banner */}
+      {pendingNewChat && (
+        <div className="shrink-0 border-b border-border-default/50 bg-surface-raised/80 px-4 py-3">
+          <p className="text-xs text-content-secondary">
+            Start a new chat about different text?
+          </p>
+          <p className="mt-1 text-xs text-content-muted line-clamp-2 italic">
+            &ldquo;{pendingNewChat.text.slice(0, 100)}{pendingNewChat.text.length > 100 ? '...' : ''}&rdquo;
+          </p>
+          <div className="mt-2 flex gap-2">
+            <button
+              onClick={onConfirmNewChat}
+              className="rounded-md bg-[oklch(0.55_0.20_285)] px-3 py-1 text-xs font-medium text-white"
+            >
+              New Chat
+            </button>
+            <button
+              onClick={onDismissNewChat}
+              className="rounded-md px-3 py-1 text-xs font-medium text-content-muted hover:text-content-primary"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
