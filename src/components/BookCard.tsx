@@ -65,7 +65,7 @@ export function BookCard({ title, subtitle, chaptersRead, totalChapters, rating,
             ? `${totalChapters} chapters`
             : `${chaptersRead} of ${totalChapters} chapters`}
         </p>
-        {rating != null && (
+        {rating != null && rating > 0 && (
           <div className="mt-0.5 flex items-center gap-2">
             <StarRating value={rating} readonly size="sm" />
             {finalQuizScore != null && finalQuizTotal != null && (
