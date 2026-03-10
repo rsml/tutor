@@ -10,13 +10,14 @@ interface ChatPanelProps {
   selectedText: string
   chapterContent: string
   initialPrompt: string | null
+  chatKey: number
   onMissingApiKey: () => void
   pendingNewChat: { text: string; prompt: string } | null
   onConfirmNewChat: () => void
   onDismissNewChat: () => void
 }
 
-export function ChatPanel({ open, onClose, selectedText, chapterContent, initialPrompt, onMissingApiKey, pendingNewChat, onConfirmNewChat, onDismissNewChat }: ChatPanelProps) {
+export function ChatPanel({ open, onClose, selectedText, chapterContent, initialPrompt, chatKey, onMissingApiKey, pendingNewChat, onConfirmNewChat, onDismissNewChat }: ChatPanelProps) {
   const hasApiKey = useAppSelector(selectHasApiKey)
   const { provider, model } = useAppSelector(selectFunctionModel('chat'))
   const { messages, isStreaming, sendMessage, clearMessages } = useStreamingChat({
@@ -28,6 +29,8 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
   const [input, setInput] = useState('')
   const [width, setWidth] = useState(420)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const isDraggingRef = useRef(false)
   const sentInitialRef = useRef(false)
   const userHasScrolledRef = useRef(false)
 
@@ -50,6 +53,14 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
       clearMessages()
     }
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset when chatKey changes (new chat requested while panel is open)
+  useEffect(() => {
+    if (chatKey === 0) return // skip initial mount
+    if (!open) return
+    clearMessages()
+    sentInitialRef.current = false
+  }, [chatKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Smart auto-scroll: respect user's scroll position during streaming
   useEffect(() => {
@@ -87,27 +98,38 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
     if (isStreaming) userHasScrolledRef.current = false
   }, [isStreaming])
 
-  // Resize handle
+  // Resize handle — direct DOM manipulation for 60fps
   const startResize = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     const startX = e.clientX
-    const startWidth = width
+    const panel = panelRef.current
+    if (!panel) return
+    const startWidth = panel.offsetWidth
+
+    isDraggingRef.current = true
+    panel.style.transition = 'none'
 
     const onMouseMove = (ev: MouseEvent) => {
       const delta = startX - ev.clientX
-      setWidth(Math.min(700, Math.max(320, startWidth + delta)))
+      const newWidth = Math.min(700, Math.max(320, startWidth + delta))
+      panel.style.width = `${newWidth}px`
     }
     const onMouseUp = () => {
       document.removeEventListener('mousemove', onMouseMove)
       document.removeEventListener('mouseup', onMouseUp)
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
+      isDraggingRef.current = false
+      // Sync final width to React state and restore transition
+      const finalWidth = panel.offsetWidth
+      panel.style.transition = ''
+      setWidth(finalWidth)
     }
     document.body.style.cursor = 'col-resize'
     document.body.style.userSelect = 'none'
     document.addEventListener('mousemove', onMouseMove)
     document.addEventListener('mouseup', onMouseUp)
-  }, [width])
+  }, [])
 
   // Escape closes panel
   useEffect(() => {
@@ -131,6 +153,7 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
 
   return (
     <div
+      ref={panelRef}
       data-chat-panel
       className={`relative flex shrink-0 flex-col border-l border-border-default/50 bg-surface-base/95 backdrop-blur-sm transition-[width] duration-300 overflow-hidden ${
         !open ? 'w-0 border-l-0' : ''
