@@ -82,7 +82,7 @@ function createWindow() {
     backgroundColor: isDark ? '#1c1d2e' : '#fafafc',
     width: 1280,
     height: 900,
-    minWidth: 1024,
+    minWidth: 320,
     minHeight: 600,
     titleBarStyle: 'hiddenInset',
     icon: getAppIcon(),

@@ -36,16 +36,16 @@ export function BookCard({ title, subtitle, chaptersRead, totalChapters, rating,
       >
         <div className="relative flex h-full flex-col items-center justify-center p-5">
           <NoiseOverlay opacity={0.5} position="absolute" />
-          <div className="h-px w-8 bg-white/30" />
-          <h3 className="mt-3 text-center text-[1em] leading-snug font-semibold text-white/90">
+          <div className="h-px w-10 bg-white/40" />
+          <h3 className="mt-3 text-center text-[1.15em] leading-snug font-bold tracking-tight text-white/90">
             {title}
           </h3>
           {subtitle && (
-            <p className="mt-1 text-center text-[0.65em] leading-snug text-white/55 line-clamp-2 px-2">
+            <p className="mt-1 text-center text-[0.75em] leading-snug text-white/60 line-clamp-2 px-2">
               {subtitle}
             </p>
           )}
-          <div className="mt-3 h-px w-8 bg-white/30" />
+          <div className="mt-3 h-px w-10 bg-white/40" />
 
           {/* Progress bar — inset with border-radius */}
           {progress > 0 && (
@@ -61,7 +61,7 @@ export function BookCard({ title, subtitle, chaptersRead, totalChapters, rating,
 
       {/* Meta */}
       <div className="mt-2.5 px-0.5">
-        <p className="line-clamp-1 text-[0.875em] font-medium text-content-primary">
+        <p className="line-clamp-1 text-[0.9em] font-medium tracking-tight text-content-primary">
           {title}
         </p>
         {subtitle && (

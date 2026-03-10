@@ -208,7 +208,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
           )}
         </DropdownMenuTrigger>
 
-        <DropdownMenuContent align="end" sideOffset={6} className="min-w-[220px]">
+        <DropdownMenuContent align="end" sideOffset={6} className="min-w-[280px]">
           {/* Provider / API Key */}
           <DropdownMenuItem onClick={openDialog} className="whitespace-nowrap">
             <span className="size-4 flex items-center justify-center text-[10px] font-bold text-content-muted transition-colors group-focus/dropdown-menu-item:text-accent-foreground">
@@ -295,6 +295,8 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
               </div>
             </div>
           </div>
+
+          <DropdownMenuSeparator />
 
           {/* Default Chapter Count */}
           <div className="px-2 pt-1.5 pb-5">
