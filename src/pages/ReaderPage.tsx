@@ -95,6 +95,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
   const [chatOpen, setChatOpen] = useState(false)
   const [chatSelectedText, setChatSelectedText] = useState('')
   const [chatPrompt, setChatPrompt] = useState<string | null>(null)
+  const [chatKey, setChatKey] = useState(0)
   const [missingKeyAlert, setMissingKeyAlert] = useState(false)
   const [pendingChatAction, setPendingChatAction] = useState<{ text: string; prompt: string } | null>(null)
 
@@ -115,6 +116,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     if (!pendingChatAction) return
     setChatSelectedText(pendingChatAction.text)
     setChatPrompt(pendingChatAction.prompt)
+    setChatKey(k => k + 1)
     setChatOpen(true)
     setPendingChatAction(null)
   }, [pendingChatAction])
@@ -790,6 +792,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
           selectedText={chatSelectedText}
           chapterContent={fullChapterContent ?? ''}
           initialPrompt={chatPrompt}
+          chatKey={chatKey}
           onMissingApiKey={() => setMissingKeyAlert(true)}
           pendingNewChat={pendingChatAction}
           onConfirmNewChat={handleConfirmNewChat}
