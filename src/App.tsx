@@ -232,7 +232,7 @@ export default function App() {
   const allBooks = apiBooks
 
   const classifyBook = useCallback((book: Book): 'finished' | 'in-progress' | 'not-started' => {
-    if (book.rating != null) return 'finished'
+    if (book.status === 'complete') return 'finished'
     if (furthest[book.id] != null) return 'in-progress'
     return 'not-started'
   }, [furthest])
