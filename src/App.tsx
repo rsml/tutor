@@ -190,6 +190,20 @@ export default function App() {
     setView({ type: 'library' })
   }
 
+  const handleBookCreated = useCallback((bookId: string, title: string) => {
+    // Optimistically add the book to the library so it's visible during creation
+    setApiBooks(prev => {
+      if (prev.some(b => b.id === bookId)) return prev
+      return [...prev, {
+        id: bookId,
+        title,
+        chaptersRead: 0,
+        totalChapters: 0,
+        status: 'generating',
+      }]
+    })
+  }, [])
+
   const handleRename = async () => {
     if (!renameDialog) return
     const trimmed = renameDialog.title.trim()
@@ -264,6 +278,7 @@ export default function App() {
         chapterCount={view.chapterCount}
         onComplete={handleCreationComplete}
         onCancel={handleCreationCancel}
+        onBookCreated={handleBookCreated}
       />
     )
   }

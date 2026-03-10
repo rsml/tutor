@@ -218,7 +218,9 @@ export async function bookRoutes(fastify: FastifyInstance) {
   })
 
   fastify.get<{ Params: { id: string } }>('/api/books/:id', { schema: { params: bookIdSchema } }, async (request) => {
-    return store.getBook(request.params.id)
+    const meta = await store.getBook(request.params.id)
+    const generation = genManager.getStatus(request.params.id)
+    return { ...meta, generation }
   })
 
   fastify.get<{ Params: { id: string; num: string } }>(

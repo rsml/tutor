@@ -19,7 +19,7 @@ const sanitizeFeedback = (s: string) => s.replace(/<\/?[^>]+>/g, '')
 export type GenerationStage = 'streaming' | 'saving' | 'quiz' | 'done' | 'error'
 
 export type SSEEvent =
-  | { type: 'chapter'; text: string }
+  | { type: 'chapter'; text: string; buffered?: boolean }
   | { type: 'stage'; stage: GenerationStage }
   | { type: 'done'; chapterNum: number }
   | { type: 'error'; message: string }
@@ -152,7 +152,7 @@ export function subscribe(bookId: string, callback: Subscriber, sendBuffered: bo
 
   // Send buffered content if requested
   if (sendBuffered && state.content.length > 0) {
-    callback({ type: 'chapter', text: state.content })
+    callback({ type: 'chapter', text: state.content, buffered: true })
   }
 
   // If already in terminal state, send terminal event immediately
