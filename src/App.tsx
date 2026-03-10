@@ -447,8 +447,8 @@ export default function App() {
       {/* Right-click context menu */}
       {contextMenu && (
         <div
-          className="fixed z-50 w-fit rounded-lg border border-border-default/50 bg-surface-base/95 backdrop-blur-md py-1 shadow-lg"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
+          className="fixed z-50 rounded-lg border border-border-default/50 bg-surface-base/95 backdrop-blur-md py-1 shadow-lg"
+          style={{ left: contextMenu.x, top: contextMenu.y, width: 'fit-content' }}
           onClick={e => e.stopPropagation()}
         >
           <button
@@ -571,7 +571,7 @@ export default function App() {
               onChange={val => setRateDialog(prev => prev ? { ...prev, rating: val } : null)}
               size="lg"
             />
-            {rateDialog && (rateDialog.book.rating ?? 0) > 0 && (
+            {rateDialog && rateDialog.book.rating != null && rateDialog.book.rating > 0 && (
               <button
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 onClick={async () => {
