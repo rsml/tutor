@@ -671,7 +671,9 @@ ${profileContext ? `\nReader profile:\n${profileContext}\n\nTailor the book stru
       }
       tocTimeout.clear()
 
-      const { title, subtitle, chapters } = parseTocFromMarkdown(tocText)
+      const { title, subtitle, chapters: parsedChapters } = parseTocFromMarkdown(tocText)
+      const targetCount = chapterCount ?? 12
+      const chapters = parsedChapters.slice(0, targetCount)
 
       if (chapters.length === 0) {
         send({ type: 'error', message: 'Failed to parse table of contents from AI response' })
