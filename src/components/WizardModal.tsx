@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { ChevronDown, Sparkles, Loader2 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
@@ -10,14 +10,17 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@src/components/ui/dialog'
-import { useAppSelector, selectFunctionModel, selectHasApiKey } from '@src/store'
+import { useAppSelector, selectFunctionModel, selectHasApiKey, selectDefaultChapterCount } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
 import { store } from '@src/store'
+
+const CHAPTER_COUNTS = [1, 3, 6, 12, 25, 50]
+const CHAPTER_LABELS = ['Essay', 'Short', 'Novella', 'Standard', 'Long', 'Epic']
 
 interface WizardModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onCreate: (topic: string, details: string) => void
+  onCreate: (topic: string, details: string, chapterCount: number) => void
 }
 
 export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) {
@@ -26,13 +29,26 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
   const [detailsOpen, setDetailsOpen] = useState(true)
   const [suggesting, setSuggesting] = useState(false)
   const [reasoning, setReasoning] = useState<string | null>(null)
+  const defaultChapterCount = useAppSelector(selectDefaultChapterCount)
+  const [chapterCountIndex, setChapterCountIndex] = useState(() => {
+    const idx = CHAPTER_COUNTS.indexOf(defaultChapterCount)
+    return idx >= 0 ? idx : CHAPTER_COUNTS.indexOf(12)
+  })
   const { provider, model } = useAppSelector(selectFunctionModel('profile'))
   const hasApiKey = useAppSelector(selectHasApiKey)
+
+  // Reset chapter count when default changes or dialog opens
+  useEffect(() => {
+    if (open) {
+      const idx = CHAPTER_COUNTS.indexOf(defaultChapterCount)
+      setChapterCountIndex(idx >= 0 ? idx : CHAPTER_COUNTS.indexOf(12))
+    }
+  }, [open, defaultChapterCount])
 
   const handleCreate = () => {
     if (!topic.trim()) return
     onOpenChange(false)
-    onCreate(topic.trim(), details.trim())
+    onCreate(topic.trim(), details.trim(), CHAPTER_COUNTS[chapterCountIndex])
     setTopic('')
     setDetails('')
     setReasoning(null)
@@ -119,9 +135,46 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
               />
             )}
           </div>
+
+          {/* Chapter count slider */}
+          <div className="grid gap-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-content-primary">Length</span>
+              <span className="text-xs text-content-muted">
+                {CHAPTER_COUNTS[chapterCountIndex]} {CHAPTER_COUNTS[chapterCountIndex] === 1 ? 'chapter' : 'chapters'}
+                <span className="ml-1.5 text-content-muted/60">{CHAPTER_LABELS[chapterCountIndex]}</span>
+              </span>
+            </div>
+            <div className="relative px-1">
+              <input
+                type="range"
+                min={0}
+                max={CHAPTER_COUNTS.length - 1}
+                value={chapterCountIndex}
+                onChange={e => setChapterCountIndex(parseInt(e.target.value))}
+                className="w-full accent-[oklch(0.55_0.20_285)] cursor-pointer"
+              />
+              <div className="flex justify-between px-2 -mt-0.5">
+                {CHAPTER_COUNTS.map((count, i) => {
+                  const isDefault = count === defaultChapterCount
+                  return (
+                    <div
+                      key={count}
+                      className={`relative flex flex-col items-center ${isDefault ? 'text-content-primary' : 'text-content-muted/40'}`}
+                    >
+                      <div className={`h-1.5 w-px ${isDefault ? 'bg-content-primary' : 'bg-content-muted/30'}`} />
+                      <span className={`absolute top-2 left-1/2 -translate-x-1/2 text-[9px] whitespace-nowrap ${isDefault ? '' : 'text-content-muted/50'}`}>
+                        {CHAPTER_LABELS[i]}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
         </div>
 
-        <DialogFooter className="flex-row justify-between sm:justify-between">
+        <DialogFooter className="mt-2 flex-row justify-between sm:justify-between">
           <Button
             variant="ghost"
             size="lg"

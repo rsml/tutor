@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Settings, Sun, Moon, Monitor, Type, Layers, Check, User, BarChart3, Sliders, MoveHorizontal } from 'lucide-react'
+import { Settings, Sun, Moon, Monitor, Type, Layers, Check, User, BarChart3, Sliders, MoveHorizontal, ListOrdered, BookOpen } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import {
   Dialog,
@@ -33,12 +33,16 @@ import {
   selectProviders,
   selectFontSize,
   selectReadingWidth,
+  selectQuizLength,
   selectTextureEnabled,
   selectTextureOpacity,
+  selectDefaultChapterCount,
   setActiveProvider,
   setProviderApiKey,
   setFontSize,
   setReadingWidth,
+  setQuizLength,
+  setDefaultChapterCount,
   setTextureEnabled,
   setTextureOpacity,
   selectModelAssignmentSeen,
@@ -46,6 +50,10 @@ import {
 } from '@src/store'
 import { PROVIDERS, PROVIDER_IDS, type ProviderId } from '@src/lib/providers'
 import { apiUrl } from '@src/lib/api-base'
+
+const CHAPTER_COUNTS = [1, 3, 6, 12, 25, 50]
+const CHAPTER_LABELS = ['Essay', 'Short', 'Novella', 'Standard', 'Long', 'Epic']
+const DEFAULT_CHAPTER_COUNT = 12
 
 const FONT_SIZES = [12, 13, 14, 15, 16, 17, 18, 20, 22]
 const DEFAULT_FONT_SIZE = 16
@@ -69,6 +77,8 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
   const providers = useAppSelector(selectProviders)
   const fontSize = useAppSelector(selectFontSize)
   const readingWidth = useAppSelector(selectReadingWidth)
+  const quizLength = useAppSelector(selectQuizLength)
+  const defaultChapterCount = useAppSelector(selectDefaultChapterCount)
   const textureEnabled = useAppSelector(selectTextureEnabled)
   const textureOpacity = useAppSelector(selectTextureOpacity)
   const modelAssignmentSeen = useAppSelector(selectModelAssignmentSeen)
@@ -165,6 +175,10 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
   const activeModel = providers[activeProvider]?.model
   const activeModelLabel = activeDef.models.find(m => m.value === activeModel)?.label ?? activeModel
 
+  const chapterCountIndex = CHAPTER_COUNTS.indexOf(defaultChapterCount)
+  const defaultChapterIndex = CHAPTER_COUNTS.indexOf(DEFAULT_CHAPTER_COUNT)
+  const chapterCountLabel = CHAPTER_LABELS[chapterCountIndex >= 0 ? chapterCountIndex : defaultChapterIndex]
+
   const fontSizeIndex = FONT_SIZES.indexOf(fontSize)
   const defaultIndex = FONT_SIZES.indexOf(DEFAULT_FONT_SIZE)
   const readingWidthIndex = READING_WIDTHS.indexOf(readingWidth)
@@ -246,6 +260,74 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
             <BarChart3 className="size-4" />
             Review Progress
           </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          {/* Quiz Length */}
+          <div className="px-2 pt-1.5 pb-5">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-2">
+              <ListOrdered className="size-3.5" />
+              Quiz Length
+              <span className="ml-auto tabular-nums">{quizLength}</span>
+            </div>
+            <div className="relative px-1">
+              <input
+                type="range"
+                min={1}
+                max={10}
+                value={quizLength}
+                onChange={e => dispatch(setQuizLength(parseInt(e.target.value)))}
+                className="w-full accent-[oklch(0.55_0.20_285)] cursor-pointer"
+                onPointerDown={e => e.stopPropagation()}
+              />
+              <div className="flex justify-between px-2 -mt-0.5">
+                {Array.from({ length: 10 }, (_, i) => i + 1).map((val) => (
+                  <div
+                    key={val}
+                    className={`relative flex flex-col items-center ${val === 3 ? 'text-content-primary' : 'text-content-muted/40'}`}
+                  >
+                    <div className={`h-1.5 w-px ${val === 3 ? 'bg-content-primary' : 'bg-content-muted/30'}`} />
+                    {val === 3 && (
+                      <span className="absolute top-2 left-1/2 -translate-x-1/2 text-[9px] whitespace-nowrap">default</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Default Chapter Count */}
+          <div className="px-2 pt-1.5 pb-5">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-2">
+              <BookOpen className="size-3.5" />
+              Default Book Length
+              <span className="ml-auto tabular-nums">{defaultChapterCount} &middot; {chapterCountLabel}</span>
+            </div>
+            <div className="relative px-1">
+              <input
+                type="range"
+                min={0}
+                max={CHAPTER_COUNTS.length - 1}
+                value={chapterCountIndex >= 0 ? chapterCountIndex : defaultChapterIndex}
+                onChange={e => dispatch(setDefaultChapterCount(CHAPTER_COUNTS[parseInt(e.target.value)]))}
+                className="w-full accent-[oklch(0.55_0.20_285)] cursor-pointer"
+                onPointerDown={e => e.stopPropagation()}
+              />
+              <div className="flex justify-between px-2 -mt-0.5">
+                {CHAPTER_COUNTS.map((_, i) => (
+                  <div
+                    key={i}
+                    className={`relative flex flex-col items-center ${i === defaultChapterIndex ? 'text-content-primary' : 'text-content-muted/40'}`}
+                  >
+                    <div className={`h-1.5 w-px ${i === defaultChapterIndex ? 'bg-content-primary' : 'bg-content-muted/30'}`} />
+                    {i === defaultChapterIndex && (
+                      <span className="absolute top-2 left-1/2 -translate-x-1/2 text-[9px] whitespace-nowrap">default</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
 
           <DropdownMenuSeparator />
 

@@ -57,7 +57,7 @@ export function SkillDetailPage({ skillName, onBack }: SkillDetailPageProps) {
         <div className="relative flex flex-1 items-center justify-center">
           <button
             onClick={onBack}
-            className="absolute left-6 top-3 z-20 inline-flex items-center gap-1.5 p-2 text-content-muted/50 transition-colors hover:text-content-muted"
+            className="absolute left-6 top-3 z-20 inline-flex items-center gap-1.5 p-2 text-content-muted opacity-50 transition-all hover:opacity-100"
           >
             <ArrowLeft className="size-5" />
           </button>

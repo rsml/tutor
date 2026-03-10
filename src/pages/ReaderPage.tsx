@@ -6,7 +6,7 @@ import { ChatPanel } from '@src/components/ChatPanel'
 import { SettingsMenu } from '@src/components/SettingsMenu'
 import { useTextSelection } from '@src/hooks/useTextSelection'
 import { useSectionNavigation } from '@src/hooks/useSectionNavigation'
-import { store, useAppDispatch, useAppSelector, setPosition, setChapterFeedback, setChapterQuizResult, recordQuizAttempt, selectFontSize, selectReadingWidth, selectFunctionModel } from '@src/store'
+import { store, useAppDispatch, useAppSelector, setPosition, setChapterFeedback, setChapterQuizResult, recordQuizAttempt, selectFontSize, selectReadingWidth, selectQuizLength, selectFunctionModel } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
 import { cn } from '@src/lib/utils'
 import { SafeMarkdown } from '@src/components/SafeMarkdown'
@@ -54,6 +54,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
 
   const { provider: genProvider, model: genModel } = useAppSelector(selectFunctionModel('generation'))
   const { provider: quizProvider, model: quizModel } = useAppSelector(selectFunctionModel('quiz'))
+  const quizLength = useAppSelector(selectQuizLength)
 
   useEffect(() => {
     fetch(apiUrl(`/api/books/${book.id}`))
@@ -361,7 +362,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
       const res = await fetch(apiUrl(`/api/books/${book.id}/generate-next`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: genModel, provider: genProvider, quizModel, quizProvider }),
+        body: JSON.stringify({ model: genModel, provider: genProvider, quizModel, quizProvider, quizLength }),
       })
 
       if (!res.ok || !res.body) throw new Error('Generation failed')
@@ -370,7 +371,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
       setGenerationStage(null)
       setPhase('reading')
     }
-  }, [book.id, chapterIndex, quizAnswers, genModel, genProvider, quizModel, quizProvider, dispatch, consumeGenerationStream, makeStreamCallbacks])
+  }, [book.id, chapterIndex, quizAnswers, genModel, genProvider, quizModel, quizProvider, quizLength, dispatch, consumeGenerationStream, makeStreamCallbacks])
 
   // Auto-scroll during streaming, but stop if user scrolls manually
   useEffect(() => {
@@ -456,6 +457,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
               size="icon-sm"
               onClick={onQuizReview}
               aria-label="Quiz review"
+              className="text-content-faint hover:text-content-muted"
             >
               <BarChart3 className="size-4" />
             </Button>
@@ -555,7 +557,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
         {/* Back button — overlays top-left of content area */}
         <button
           onClick={onBack}
-          className="absolute left-6 top-3 z-20 inline-flex items-center gap-1.5 p-2 text-content-muted/50 transition-colors hover:text-content-muted"
+          className="absolute left-6 top-3 z-20 inline-flex items-center gap-1.5 p-2 text-content-muted opacity-50 transition-all hover:opacity-100"
         >
           <ArrowLeft className="size-5" />
         </button>

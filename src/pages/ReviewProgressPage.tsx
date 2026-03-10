@@ -65,7 +65,7 @@ export function ReviewProgressPage({ onBack, onSkillClick }: ReviewProgressPageP
       <main className="relative flex-1 overflow-y-auto px-8 py-8">
         <button
           onClick={onBack}
-          className="absolute left-6 top-3 z-20 inline-flex items-center gap-1.5 p-2 text-content-muted/50 transition-colors hover:text-content-muted"
+          className="absolute left-6 top-3 z-20 inline-flex items-center gap-1.5 p-2 text-content-muted opacity-50 transition-all hover:opacity-100"
         >
           <ArrowLeft className="size-5" />
         </button>

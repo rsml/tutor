@@ -161,6 +161,7 @@ async function generateQuiz(
   provider: string,
   model: string,
   chapterContent: string,
+  quizLength: number = 3,
 ): Promise<{ questions: Array<{ question: string; options: string[]; correctIndex: number }> }> {
   const timeout = createTimeout()
   try {
@@ -172,9 +173,9 @@ async function generateQuiz(
           question: z.string(),
           options: z.array(z.string()).length(4),
           correctIndex: z.number().int().min(0).max(3),
-        })).length(3),
+        })).length(quizLength),
       }),
-      prompt: `Based on this chapter content, generate exactly 3 multiple-choice quiz questions to test comprehension. Each question should have 4 options with exactly one correct answer.
+      prompt: `Based on this chapter content, generate exactly ${quizLength} multiple-choice quiz questions to test comprehension. Each question should have 4 options with exactly one correct answer.
 
 Chapter content:
 ${chapterContent}`,
@@ -289,7 +290,7 @@ export async function bookRoutes(fastify: FastifyInstance) {
     Params: { id: string }
     Body: unknown
   }>('/api/books/:id/generate-next', { schema: { params: bookIdSchema }, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
-    let body: { model: string; provider?: string; quizModel?: string; quizProvider?: string }
+    let body: { model: string; provider?: string; quizModel?: string; quizProvider?: string; quizLength?: number }
     try {
       body = GenerateNextBodySchema.parse(request.body)
     } catch (err) {
@@ -299,14 +300,14 @@ export async function bookRoutes(fastify: FastifyInstance) {
       throw err
     }
 
-    const { model, provider, quizModel, quizProvider } = body
+    const { model, provider, quizModel, quizProvider, quizLength } = body
     const bookId = request.params.id
 
     if (genManager.isGenerating(bookId)) {
       return reply.status(409).send({ error: 'Generation already in progress for this book' })
     }
 
-    genManager.startGeneration(bookId, { model, provider, quizModel, quizProvider })
+    genManager.startGeneration(bookId, { model, provider, quizModel, quizProvider, quizLength })
 
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -611,7 +612,7 @@ Suggest profile updates based on this completed book. Return the complete update
   })
 
   fastify.post<{ Body: unknown }>('/api/books', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
-    let body: { topic: string; details?: string; model: string; provider?: string; quizModel?: string; quizProvider?: string }
+    let body: { topic: string; details?: string; chapterCount?: number; model: string; provider?: string; quizModel?: string; quizProvider?: string; quizLength?: number }
     try {
       body = CreateBookBodySchema.parse(request.body)
     } catch (err) {
@@ -621,7 +622,7 @@ Suggest profile updates based on this completed book. Return the complete update
       throw err
     }
 
-    const { topic, details, model, provider, quizModel, quizProvider } = body
+    const { topic, details, chapterCount, model, provider, quizModel, quizProvider, quizLength } = body
 
     const bookId = randomUUID().slice(0, 12)
 
@@ -645,7 +646,7 @@ Suggest profile updates based on this completed book. Return the complete update
         abortSignal: tocTimeout.signal,
         system: `You are creating a table of contents for a personalized learning book.
 
-Generate a well-structured table of contents with 8-15 chapters.
+Generate a well-structured table of contents with exactly ${chapterCount ?? 12} chapters.
 
 Start with a # heading that is the book title (make it compelling and specific).
 On the next line, add a subtitle in italics — a short, descriptive tagline for the book (e.g. *A practical guide to building scalable systems*).
@@ -778,7 +779,7 @@ Write this chapter now.`,
 
       // Generate quiz for chapter 1
       try {
-        const quiz = await generateQuiz(quizProvider ?? provider ?? 'anthropic', quizModel ?? model, chapterText)
+        const quiz = await generateQuiz(quizProvider ?? provider ?? 'anthropic', quizModel ?? model, chapterText, quizLength)
         await store.saveQuiz(bookId, 1, quiz)
       } catch {
         // Quiz generation failure is non-fatal

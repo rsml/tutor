@@ -94,6 +94,7 @@ async function generateQuiz(
   provider: string,
   model: string,
   chapterContent: string,
+  quizLength: number = 3,
 ): Promise<{ questions: Array<{ question: string; options: string[]; correctIndex: number }> }> {
   const timeout = createTimeout()
   try {
@@ -105,9 +106,9 @@ async function generateQuiz(
           question: z.string(),
           options: z.array(z.string()).length(4),
           correctIndex: z.number().int().min(0).max(3),
-        })).length(3),
+        })).length(quizLength),
       }),
-      prompt: `Based on this chapter content, generate exactly 3 multiple-choice quiz questions to test comprehension. Each question should have 4 options with exactly one correct answer.
+      prompt: `Based on this chapter content, generate exactly ${quizLength} multiple-choice quiz questions to test comprehension. Each question should have 4 options with exactly one correct answer.
 
 Chapter content:
 ${chapterContent}`,
@@ -124,6 +125,7 @@ export interface GenerationOptions {
   model: string
   provider?: string
   quizModel?: string
+  quizLength?: number
   quizProvider?: string
 }
 
@@ -205,7 +207,7 @@ function scheduleCleanup(bookId: string, state: GenerationState): void {
 }
 
 async function runGeneration(bookId: string, state: GenerationState, options: GenerationOptions): Promise<void> {
-  const { model, provider = 'anthropic', quizModel, quizProvider } = options
+  const { model, provider = 'anthropic', quizModel, quizProvider, quizLength } = options
 
   try {
     const meta = await store.getBook(bookId)
@@ -292,7 +294,7 @@ Write this chapter now.`,
     state.stage = 'quiz'
     emit(state, { type: 'stage', stage: 'quiz' })
     try {
-      const quiz = await generateQuiz(quizProvider ?? provider, quizModel ?? model, state.content)
+      const quiz = await generateQuiz(quizProvider ?? provider, quizModel ?? model, state.content, quizLength)
       await store.saveQuiz(bookId, nextNum, quiz)
     } catch {
       // Quiz generation failure is non-fatal
