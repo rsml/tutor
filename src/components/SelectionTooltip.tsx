@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useLayoutEffect } from 'react'
 import { Lightbulb, MessageCircle, ArrowDown, SendHorizontal } from 'lucide-react'
 
 interface SelectionTooltipProps {
@@ -7,15 +7,47 @@ interface SelectionTooltipProps {
   onAction: (prompt: string) => void
 }
 
+const PAD = 8
+
 export function SelectionTooltip({ selectedText, selectionRect, onAction }: SelectionTooltipProps) {
   const [customPrompt, setCustomPrompt] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const tooltipRef = useRef<HTMLDivElement>(null)
+  const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
+
+  // Measure tooltip and clamp to viewport after render
+  useLayoutEffect(() => {
+    if (!selectionRect || !tooltipRef.current) {
+      setPosition(null)
+      return
+    }
+
+    const el = tooltipRef.current
+    const tooltipWidth = el.offsetWidth
+    const tooltipHeight = el.offsetHeight
+    const centerX = selectionRect.left + selectionRect.width / 2
+
+    // Clamp horizontal
+    let finalLeft = centerX - tooltipWidth / 2
+    finalLeft = Math.max(PAD, Math.min(finalLeft, window.innerWidth - tooltipWidth - PAD))
+
+    // Prefer above selection, flip below if no room
+    let finalTop = selectionRect.top - 8 - tooltipHeight
+    if (finalTop < PAD) {
+      finalTop = selectionRect.bottom + 8
+    }
+
+    setPosition({ top: finalTop, left: finalLeft })
+  }, [selectionRect])
+
+  // Reset position when selection changes so we re-measure
+  const prevRect = useRef<DOMRect | null>(null)
+  if (selectionRect !== prevRect.current) {
+    prevRect.current = selectionRect
+    if (position !== null) setPosition(null)
+  }
 
   if (!selectedText || !selectionRect) return null
-
-  // Position the tooltip above the selection
-  const top = selectionRect.top - 8
-  const left = selectionRect.left + selectionRect.width / 2
 
   const handleAction = (type: string) => {
     const prompts: Record<string, string> = {
@@ -36,9 +68,14 @@ export function SelectionTooltip({ selectedText, selectionRect, onAction }: Sele
 
   return (
     <div
+      ref={tooltipRef}
       data-selection-tooltip
-      className="fixed z-30 -translate-x-1/2 -translate-y-full"
-      style={{ top, left }}
+      className="fixed z-30"
+      style={{
+        top: position?.top ?? (selectionRect.top - 8),
+        left: position?.left ?? (selectionRect.left + selectionRect.width / 2),
+        visibility: position ? 'visible' : 'hidden',
+      }}
       onMouseDown={(e) => {
         // Prevent browser from clearing text selection for ALL clicks inside tooltip
         e.preventDefault()
