@@ -26,16 +26,33 @@ function createTimeout(): { signal: AbortSignal; clear: () => void } {
   return { signal: controller.signal, clear: () => clearTimeout(timer) }
 }
 
-function parseTocFromMarkdown(text: string): { title: string; chapters: Array<{ title: string; description: string }> } {
+function parseTocFromMarkdown(text: string): { title: string; subtitle?: string; chapters: Array<{ title: string; description: string }> } {
   const lines = text.split('\n').filter(l => l.trim())
   let title = ''
+  let subtitle: string | undefined
+  let titleFound = false
   const chapters: Array<{ title: string; description: string }> = []
 
   for (const line of lines) {
     const titleMatch = line.match(/^#\s+(.+)/)
     if (titleMatch && !title) {
       title = titleMatch[1].replace(/\*\*/g, '').trim()
+      titleFound = true
       continue
+    }
+
+    // Look for subtitle right after title: *subtitle* or _subtitle_
+    if (titleFound && !subtitle && chapters.length === 0) {
+      const italicMatch = line.match(/^\*(.+)\*$/) || line.match(/^_(.+)_$/)
+      if (italicMatch) {
+        subtitle = italicMatch[1].trim()
+        continue
+      }
+      const h2Match = line.match(/^##\s+(.+)/)
+      if (h2Match) {
+        subtitle = h2Match[1].trim()
+        continue
+      }
     }
 
     // 1. **Chapter Title** — Description  or  1. **Chapter Title** - Description
@@ -52,7 +69,7 @@ function parseTocFromMarkdown(text: string): { title: string; chapters: Array<{ 
     title = 'Untitled Book'
   }
 
-  return { title, chapters }
+  return { title, subtitle, chapters }
 }
 
 const DEPTH_LABELS = ['high-level overview', 'light coverage', 'balanced depth', 'detailed', 'comprehensive deep-dive']
@@ -409,6 +426,7 @@ Write this chapter now.`,
       const body = PatchBookBodySchema.parse(request.body)
       const meta = await store.getBook(request.params.id)
       meta.title = body.title
+      if (body.subtitle !== undefined) meta.subtitle = body.subtitle
       meta.updatedAt = new Date().toISOString()
       await store.saveBook(meta)
       return { ok: true }
@@ -681,12 +699,14 @@ Suggest profile updates based on this completed book. Return the complete update
 Generate a well-structured table of contents with 8-15 chapters.
 
 Start with a # heading that is the book title (make it compelling and specific).
+On the next line, add a subtitle in italics — a short, descriptive tagline for the book (e.g. *A practical guide to building scalable systems*).
 Then list each chapter as a numbered item with:
 - A **bold chapter title**
 - An em-dash followed by a one-sentence description
 
 Example format:
 # Mastering Modern CSS Architecture
+*A hands-on journey from box model basics to production-grade layout systems*
 
 1. **The Box Model Revisited** — Understanding the foundation that everything else builds on.
 2. **Flexbox Deep Dive** — Layout patterns that solve real problems elegantly.
@@ -701,7 +721,7 @@ ${profileContext ? `\nReader profile:\n${profileContext}\n\nTailor the book stru
       }
       tocTimeout.clear()
 
-      const { title, chapters } = parseTocFromMarkdown(tocText)
+      const { title, subtitle, chapters } = parseTocFromMarkdown(tocText)
 
       if (chapters.length === 0) {
         send({ type: 'error', message: 'Failed to parse table of contents from AI response' })
@@ -758,6 +778,7 @@ Use consistent, human-readable skill names. Think of skills as what would appear
       await store.saveBook({
         id: bookId,
         title,
+        subtitle,
         prompt: `${topic}${details ? `\n\n${details}` : ''}`,
         status: 'generating',
         totalChapters: chapters.length,
@@ -767,7 +788,7 @@ Use consistent, human-readable skill names. Think of skills as what would appear
       })
       await store.saveToc(bookId, tocWithSkills)
 
-      send({ type: 'toc_done', bookId, title, totalChapters: chapters.length })
+      send({ type: 'toc_done', bookId, title, subtitle, totalChapters: chapters.length })
 
       // Phase 2: Generate Chapter 1
       let chapterText = ''

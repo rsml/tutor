@@ -18,6 +18,7 @@ import { BookCompleteSummary } from '@src/components/BookCompleteSummary'
 interface Book {
   id: string
   title: string
+  subtitle?: string
   chaptersRead: number
   totalChapters: number
 }
@@ -93,17 +94,37 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
   const [chatSelectedText, setChatSelectedText] = useState('')
   const [chatPrompt, setChatPrompt] = useState<string | null>(null)
   const [missingKeyAlert, setMissingKeyAlert] = useState(false)
+  const [pendingChatAction, setPendingChatAction] = useState<{ text: string; prompt: string } | null>(null)
 
   const handleSelectionAction = useCallback((prompt: string) => {
-    setChatSelectedText(selectedText)
-    setChatPrompt(prompt)
+    if (chatOpen) {
+      // Chat already open — ask before replacing
+      setPendingChatAction({ text: selectedText, prompt })
+      clearSelection()
+    } else {
+      setChatSelectedText(selectedText)
+      setChatPrompt(prompt)
+      setChatOpen(true)
+      clearSelection()
+    }
+  }, [selectedText, clearSelection, chatOpen])
+
+  const handleConfirmNewChat = useCallback(() => {
+    if (!pendingChatAction) return
+    setChatSelectedText(pendingChatAction.text)
+    setChatPrompt(pendingChatAction.prompt)
     setChatOpen(true)
-    clearSelection()
-  }, [selectedText, clearSelection])
+    setPendingChatAction(null)
+  }, [pendingChatAction])
+
+  const handleDismissPending = useCallback(() => {
+    setPendingChatAction(null)
+  }, [])
 
   const handleCloseChat = useCallback(() => {
     setChatOpen(false)
     setChatPrompt(null)
+    setPendingChatAction(null)
   }, [])
 
   const syncChapterCompleted = useCallback((chapNum: number) => {
@@ -696,6 +717,9 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
           chapterContent={fullChapterContent ?? ''}
           initialPrompt={chatPrompt}
           onMissingApiKey={() => setMissingKeyAlert(true)}
+          pendingNewChat={pendingChatAction}
+          onConfirmNewChat={handleConfirmNewChat}
+          onDismissNewChat={handleDismissPending}
         />
       </div>
 

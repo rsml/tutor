@@ -13,6 +13,7 @@ export function useTextSelection(containerRef: React.RefObject<HTMLElement | nul
   const [selectionRect, setSelectionRect] = useState<DOMRect | null>(null)
   const lastScrollY = useRef(0)
   const selectedTextRef = useRef('')
+  const suppressSelectionChange = useRef(false)
 
   useEffect(() => { selectedTextRef.current = selectedText }, [selectedText])
 
@@ -57,6 +58,11 @@ export function useTextSelection(containerRef: React.RefObject<HTMLElement | nul
         setSelectionRect(rect)
         setCustomHighlight(range.cloneRange())
         lastScrollY.current = window.scrollY
+        // Clear native selection so only custom highlight is visible
+        // (prevents dual-highlight with different rendering)
+        suppressSelectionChange.current = true
+        sel.removeAllRanges()
+        suppressSelectionChange.current = false
       })
     }
 
@@ -84,6 +90,7 @@ export function useTextSelection(containerRef: React.RefObject<HTMLElement | nul
     }
 
     const handleSelectionChange = () => {
+      if (suppressSelectionChange.current) return
       // Don't clear selection state while user interacts with tooltip/chat
       const active = document.activeElement
       if (active?.closest('[data-selection-tooltip]') || active?.closest('[data-chat-panel]')) return
