@@ -30,6 +30,7 @@ import { apiUrl } from '@src/lib/api-base'
 interface Book {
   id: string
   title: string
+  subtitle?: string
   chaptersRead: number
   totalChapters: number
   status?: string
@@ -54,7 +55,7 @@ export default function App() {
   const [wizardOpen, setWizardOpen] = useState(false)
   const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ book: Book; x: number; y: number } | null>(null)
-  const [renameDialog, setRenameDialog] = useState<{ book: Book; title: string } | null>(null)
+  const [renameDialog, setRenameDialog] = useState<{ book: Book; title: string; subtitle: string } | null>(null)
   const [deleteDialog, setDeleteDialog] = useState<{ book: Book; input: string } | null>(null)
   const [rateDialog, setRateDialog] = useState<{ book: Book; rating: number } | null>(null)
   const [overviewBook, setOverviewBook] = useState<Book | null>(null)
@@ -153,9 +154,10 @@ export default function App() {
       if (res.ok) {
         const books = await res.json()
         setApiBooks(
-          books.map((b: { id: string; title: string; totalChapters: number; generatedUpTo: number; status?: string; rating?: number; finalQuizScore?: number; finalQuizTotal?: number }) => ({
+          books.map((b: { id: string; title: string; subtitle?: string; totalChapters: number; generatedUpTo: number; status?: string; rating?: number; finalQuizScore?: number; finalQuizTotal?: number }) => ({
             id: b.id,
             title: b.title,
+            subtitle: b.subtitle,
             chaptersRead: 0,
             totalChapters: b.totalChapters,
             status: b.status,
@@ -197,7 +199,7 @@ export default function App() {
       const res = await fetch(apiUrl(`/api/books/${renameDialog.book.id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: trimmed }),
+        body: JSON.stringify({ title: trimmed, subtitle: renameDialog.subtitle.trim() || undefined }),
       })
       if (res.ok) await fetchBooks()
       else toast.error('Failed to rename book')
@@ -422,6 +424,7 @@ export default function App() {
                   <BookCard
                     key={book.id}
                     title={book.title}
+                    subtitle={book.subtitle}
                     chaptersRead={chaptersRead}
                     totalChapters={book.totalChapters}
                     rating={book.rating}
@@ -449,7 +452,7 @@ export default function App() {
         >
           <button
             onClick={() => {
-              setRenameDialog({ book: contextMenu.book, title: contextMenu.book.title })
+              setRenameDialog({ book: contextMenu.book, title: contextMenu.book.title, subtitle: contextMenu.book.subtitle ?? '' })
               setContextMenu(null)
             }}
             className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors"
@@ -501,13 +504,28 @@ export default function App() {
           <DialogHeader>
             <DialogTitle>Rename Book</DialogTitle>
           </DialogHeader>
-          <input
-            value={renameDialog?.title ?? ''}
-            onChange={e => setRenameDialog(prev => prev ? { ...prev, title: e.target.value } : null)}
-            onKeyDown={e => e.key === 'Enter' && handleRename()}
-            className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
-            autoFocus
-          />
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-medium text-content-muted mb-1 block">Title</label>
+              <input
+                value={renameDialog?.title ?? ''}
+                onChange={e => setRenameDialog(prev => prev ? { ...prev, title: e.target.value } : null)}
+                onKeyDown={e => e.key === 'Enter' && handleRename()}
+                className="h-9 w-full rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-content-muted mb-1 block">Subtitle</label>
+              <input
+                value={renameDialog?.subtitle ?? ''}
+                onChange={e => setRenameDialog(prev => prev ? { ...prev, subtitle: e.target.value } : null)}
+                onKeyDown={e => e.key === 'Enter' && handleRename()}
+                placeholder="Optional subtitle"
+                className="h-9 w-full rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+              />
+            </div>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRenameDialog(null)}>Cancel</Button>
             <Button onClick={handleRename} disabled={!renameDialog?.title.trim() || mutating}>OK</Button>
