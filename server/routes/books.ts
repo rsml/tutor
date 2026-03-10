@@ -449,12 +449,17 @@ export async function bookRoutes(fastify: FastifyInstance) {
     const meta = await store.getBook(bookId)
     const toc = await store.getToc(bookId)
 
-    // Gather all chapter summaries (first 300 chars each to stay within context)
+    // Scale context per chapter based on total chapter count
+    const totalChapters = meta.generatedUpTo
+    const charsPerChapter = totalChapters <= 2 ? 8000 : totalChapters <= 5 ? 3000 : 1500
     const chapterSummaries: string[] = []
-    for (let i = 1; i <= meta.generatedUpTo; i++) {
+    for (let i = 1; i <= totalChapters; i++) {
       try {
         const content = await store.getChapter(bookId, i)
-        chapterSummaries.push(`Chapter ${i} "${toc.chapters[i - 1]?.title}": ${content.slice(0, 300)}...`)
+        const trimmed = content.length <= charsPerChapter
+          ? content
+          : content.slice(0, charsPerChapter) + '...'
+        chapterSummaries.push(`Chapter ${i} "${toc.chapters[i - 1]?.title}":\n${trimmed}`)
       } catch { /* skip */ }
     }
 
@@ -463,6 +468,26 @@ export async function bookRoutes(fastify: FastifyInstance) {
     const priorQuestions = allFeedback.flatMap(fb =>
       fb.quiz.questions.map(q => q.question)
     )
+
+    // Adapt question count and focus based on chapter count
+    const questionCount = totalChapters === 1 ? 5 : 10
+    let focusInstructions: string
+    if (totalChapters === 1) {
+      focusInstructions = `Generate exactly ${questionCount} multiple-choice questions that test DEEP COMPREHENSION of the single chapter. Each question should:
+- Test understanding, application, or nuance of concepts from the chapter
+- Go beyond surface recall — ask about implications, relationships between ideas, or how concepts apply
+- Have 4 options with exactly one correct answer`
+    } else if (totalChapters <= 3) {
+      focusInstructions = `Generate exactly ${questionCount} multiple-choice questions. Each question should:
+- Where possible, test connections between concepts from different chapters
+- Also include single-chapter comprehension questions that test deeper understanding
+- Have 4 options with exactly one correct answer`
+    } else {
+      focusInstructions = `Generate exactly ${questionCount} multiple-choice questions that test SYNTHESIS and CROSS-CHAPTER understanding. Each question should:
+- Require knowledge from 2+ chapters to answer correctly
+- Test connections between concepts, not just recall
+- Have 4 options with exactly one correct answer`
+    }
 
     const timeout = createTimeout()
     try {
@@ -474,7 +499,7 @@ export async function bookRoutes(fastify: FastifyInstance) {
             question: z.string(),
             options: z.array(z.string()).length(4),
             correctIndex: z.number().int().min(0).max(3),
-          })).length(10),
+          })).length(questionCount),
         }),
         prompt: `You are creating a final comprehensive quiz for a book the reader has just finished.
 
@@ -484,15 +509,14 @@ Topic: ${meta.prompt}
 Table of Contents:
 ${toc.chapters.map((ch, i) => `${i + 1}. ${ch.title} — ${ch.description}`).join('\n')}
 
-Chapter summaries:
+Chapter content:
 ${chapterSummaries.join('\n\n')}
 
-Generate exactly 10 multiple-choice questions that test SYNTHESIS and CROSS-CHAPTER understanding. Each question should:
-- Require knowledge from 2+ chapters to answer correctly
-- Test connections between concepts, not just recall
-- Have 4 options with exactly one correct answer
+${focusInstructions}
 - Be meaningfully different from these previously asked questions:
-${priorQuestions.map(q => `  - ${q}`).join('\n')}`,
+${priorQuestions.map(q => `  - ${q}`).join('\n')}
+
+IMPORTANT: ONLY ask about concepts, facts, and ideas explicitly discussed in the chapter content above. Do NOT draw on outside knowledge of the topic.`,
       })
 
       await store.saveFinalQuiz(bookId, result.object)
