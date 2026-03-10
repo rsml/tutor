@@ -400,7 +400,11 @@ export async function bookRoutes(fastify: FastifyInstance) {
     try {
       const body = RatingBodySchema.parse(request.body)
       const meta = await store.getBook(request.params.id)
-      meta.rating = body.rating
+      if (body.rating === 0) {
+        delete meta.rating
+      } else {
+        meta.rating = body.rating
+      }
       if (body.finalQuizScore !== undefined) {
         meta.finalQuizScore = body.finalQuizScore
         meta.finalQuizTotal = body.finalQuizTotal
