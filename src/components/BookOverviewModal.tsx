@@ -13,7 +13,7 @@ import { apiUrl } from '@src/lib/api-base'
 interface BookOverviewModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  book: { id: string; title: string; totalChapters: number }
+  book: { id: string; title: string; subtitle?: string; totalChapters: number }
 }
 
 interface TocChapter {
@@ -47,6 +47,7 @@ export function BookOverviewModal({ open, onOpenChange, book }: BookOverviewModa
       <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{book.title}</DialogTitle>
+          {book.subtitle && <p className="text-sm text-content-muted">{book.subtitle}</p>}
           {prompt && <DialogDescription>{prompt}</DialogDescription>}
         </DialogHeader>
 
