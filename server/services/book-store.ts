@@ -170,6 +170,21 @@ export async function quizExists(bookId: string, chapterNum: number): Promise<bo
   return existsSync(join(bookDir(bookId), 'quiz', `${padded}.yml`))
 }
 
+// --- Final Quiz ---
+
+export async function getFinalQuiz(bookId: string): Promise<Quiz> {
+  return readYaml(join(bookDir(bookId), 'final-quiz.yml'), QuizSchema)
+}
+
+export async function saveFinalQuiz(bookId: string, quiz: Quiz): Promise<void> {
+  QuizSchema.parse(quiz)
+  await writeYaml(join(bookDir(bookId), 'final-quiz.yml'), quiz)
+}
+
+export function finalQuizExists(bookId: string): boolean {
+  return existsSync(join(bookDir(bookId), 'final-quiz.yml'))
+}
+
 // --- Progress ---
 
 export async function getProgress(bookId: string): Promise<Progress> {
