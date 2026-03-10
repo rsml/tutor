@@ -660,15 +660,20 @@ Suggest profile updates based on this completed book. Return the complete update
 
 Generate a well-structured table of contents with exactly ${chapterCount ?? 12} chapters.
 
-Start with a # heading that is the book title (make it compelling and specific).
-On the next line, add a subtitle in italics — a short, descriptive tagline for the book (e.g. *A practical guide to building scalable systems*).
+Start with a # heading for the book title. Think like an O'Reilly or Pragmatic Bookshelf editor:
+- Title: 2-5 words, memorable and specific. No filler like "Comprehensive Guide to" or "Introduction to".
+- Subtitle: max 8 words, a punchy tagline — not a sentence. No "A guide to..." or "How to..." patterns.
+
 Then list each chapter as a numbered item with:
 - A **bold chapter title**
 - An em-dash followed by a one-sentence description
 
 Example format:
-# Mastering Modern CSS Architecture
-*A hands-on journey from box model basics to production-grade layout systems*
+# Resilient CSS
+*Layout Systems for the Real World*
+
+# Temporal in Practice
+*Durable Workflows Beyond Request-Response*
 
 1. **The Box Model Revisited** — Understanding the foundation that everything else builds on.
 2. **Flexbox Deep Dive** — Layout patterns that solve real problems elegantly.
