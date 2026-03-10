@@ -336,6 +336,59 @@ export async function getSkillProgress(): Promise<SkillProgressResult> {
   }
 }
 
+// --- Cover ---
+
+const COVER_EXTENSIONS = ['png', 'jpg', 'webp']
+
+export async function getCoverPath(bookId: string): Promise<string | null> {
+  const dir = bookDir(bookId)
+  for (const ext of COVER_EXTENSIONS) {
+    const p = join(dir, `cover.${ext}`)
+    if (existsSync(p)) return p
+  }
+  return null
+}
+
+export async function hasCover(bookId: string): Promise<boolean> {
+  return (await getCoverPath(bookId)) !== null
+}
+
+export async function saveCover(bookId: string, data: Buffer, mediaType: string): Promise<void> {
+  const dir = bookDir(bookId)
+  await mkdir(dir, { recursive: true })
+
+  // Delete any existing cover first
+  await deleteCover(bookId)
+
+  const ext = mediaType === 'image/jpeg' ? 'jpg'
+    : mediaType === 'image/webp' ? 'webp'
+    : 'png'
+  const dest = join(dir, `cover.${ext}`)
+  const tmp = dest + '.tmp'
+  await writeFile(tmp, data)
+  await rename(tmp, dest)
+}
+
+export async function deleteCover(bookId: string): Promise<void> {
+  const dir = bookDir(bookId)
+  for (const ext of COVER_EXTENSIONS) {
+    const p = join(dir, `cover.${ext}`)
+    if (existsSync(p)) {
+      await rm(p)
+    }
+  }
+}
+
+// --- EPUB cache ---
+
+export function epubPath(bookId: string): string {
+  return join(bookDir(bookId), 'book.epub')
+}
+
+export function epubExists(bookId: string): boolean {
+  return existsSync(epubPath(bookId))
+}
+
 export async function getAllFeedback(bookId: string): Promise<Feedback[]> {
   const feedbackDir = join(bookDir(bookId), 'feedback')
   if (!existsSync(feedbackDir)) return []

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, ipcMain, safeStorage, nativeImage, nativeTheme, session } from 'electron'
+import { app, BrowserWindow, Menu, ipcMain, safeStorage, nativeImage, nativeTheme, session, dialog } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readFile, writeFile, mkdir, rm } from 'node:fs/promises'
@@ -202,6 +202,18 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('get-api-port', () => apiPort)
 
+  ipcMain.handle('file:save', async (_event, defaultName: string, base64Data: string) => {
+    const win = BrowserWindow.getFocusedWindow()
+    if (!win) return false
+    const { canceled, filePath } = await dialog.showSaveDialog(win, {
+      defaultPath: defaultName,
+      filters: [{ name: 'EPUB', extensions: ['epub'] }],
+    })
+    if (canceled || !filePath) return false
+    await writeFile(filePath, Buffer.from(base64Data, 'base64'))
+    return true
+  })
+
   // POST all saved API keys to the server's key store
   for (const provider of VALID_PROVIDERS) {
     const file = apiKeyFile(provider)
@@ -238,7 +250,7 @@ app.whenReady().then(async () => {
         ...details.responseHeaders,
         'Content-Security-Policy': [
           `default-src 'self'; script-src 'self'${VITE_DEV_SERVER_URL ? " 'unsafe-inline'" : ''}; style-src 'self' 'unsafe-inline'; ` +
-          `connect-src 'self' http://127.0.0.1:* http://localhost:*${VITE_DEV_SERVER_URL ? ' ws://localhost:*' : ''}; img-src 'self' data:; font-src 'self';`,
+          `connect-src 'self' http://127.0.0.1:* http://localhost:*${VITE_DEV_SERVER_URL ? ' ws://localhost:*' : ''}; img-src 'self' data: http://127.0.0.1:* http://localhost:*; font-src 'self';`,
         ],
       },
     })

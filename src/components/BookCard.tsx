@@ -17,11 +17,12 @@ interface BookCardProps {
   rating?: number
   finalQuizScore?: number
   finalQuizTotal?: number
+  coverUrl?: string
   onClick?: () => void
   onContextMenu?: (e: React.MouseEvent) => void
 }
 
-export function BookCard({ title, subtitle, chaptersRead, totalChapters, rating, finalQuizScore, finalQuizTotal, onClick, onContextMenu }: BookCardProps) {
+export function BookCard({ title, subtitle, chaptersRead, totalChapters, rating, finalQuizScore, finalQuizTotal, coverUrl, onClick, onContextMenu }: BookCardProps) {
   const hue = stringToHue(title)
   const progress = totalChapters > 0 ? chaptersRead / totalChapters : 0
 
@@ -30,22 +31,43 @@ export function BookCard({ title, subtitle, chaptersRead, totalChapters, rating,
       {/* Cover */}
       <div
         className="aspect-[1/1.618] overflow-hidden rounded-xl shadow-md transition-all duration-200 group-hover:scale-[1.02] group-hover:shadow-xl"
-        style={{
+        style={coverUrl ? undefined : {
           background: `linear-gradient(145deg, oklch(0.45 0.16 ${hue}), oklch(0.25 0.12 ${hue + 50}))`,
         }}
       >
         <div className="relative flex h-full flex-col items-center justify-center p-2">
-          <NoiseOverlay opacity={0.5} position="absolute" />
-          {/* <div className="h-px w-10 bg-white/40" /> */}
-          <h3 className="mt-3 text-center text-[1.15em] leading-snug font-bold tracking-tight text-white/90">
-            {title}
-          </h3>
-          {subtitle && (
-            <p className="mt-1 text-center text-[0.75em] leading-snug text-white/60 px-2">
-              {subtitle}
-            </p>
+          {coverUrl ? (
+            <>
+              <img
+                src={coverUrl}
+                alt={title}
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+              <div className="relative mt-auto w-full px-2 pb-1">
+                <h3 className="text-center text-[1.15em] leading-snug font-bold tracking-tight text-white/90">
+                  {title}
+                </h3>
+                {subtitle && (
+                  <p className="mt-1 text-center text-[0.75em] leading-snug text-white/60">
+                    {subtitle}
+                  </p>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <NoiseOverlay opacity={0.5} position="absolute" />
+              <h3 className="mt-3 text-center text-[1.15em] leading-snug font-bold tracking-tight text-white/90">
+                {title}
+              </h3>
+              {subtitle && (
+                <p className="mt-1 text-center text-[0.75em] leading-snug text-white/60 px-2">
+                  {subtitle}
+                </p>
+              )}
+            </>
           )}
-          {/* <div className="mt-3 h-px w-10 bg-white/40" /> */}
           {/* Progress bar — inset with border-radius */}
           {progress > 0 && (
             <div className="absolute inset-x-3 bottom-3 h-1.5 overflow-hidden rounded-full bg-white/15">

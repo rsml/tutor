@@ -20,7 +20,7 @@ const CHAPTER_LABELS = ['Essay', 'Short', 'Novella', 'Standard', 'Long', 'Epic']
 interface WizardModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onCreate: (topic: string, details: string, chapterCount: number) => void
+  onCreate: (topic: string, details: string, chapterCount: number, coverPrompt?: string) => void
 }
 
 export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) {
@@ -29,6 +29,8 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
   const [detailsOpen, setDetailsOpen] = useState(true)
   const [suggesting, setSuggesting] = useState(false)
   const [reasoning, setReasoning] = useState<string | null>(null)
+  const [generateCover, setGenerateCover] = useState(false)
+  const [coverDescription, setCoverDescription] = useState('')
   const defaultChapterCount = useAppSelector(selectDefaultChapterCount)
   const [chapterCountIndex, setChapterCountIndex] = useState(() => {
     const idx = CHAPTER_COUNTS.indexOf(defaultChapterCount)
@@ -48,10 +50,15 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
   const handleCreate = () => {
     if (!topic.trim()) return
     onOpenChange(false)
-    onCreate(topic.trim(), details.trim(), CHAPTER_COUNTS[chapterCountIndex])
+    const coverPromptValue = generateCover
+      ? (coverDescription.trim() || `Book cover for "${topic.trim()}": ${details.trim() || topic.trim()}. Clean, modern design with abstract imagery. No text on the cover.`)
+      : undefined
+    onCreate(topic.trim(), details.trim(), CHAPTER_COUNTS[chapterCountIndex], coverPromptValue)
     setTopic('')
     setDetails('')
     setReasoning(null)
+    setGenerateCover(false)
+    setCoverDescription('')
   }
 
   const handleSuggest = async () => {
@@ -134,6 +141,30 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
                 className="resize-y rounded-lg border border-border-default bg-surface-raised px-3 py-2 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
               />
             )}
+          </div>
+
+          {/* Generate cover checkbox */}
+          <div className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              id="generate-cover"
+              checked={generateCover}
+              onChange={e => setGenerateCover(e.target.checked)}
+              className="mt-0.5 accent-[oklch(0.55_0.20_285)]"
+            />
+            <div className="grid gap-1">
+              <label htmlFor="generate-cover" className="text-sm font-medium text-content-primary cursor-pointer">
+                Generate cover image
+              </label>
+              {generateCover && (
+                <input
+                  value={coverDescription}
+                  onChange={e => setCoverDescription(e.target.value)}
+                  placeholder="Describe the cover (optional — auto-generated if blank)"
+                  className="h-8 rounded-lg border border-border-default bg-surface-raised px-2 text-xs text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+                />
+              )}
+            </div>
           </div>
 
           {/* Chapter count slider */}

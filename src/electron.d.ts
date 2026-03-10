@@ -7,6 +7,7 @@ interface ElectronAPI {
   loadApiKey: (provider?: string) => Promise<string | null>
   removeApiKey: (provider?: string) => Promise<void>
   getApiPort: () => Promise<number>
+  saveFile: (defaultName: string, base64Data: string) => Promise<boolean>
 }
 
 interface Window {

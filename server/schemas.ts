@@ -227,6 +227,17 @@ export const SuggestSkillsBodySchema = AiRequestSchema.extend({
   existingSkills: z.array(SkillSchema).max(50).default([]),
 })
 
+export const GenerateCoverBodySchema = z.object({
+  prompt: z.string().min(1).max(2000),
+  provider: ProviderSchema,
+  model: z.string().min(1).max(100),
+})
+
+export const UploadCoverBodySchema = z.object({
+  base64: z.string().max(15_000_000), // ~10MB encoded
+  mediaType: z.enum(['image/png', 'image/jpeg', 'image/webp']),
+})
+
 export const SuggestBookBodySchema = AiRequestSchema.extend({
   quizHistory: z.record(
     z.string(),
