@@ -140,7 +140,9 @@ export async function saveChapter(bookId: string, chapterNum: number, content: s
   const dir = join(bookDir(bookId), 'chapters')
   await mkdir(dir, { recursive: true })
   const padded = String(chapterNum).padStart(2, '0')
-  await writeFile(join(dir, `${padded}.md`), content, 'utf-8')
+  const tmp = join(dir, `${padded}.md.tmp`)
+  await writeFile(tmp, content, 'utf-8')
+  await rename(tmp, join(dir, `${padded}.md`))
 }
 
 export async function chapterExists(bookId: string, chapterNum: number): Promise<boolean> {
