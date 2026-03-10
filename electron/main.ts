@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, ipcMain, safeStorage, nativeImage, session } from 'electron'
+import { app, BrowserWindow, Menu, ipcMain, safeStorage, nativeImage, nativeTheme, session } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readFile, writeFile, mkdir, rm } from 'node:fs/promises'
@@ -76,7 +76,10 @@ function getAppIcon() {
 }
 
 function createWindow() {
+  const isDark = nativeTheme.shouldUseDarkColors
   const win = new BrowserWindow({
+    show: false,
+    backgroundColor: isDark ? '#1c1d2e' : '#fafafc',
     width: 1280,
     height: 900,
     minWidth: 1024,
@@ -90,6 +93,8 @@ function createWindow() {
       sandbox: true,
     },
   })
+
+  win.once('ready-to-show', () => win.show())
 
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL)
