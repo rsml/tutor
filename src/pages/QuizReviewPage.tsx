@@ -79,7 +79,7 @@ export function QuizReviewPage({ book, onBack, onBackToReader }: {
         className="relative z-30 flex h-12 shrink-0 items-center border-b border-border-default/50 bg-surface-base/90 px-4 backdrop-blur-sm"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
-        <span className="absolute inset-x-0 pointer-events-none text-center text-sm font-semibold tracking-tight">
+        <span className="absolute inset-x-0 pointer-events-none px-48 truncate text-center text-sm font-semibold tracking-tight">
           {book.title} — Quiz Review
         </span>
 
@@ -106,7 +106,7 @@ export function QuizReviewPage({ book, onBack, onBackToReader }: {
         {/* Back button — overlays top-left of content area, below header */}
         <button
           onClick={onBack}
-          className="absolute left-6 top-3 z-20 inline-flex items-center gap-1.5 p-2 text-content-muted/50 transition-colors hover:text-content-muted"
+          className="absolute left-6 top-3 z-20 inline-flex items-center gap-1.5 p-2 text-content-muted opacity-50 transition-all hover:opacity-100"
         >
           <ArrowLeft className="size-5" />
         </button>

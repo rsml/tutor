@@ -231,7 +231,7 @@ export function ProfileUpdatePage({ bookId, bookTitle, onComplete }: {
         {/* Back button */}
         <button
           onClick={onComplete}
-          className="absolute left-6 top-3 z-20 inline-flex items-center gap-1.5 p-2 text-content-muted/50 transition-colors hover:text-content-muted"
+          className="absolute left-6 top-3 z-20 inline-flex items-center gap-1.5 p-2 text-content-muted opacity-50 transition-all hover:opacity-100"
         >
           <ArrowLeft className="size-5" />
         </button>

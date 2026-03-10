@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import { SafeMarkdown } from '@src/components/SafeMarkdown'
-import { useAppSelector, selectHasApiKey, selectFunctionModel, selectFontSize } from '@src/store'
+import { useAppSelector, selectHasApiKey, selectFunctionModel, selectFontSize, selectQuizLength } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
 
 type Phase = 'toc' | 'chapter' | 'done' | 'error'
@@ -10,14 +10,16 @@ type Phase = 'toc' | 'chapter' | 'done' | 'error'
 interface CreationViewProps {
   topic: string
   details: string
+  chapterCount: number
   onComplete: (bookId: string) => void
   onCancel: () => void
 }
 
-export function CreationView({ topic, details, onComplete, onCancel }: CreationViewProps) {
+export function CreationView({ topic, details, chapterCount, onComplete, onCancel }: CreationViewProps) {
   const hasApiKey = useAppSelector(selectHasApiKey)
   const { provider, model } = useAppSelector(selectFunctionModel('generation'))
   const { provider: quizProvider, model: quizModel } = useAppSelector(selectFunctionModel('quiz'))
+  const quizLength = useAppSelector(selectQuizLength)
   const fontSize = useAppSelector(selectFontSize)
 
   const [phase, setPhase] = useState<Phase>('toc')
@@ -46,7 +48,7 @@ export function CreationView({ topic, details, onComplete, onCancel }: CreationV
       const res = await fetch(apiUrl('/api/books'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, details, model, provider, quizModel, quizProvider }),
+        body: JSON.stringify({ topic, details, model, provider, quizModel, quizProvider, quizLength, chapterCount }),
       })
 
       if (!res.ok || !res.body) {
@@ -123,7 +125,7 @@ export function CreationView({ topic, details, onComplete, onCancel }: CreationV
       setError(err instanceof Error ? err.message : 'Connection failed')
       setPhase('error')
     }
-  }, [hasApiKey, model, provider, quizModel, quizProvider, topic, details])
+  }, [hasApiKey, model, provider, quizModel, quizProvider, quizLength, chapterCount, topic, details])
 
   useEffect(() => {
     if (!startedRef.current) {
@@ -187,7 +189,7 @@ export function CreationView({ topic, details, onComplete, onCancel }: CreationV
         {/* Back button — overlays top-left of content area */}
         <button
           onClick={onCancel}
-          className="absolute left-6 top-3 z-20 inline-flex items-center gap-1.5 p-2 text-content-muted/50 transition-colors hover:text-content-muted"
+          className="absolute left-6 top-3 z-20 inline-flex items-center gap-1.5 p-2 text-content-muted opacity-50 transition-all hover:opacity-100"
         >
           <ArrowLeft className="size-5" />
         </button>

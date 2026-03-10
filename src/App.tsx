@@ -41,7 +41,7 @@ interface Book {
 
 type View =
   | { type: 'library' }
-  | { type: 'creating'; topic: string; details: string }
+  | { type: 'creating'; topic: string; details: string; chapterCount: number }
   | { type: 'reading'; book: Book }
   | { type: 'quiz-review'; book: Book }
   | { type: 'review-progress' }
@@ -174,8 +174,8 @@ export default function App() {
     fetchBooks()
   }, [fetchBooks])
 
-  const handleCreate = (topic: string, details: string) => {
-    setView({ type: 'creating', topic, details })
+  const handleCreate = (topic: string, details: string, chapterCount: number) => {
+    setView({ type: 'creating', topic, details, chapterCount })
   }
 
   const handleCreationComplete = (_bookId: string) => {
@@ -259,6 +259,7 @@ export default function App() {
       <CreationView
         topic={view.topic}
         details={view.details}
+        chapterCount={view.chapterCount}
         onComplete={handleCreationComplete}
         onCancel={handleCreationCancel}
       />
@@ -412,7 +413,7 @@ export default function App() {
               <p className="mt-4 text-sm text-content-muted">No books match this filter.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-4 gap-8 xl:grid-cols-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 lg:gap-8 xl:grid-cols-5">
               {filteredBooks.map((book) => {
                 const reduxProgress = furthest[book.id]
                 const chaptersRead = reduxProgress != null

@@ -114,6 +114,8 @@ export interface SettingsState {
   modelAssignmentSeen: boolean
   fontSize: number
   readingWidth: number
+  quizLength: number
+  defaultChapterCount: number
   textureEnabled: boolean
   textureOpacity: number
   libraryTab: 'all' | 'in-progress' | 'not-started' | 'finished'
@@ -132,6 +134,8 @@ const settingsSlice = createSlice({
     modelAssignmentSeen: false,
     fontSize: 16,
     readingWidth: 768,
+    quizLength: 3,
+    defaultChapterCount: 12,
     textureEnabled: true,
     textureOpacity: 1,
     libraryTab: 'all' as const,
@@ -151,6 +155,12 @@ const settingsSlice = createSlice({
     },
     setReadingWidth(state, action: PayloadAction<number>) {
       state.readingWidth = action.payload
+    },
+    setQuizLength(state, action: PayloadAction<number>) {
+      state.quizLength = action.payload
+    },
+    setDefaultChapterCount(state, action: PayloadAction<number>) {
+      state.defaultChapterCount = action.payload
     },
     setTextureEnabled(state, action: PayloadAction<boolean>) {
       state.textureEnabled = action.payload
@@ -180,6 +190,8 @@ export const {
   setProviderModel,
   setFontSize,
   setReadingWidth,
+  setQuizLength,
+  setDefaultChapterCount,
   setTextureEnabled,
   setTextureOpacity,
   setLibraryTab,
@@ -196,6 +208,8 @@ export const selectActiveProvider = (state: RootState) => state.settings.activeP
 export const selectProviders = (state: RootState) => state.settings.providers
 export const selectFontSize = (state: RootState) => state.settings.fontSize
 export const selectReadingWidth = (state: RootState) => state.settings.readingWidth
+export const selectQuizLength = (state: RootState) => state.settings.quizLength ?? 3
+export const selectDefaultChapterCount = (state: RootState) => state.settings.defaultChapterCount ?? 12
 export const selectTextureEnabled = (state: RootState) => state.settings.textureEnabled
 export const selectTextureOpacity = (state: RootState) => state.settings.textureOpacity
 export const selectLibraryTab = (state: RootState) => state.settings.libraryTab
