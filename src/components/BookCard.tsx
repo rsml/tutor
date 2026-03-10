@@ -46,7 +46,6 @@ export function BookCard({ title, subtitle, chaptersRead, totalChapters, rating,
             </p>
           )}
           <div className="mt-3 h-px w-10 bg-white/40" />
-
           {/* Progress bar — inset with border-radius */}
           {progress > 0 && (
             <div className="absolute inset-x-3 bottom-3 h-1.5 overflow-hidden rounded-full bg-white/15">
@@ -61,15 +60,7 @@ export function BookCard({ title, subtitle, chaptersRead, totalChapters, rating,
 
       {/* Meta */}
       <div className="mt-2.5 px-0.5">
-        <p className="line-clamp-1 text-[0.9em] font-medium tracking-tight text-content-primary">
-          {title}
-        </p>
-        {subtitle && (
-          <p className="line-clamp-1 text-[0.75em] text-content-muted">
-            {subtitle}
-          </p>
-        )}
-        <p className="mt-0.5 text-[0.75em] text-content-muted">
+        <p className="text-[0.75em] text-content-muted">
           {chaptersRead === 0
             ? `${totalChapters} chapters`
             : `${chaptersRead} of ${totalChapters} chapters`}
