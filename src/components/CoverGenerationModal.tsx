@@ -39,7 +39,7 @@ export function CoverGenerationModal({
   open,
   onOpenChange,
   bookId,
-  bookTitle,
+  bookTitle: _bookTitle,
   bookTopic,
   hasCover,
   showTitleOnCover: initialShowTitle,
