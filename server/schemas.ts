@@ -169,8 +169,8 @@ export const CompleteProfileSchema = z.object({
 })
 
 export const CreateBookBodySchema = AiRequestSchema.extend({
-  topic: z.string().min(1).max(500),
-  details: z.string().max(2000).optional(),
+  topic: z.string().min(1),
+  details: z.string().optional(),
   quizModel: ModelSchema.optional(),
   quizProvider: ProviderSchema.optional(),
 })

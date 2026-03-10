@@ -218,6 +218,9 @@
     user-select: text;
     cursor: text;
   }
+  button, [role="button"] {
+    cursor: pointer;
+  }
   ::selection {
     @apply bg-border-focus/20 text-content-primary;
   }
@@ -313,7 +316,9 @@
     @apply rounded bg-surface-muted px-1.5 py-0.5 text-sm font-mono;
   }
   pre {
-    @apply rounded-lg bg-surface-muted p-4 overflow-x-auto mb-4;
+    @apply rounded-lg p-4 overflow-x-auto mb-4;
+    background: #13171e;
+    color: #c2c4c8;
     code {
       @apply bg-transparent p-0;
     }
@@ -383,7 +388,8 @@
     font-family: 'SF Mono', ui-monospace, monospace;
     font-size: 0.85em;
     line-height: 1.6;
-    background: var(--color-surface-muted);
+    background: #13171e;
+    color: #c2c4c8;
     padding: 1rem 1.25rem;
     border-radius: 0.5rem;
     overflow-x: auto;
@@ -455,7 +461,7 @@
 
 /* ─── Syntax Highlighting Overrides ─── */
 .hljs {
-  background: var(--color-surface-muted) !important;
+  background: #13171e !important;
 }
 
 /* ─── Code Block Wrapper (copy button + language label) ─── */

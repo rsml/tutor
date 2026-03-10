@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { ArrowLeft, Loader2 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import { SafeMarkdown } from '@src/components/SafeMarkdown'
 import { useAppSelector, selectHasApiKey, selectFunctionModel, selectFontSize } from '@src/store'
@@ -184,6 +184,14 @@ export function CreationView({ topic, details, onComplete, onCancel }: CreationV
 
       {/* Content */}
       <div className="relative flex-1 overflow-hidden">
+        {/* Back button — overlays top-left of content area */}
+        <button
+          onClick={onCancel}
+          className="absolute left-6 top-3 z-20 inline-flex items-center gap-1.5 p-2 text-content-muted/50 transition-colors hover:text-content-muted"
+        >
+          <ArrowLeft className="size-5" />
+        </button>
+
         {/* TOC page */}
         <div
           ref={tocScrollRef}
