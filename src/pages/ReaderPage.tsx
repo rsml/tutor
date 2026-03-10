@@ -72,7 +72,6 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     fullChapterContent, loading: chapterLoading,
     hasPrev, hasNext,
     isLastSectionOfLastGenerated, isLastSectionOfBook,
-    isLastChapter,
     goNext, goPrev, goToChapter,
   } = useSectionNavigation({ bookId: book.id, totalChapters: book.totalChapters, generatedUpTo })
 
@@ -157,23 +156,8 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     scrollRef.current?.scrollTo({ top: 0 })
   }, [book.id, chapterIndex, syncChapterCompleted])
 
-  const handleFinishBook = useCallback(() => {
+  const handleFinishBook = useCallback(async () => {
     syncChapterCompleted(chapterIndex + 1)
-    setPhase('feedback')
-    scrollRef.current?.scrollTo({ top: 0 })
-  }, [chapterIndex, syncChapterCompleted])
-
-  const handleLastChapterFeedback = useCallback(async (liked: string, disliked: string) => {
-    dispatch(setChapterFeedback({ bookId: book.id, chapterNum: chapterIndex + 1, liked, disliked }))
-
-    try {
-      await fetch(apiUrl(`/api/books/${book.id}/chapters/${chapterIndex + 1}/feedback`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ liked, disliked }),
-      })
-    } catch { /* fire-and-forget */ }
-
     setFinalQuizLoading(true)
     setPhase('final-quiz')
     scrollRef.current?.scrollTo({ top: 0 })
@@ -190,7 +174,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
       }
     } catch { /* fire-and-forget */ }
     setFinalQuizLoading(false)
-  }, [book.id, chapterIndex, quizModel, quizProvider, dispatch])
+  }, [book.id, chapterIndex, syncChapterCompleted, quizModel, quizProvider])
 
   const handleFinalQuizComplete = useCallback((answers: number[]) => {
     const score = answers.filter((a, i) => a === finalQuizQuestions[i].correctIndex).length
@@ -663,8 +647,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
               {phase === 'feedback' && (
                 <FeedbackForm
                   chapterNum={chapterIndex + 1}
-                  onSubmit={isLastChapter ? handleLastChapterFeedback : handleFeedbackSubmit}
-                  submitLabel={isLastChapter ? 'Continue to Final Quiz' : undefined}
+                  onSubmit={handleFeedbackSubmit}
                 />
               )}
 
