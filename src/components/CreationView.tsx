@@ -3,6 +3,8 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import { SafeMarkdown } from '@src/components/SafeMarkdown'
 import { useAppSelector, selectHasApiKey, selectFunctionModel, selectFontSize, selectQuizLength } from '@src/store'
+import { useStreamingContent } from '@src/hooks/useStreamingContent'
+import { parseSSEStream } from '@src/lib/parse-sse-stream'
 import { apiUrl } from '@src/lib/api-base'
 
 type Phase = 'toc' | 'chapter' | 'done' | 'error'
@@ -13,9 +15,10 @@ interface CreationViewProps {
   chapterCount: number
   onComplete: (bookId: string) => void
   onCancel: () => void
+  onBookCreated?: (bookId: string, title: string) => void
 }
 
-export function CreationView({ topic, details, chapterCount, onComplete, onCancel }: CreationViewProps) {
+export function CreationView({ topic, details, chapterCount, onComplete, onCancel, onBookCreated }: CreationViewProps) {
   const hasApiKey = useAppSelector(selectHasApiKey)
   const { provider, model } = useAppSelector(selectFunctionModel('generation'))
   const { provider: quizProvider, model: quizModel } = useAppSelector(selectFunctionModel('quiz'))
@@ -23,8 +26,6 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
   const fontSize = useAppSelector(selectFontSize)
 
   const [phase, setPhase] = useState<Phase>('toc')
-  const [tocContent, setTocContent] = useState('')
-  const [chapterContent, setChapterContent] = useState('')
   const [activeTab, setActiveTab] = useState<'toc' | 'chapter'>('toc')
   const [bookId, setBookId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -32,10 +33,9 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
   const tocScrollRef = useRef<HTMLDivElement>(null)
   const chapterScrollRef = useRef<HTMLDivElement>(null)
   const startedRef = useRef(false)
-  const tocBufferRef = useRef('')
-  const chapterBufferRef = useRef('')
-  const tocRafRef = useRef<number | null>(null)
-  const chapterRafRef = useRef<number | null>(null)
+
+  const toc = useStreamingContent()
+  const chapter = useStreamingContent()
 
   const startGeneration = useCallback(async () => {
     if (!hasApiKey) {
@@ -55,77 +55,51 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
         throw new Error(`Request failed: ${res.status}`)
       }
 
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
+      await parseSSEStream(res, {
+        onEvent: (event) => {
+          switch (event.type) {
+            case 'toc':
+              toc.appendChunk(event.text)
+              // Auto-scroll TOC
+              requestAnimationFrame(() => {
+                tocScrollRef.current?.scrollTo({ top: tocScrollRef.current!.scrollHeight })
+              })
+              break
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
+            case 'toc_done':
+              toc.flushNow()
+              setBookId(event.bookId)
+              setPhase('chapter')
+              setActiveTab('chapter')
+              onBookCreated?.(event.bookId, event.title)
+              break
 
-        buffer += decoder.decode(value, { stream: true })
+            case 'chapter':
+              chapter.appendChunk(event.text)
+              // Auto-scroll chapter
+              requestAnimationFrame(() => {
+                chapterScrollRef.current?.scrollTo({ top: chapterScrollRef.current!.scrollHeight })
+              })
+              break
 
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
+            case 'done':
+              chapter.flushNow()
+              setPhase('done')
+              if (event.bookId) setBookId(event.bookId)
+              break
 
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          try {
-            const data = JSON.parse(line.slice(6))
-
-            switch (data.type) {
-              case 'toc':
-                tocBufferRef.current += data.text
-                if (!tocRafRef.current) {
-                  tocRafRef.current = requestAnimationFrame(() => {
-                    setTocContent(tocBufferRef.current)
-                    tocScrollRef.current?.scrollTo({ top: tocScrollRef.current!.scrollHeight })
-                    tocRafRef.current = null
-                  })
-                }
-                break
-
-              case 'toc_done':
-                if (tocRafRef.current) cancelAnimationFrame(tocRafRef.current)
-                setTocContent(tocBufferRef.current)
-                setBookId(data.bookId)
-                setPhase('chapter')
-                setActiveTab('chapter')
-                break
-
-              case 'chapter':
-                chapterBufferRef.current += data.text
-                if (!chapterRafRef.current) {
-                  chapterRafRef.current = requestAnimationFrame(() => {
-                    setChapterContent(chapterBufferRef.current)
-                    chapterScrollRef.current?.scrollTo({ top: chapterScrollRef.current!.scrollHeight })
-                    chapterRafRef.current = null
-                  })
-                }
-                break
-
-              case 'done':
-                if (chapterRafRef.current) cancelAnimationFrame(chapterRafRef.current)
-                setChapterContent(chapterBufferRef.current)
-                setPhase('done')
-                if (data.bookId) setBookId(data.bookId)
-                break
-
-              case 'error':
-                setError(data.message)
-                setPhase('error')
-                break
-            }
-          } catch {
-            // Skip malformed lines
+            case 'error':
+              setError(event.message)
+              setPhase('error')
+              break
           }
-        }
-      }
+        },
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Connection failed')
       setPhase('error')
     }
-  }, [hasApiKey, model, provider, quizModel, quizProvider, quizLength, chapterCount, topic, details])
+  }, [hasApiKey, model, provider, quizModel, quizProvider, quizLength, chapterCount, topic, details, toc, chapter, onBookCreated])
 
   useEffect(() => {
     if (!startedRef.current) {
@@ -202,9 +176,9 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
           }`}
         >
           <div className="mx-auto max-w-2xl px-8 py-8">
-            {tocContent ? (
+            {toc.content ? (
               <div className="creation-markdown" style={{ fontSize: `${fontSize}px` }}>
-                <SafeMarkdown>{tocContent}</SafeMarkdown>
+                <SafeMarkdown>{toc.content}</SafeMarkdown>
               </div>
             ) : (
               <div className="flex items-center gap-2 text-content-muted">
@@ -223,9 +197,9 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
           }`}
         >
           <div className="mx-auto max-w-2xl px-8 py-8">
-            {chapterContent ? (
+            {chapter.content ? (
               <div className="creation-markdown" style={{ fontSize: `${fontSize}px` }}>
-                <SafeMarkdown>{chapterContent}</SafeMarkdown>
+                <SafeMarkdown>{chapter.content}</SafeMarkdown>
               </div>
             ) : phase === 'toc' ? (
               <p className="text-sm text-content-muted">

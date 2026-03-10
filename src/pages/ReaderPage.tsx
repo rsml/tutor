@@ -1,4 +1,4 @@
-import { ArrowLeft, BarChart3, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, BarChart3, ChevronLeft, ChevronRight, Loader2, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@src/components/ui/button'
 import { SelectionTooltip } from '@src/components/SelectionTooltip'
@@ -6,6 +6,8 @@ import { ChatPanel } from '@src/components/ChatPanel'
 import { SettingsMenu } from '@src/components/SettingsMenu'
 import { useTextSelection } from '@src/hooks/useTextSelection'
 import { useSectionNavigation } from '@src/hooks/useSectionNavigation'
+import { useStreamingContent } from '@src/hooks/useStreamingContent'
+import { parseSSEStream } from '@src/lib/parse-sse-stream'
 import { store, useAppDispatch, useAppSelector, setPosition, setChapterFeedback, setChapterQuizResult, recordQuizAttempt, selectFontSize, selectReadingWidth, selectQuizLength, selectFunctionModel } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
 import { cn } from '@src/lib/utils'
@@ -23,6 +25,8 @@ interface Book {
   totalChapters: number
 }
 
+type Phase = 'reading' | 'quiz' | 'feedback' | 'generating' | 'generation-error' | 'final-quiz' | 'rating' | 'complete'
+
 export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
   book: Book
   onBack: () => void
@@ -33,18 +37,19 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
   const fontSize = useAppSelector(selectFontSize)
   const readingWidth = useAppSelector(selectReadingWidth)
 
-  type Phase = 'reading' | 'quiz' | 'feedback' | 'generating' | 'final-quiz' | 'rating' | 'complete'
   const [phase, setPhase] = useState<Phase>('reading')
   const [generatedUpTo, setGeneratedUpTo] = useState(book.totalChapters)
   const [tocChapters, setTocChapters] = useState<{ title: string; description: string }[]>([])
   const [showToc, setShowToc] = useState(false)
   const [quizQuestions, setQuizQuestions] = useState<Array<{ question: string; options: string[]; correctIndex: number }>>([])
   const [quizAnswers, setQuizAnswers] = useState<number[]>([])
-  const [streamingContent, setStreamingContent] = useState('')
   const [generationStage, setGenerationStage] = useState<string | null>(null)
-  const streamingBufferRef = useRef('')
-  const streamingRafRef = useRef<number | null>(null)
+  const [generatingChapterNum, setGeneratingChapterNum] = useState<number | null>(null)
+  const [generationError, setGenerationError] = useState<string | null>(null)
   const userHasScrolledRef = useRef(false)
+  const bufferBoundaryRef = useRef(0)
+
+  const streaming = useStreamingContent()
 
   const [finalQuizQuestions, setFinalQuizQuestions] = useState<Array<{ question: string; options: string[]; correctIndex: number }>>([])
   const [finalQuizScore, setFinalQuizScore] = useState(0)
@@ -56,16 +61,75 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
   const { provider: quizProvider, model: quizModel } = useAppSelector(selectFunctionModel('quiz'))
   const quizLength = useAppSelector(selectQuizLength)
 
+  // Fetch book metadata (with merged generation status) and TOC on mount
   useEffect(() => {
-    fetch(apiUrl(`/api/books/${book.id}`))
+    const controller = new AbortController()
+
+    fetch(apiUrl(`/api/books/${book.id}`), { signal: controller.signal })
       .then(res => res.json())
-      .then(data => setGeneratedUpTo(data.generatedUpTo))
+      .then(async (data) => {
+        if (controller.signal.aborted) return
+        setGeneratedUpTo(data.generatedUpTo)
+
+        // Check merged generation status
+        if (data.generation?.active) {
+          const gen = data.generation
+          // If already done/error, just use the metadata we already have
+          if (gen.stage === 'done' || gen.stage === 'error') return
+
+          // Active generation — set phase immediately and connect to stream
+          setGeneratingChapterNum(gen.chapterNum)
+          setPhase('generating')
+          streaming.reset()
+          setGenerationStage(null)
+          bufferBoundaryRef.current = 0
+
+          const res = await fetch(apiUrl(`/api/books/${book.id}/generation-stream`), { signal: controller.signal })
+          if (!res.ok || controller.signal.aborted) return
+
+          await parseSSEStream(res, {
+            onEvent: (event) => {
+              if (event.type === 'chapter') {
+                if (event.buffered) {
+                  // Buffered content from reconnect: render immediately, disable auto-scroll
+                  streaming.appendChunk(event.text)
+                  streaming.flushNow()
+                  bufferBoundaryRef.current = streaming.bufferRef.current.length
+                  userHasScrolledRef.current = true
+                } else {
+                  streaming.appendChunk(event.text)
+                }
+              } else if (event.type === 'stage') {
+                setGenerationStage(event.stage)
+              } else if (event.type === 'done' && event.chapterNum != null) {
+                streaming.flushNow()
+                setGenerationStage(null)
+                setGeneratedUpTo(event.chapterNum)
+                setGeneratingChapterNum(null)
+                dispatch(setPosition({ bookId: book.id, chapter: event.chapterNum - 1, section: 0 }))
+                setPhase('reading')
+                scrollRef.current?.scrollTo({ top: 0 })
+              } else if (event.type === 'error') {
+                setGenerationStage(null)
+                setGenerationError(event.message)
+                setPhase('generation-error')
+              }
+            },
+          })
+        }
+      })
       .catch(() => {})
-    fetch(apiUrl(`/api/books/${book.id}/toc`))
+
+    fetch(apiUrl(`/api/books/${book.id}/toc`), { signal: controller.signal })
       .then(res => res.json())
-      .then(data => setTocChapters(data.chapters?.map((c: { title: string; description?: string }) => ({ title: c.title, description: c.description ?? '' })) ?? []))
+      .then(data => {
+        if (controller.signal.aborted) return
+        setTocChapters(data.chapters?.map((c: { title: string; description?: string }) => ({ title: c.title, description: c.description ?? '' })) ?? [])
+      })
       .catch(() => {})
-  }, [book.id])
+
+    return () => controller.abort()
+  }, [book.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const {
     chapterIndex, sectionIndex, sections, currentSection,
@@ -101,7 +165,6 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
 
   const handleSelectionAction = useCallback((prompt: string) => {
     if (chatOpen) {
-      // Chat already open — ask before replacing
       setPendingChatAction({ text: selectedText, prompt })
       clearSelection()
     } else {
@@ -214,7 +277,6 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
 
   const handleQuizComplete = useCallback((answers: number[]) => {
     setQuizAnswers(answers)
-    // Store quiz results in Redux
     const result = {
       questions: quizQuestions.map((q, i) => ({
         ...q,
@@ -224,7 +286,6 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
       score: answers.filter((a, i) => a === quizQuestions[i].correctIndex).length,
     }
     dispatch(setChapterQuizResult({ bookId: book.id, chapterNum: chapterIndex + 1, result }))
-    // Also record in quiz history for review/retake tracking
     dispatch(recordQuizAttempt({
       bookId: book.id,
       chapterNum: chapterIndex + 1,
@@ -241,123 +302,15 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     scrollRef.current?.scrollTo({ top: 0 })
   }, [])
 
-  const consumeGenerationStream = useCallback(async (
-    response: Response,
-    opts: {
-      onChunk: (text: string) => void
-      onStage: (stage: string) => void
-      onDone: (chapterNum: number) => void
-      onError: (message: string) => void
-    },
-  ) => {
-    if (!response.body) { opts.onError('No response body'); return }
-
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || ''
-
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue
-        try {
-          const data = JSON.parse(line.slice(6))
-          if (data.type === 'chapter') {
-            opts.onChunk(data.text)
-          } else if (data.type === 'stage') {
-            opts.onStage(data.stage)
-          } else if (data.type === 'done') {
-            opts.onDone(data.chapterNum)
-          } else if (data.type === 'error') {
-            opts.onError(data.message)
-          }
-        } catch { /* malformed SSE line */ }
-      }
-    }
-  }, [])
-
-  const makeStreamCallbacks = useCallback(() => {
-    const flushBuffer = () => {
-      setStreamingContent(streamingBufferRef.current)
-      streamingRafRef.current = null
-    }
-
-    return {
-      onChunk: (text: string) => {
-        streamingBufferRef.current += text
-        if (!streamingRafRef.current) {
-          streamingRafRef.current = requestAnimationFrame(flushBuffer)
-        }
-      },
-      onStage: (stage: string) => {
-        setGenerationStage(stage)
-      },
-      onDone: (chapterNum: number) => {
-        if (streamingRafRef.current) cancelAnimationFrame(streamingRafRef.current)
-        setGenerationStage(null)
-        setGeneratedUpTo(chapterNum)
-        const nextIndex = chapterNum - 1
-        dispatch(setPosition({ bookId: book.id, chapter: nextIndex, section: 0 }))
-        setPhase('reading')
-        scrollRef.current?.scrollTo({ top: 0 })
-      },
-      onError: (_message: string) => {
-        setGenerationStage(null)
-        setPhase('reading')
-      },
-    }
-  }, [book.id, dispatch])
-
-  // Reconnect to in-progress generation on mount
-  useEffect(() => {
-    const controller = new AbortController()
-    fetch(apiUrl(`/api/books/${book.id}/generation-status`), { signal: controller.signal })
-      .then(res => res.json())
-      .then(async (data) => {
-        if (controller.signal.aborted || !data.active) return
-        // If already done/error, just refresh metadata
-        if (data.stage === 'done' || data.stage === 'error') {
-          const metaRes = await fetch(apiUrl(`/api/books/${book.id}`), { signal: controller.signal })
-          if (metaRes.ok) {
-            const meta = await metaRes.json()
-            setGeneratedUpTo(meta.generatedUpTo)
-          }
-          return
-        }
-        setPhase('generating')
-        setStreamingContent('')
-        setGenerationStage(null)
-        streamingBufferRef.current = ''
-        const res = await fetch(apiUrl(`/api/books/${book.id}/generation-stream`), { signal: controller.signal })
-        if (!res.ok || controller.signal.aborted) return
-        await consumeGenerationStream(res, makeStreamCallbacks())
-      })
-      .catch(() => {})
-    return () => controller.abort()
-  }, [book.id, consumeGenerationStream, makeStreamCallbacks])
-
-  const handleFeedbackSubmit = useCallback(async (liked: string, disliked: string) => {
-    // Store feedback in Redux
-    dispatch(setChapterFeedback({ bookId: book.id, chapterNum: chapterIndex + 1, liked, disliked }))
-
-    try {
-      await fetch(apiUrl(`/api/books/${book.id}/chapters/${chapterIndex + 1}/feedback`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ liked, disliked, quizAnswers }),
-      })
-    } catch { /* fire-and-forget */ }
-
+  // Start generation stream (used by feedback submit and retry)
+  const startGenerationStream = useCallback(async () => {
     setPhase('generating')
-    setStreamingContent('')
+    streaming.reset()
     setGenerationStage(null)
-    streamingBufferRef.current = ''
+    setGenerationError(null)
+    setGeneratingChapterNum(generatedUpTo + 1)
+    bufferBoundaryRef.current = 0
+    userHasScrolledRef.current = false
     scrollRef.current?.scrollTo({ top: 0 })
 
     try {
@@ -368,20 +321,60 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
       })
 
       if (!res.ok || !res.body) throw new Error('Generation failed')
-      await consumeGenerationStream(res, makeStreamCallbacks())
-    } catch {
+
+      await parseSSEStream(res, {
+        onEvent: (event) => {
+          if (event.type === 'chapter') {
+            streaming.appendChunk(event.text)
+          } else if (event.type === 'stage') {
+            setGenerationStage(event.stage)
+          } else if (event.type === 'done' && event.chapterNum != null) {
+            streaming.flushNow()
+            setGenerationStage(null)
+            setGeneratedUpTo(event.chapterNum)
+            setGeneratingChapterNum(null)
+            dispatch(setPosition({ bookId: book.id, chapter: event.chapterNum - 1, section: 0 }))
+            setPhase('reading')
+            scrollRef.current?.scrollTo({ top: 0 })
+          } else if (event.type === 'error') {
+            setGenerationStage(null)
+            setGenerationError(event.message)
+            setPhase('generation-error')
+          }
+        },
+      })
+    } catch (err) {
       setGenerationStage(null)
-      setPhase('reading')
+      setGenerationError(err instanceof Error ? err.message : 'Generation failed')
+      setPhase('generation-error')
     }
-  }, [book.id, chapterIndex, quizAnswers, genModel, genProvider, quizModel, quizProvider, quizLength, dispatch, consumeGenerationStream, makeStreamCallbacks])
+  }, [book.id, generatedUpTo, genModel, genProvider, quizModel, quizProvider, quizLength, dispatch, streaming])
+
+  const handleFeedbackSubmit = useCallback(async (liked: string, disliked: string) => {
+    dispatch(setChapterFeedback({ bookId: book.id, chapterNum: chapterIndex + 1, liked, disliked }))
+
+    try {
+      await fetch(apiUrl(`/api/books/${book.id}/chapters/${chapterIndex + 1}/feedback`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ liked, disliked, quizAnswers }),
+      })
+    } catch { /* fire-and-forget */ }
+
+    await startGenerationStream()
+  }, [book.id, chapterIndex, quizAnswers, dispatch, startGenerationStream])
+
+  const handleRetryGeneration = useCallback(() => {
+    startGenerationStream()
+  }, [startGenerationStream])
 
   // Auto-scroll during streaming, but stop if user scrolls manually
   useEffect(() => {
-    if (phase !== 'generating' || !streamingContent) return
+    if (phase !== 'generating' || !streaming.content) return
     if (userHasScrolledRef.current) return
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [phase, streamingContent])
+  }, [phase, streaming.content])
 
   // Detect user scroll during streaming to disable auto-scroll
   useEffect(() => {
@@ -399,11 +392,9 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
       requestAnimationFrame(() => {
         ticking = false
         const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 40
-        // User scrolled up (away from bottom) — they're reading
         if (el.scrollTop < lastScrollTop && !atBottom) {
           userHasScrolledRef.current = true
         }
-        // User scrolled back to bottom — re-enable auto-scroll
         if (atBottom) {
           userHasScrolledRef.current = false
         }
@@ -437,6 +428,9 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [phase, goPrev, goNext])
 
+  // The chapter number to show on the generating tab
+  const generatingTabLabel = generatingChapterNum ?? chapterIndex + 2
+
   return (
     <div className="flex h-screen flex-col text-content-primary">
       {/* Header — drag region */}
@@ -469,7 +463,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
       </header>
 
       {/* Chapter tabs */}
-      {(phase === 'reading' || phase === 'generating') && (
+      {(phase === 'reading' || phase === 'generating' || phase === 'generation-error') && (
         <div
           className="z-20 shrink-0 border-b border-border-default/50 bg-surface-base/90 backdrop-blur-sm"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
@@ -493,11 +487,11 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
               {tocChapters.map((ch, i) => {
                 const isGenerated = i < generatedUpTo
                 if (!isGenerated) return null
-                const isActive = !showToc && i === chapterIndex
+                const isActive = !showToc && i === chapterIndex && phase === 'reading'
                 return (
                   <button
                     key={i}
-                    onClick={() => { if (phase === 'generating') return; setShowToc(false); goToChapter(i, 0) }}
+                    onClick={() => { if (phase === 'generating' || phase === 'generation-error') return; setShowToc(false); goToChapter(i, 0) }}
                     className={cn(
                       'relative shrink-0 whitespace-nowrap px-4 py-2 text-xs font-medium transition-colors',
                       isActive
@@ -512,12 +506,18 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
                   </button>
                 )
               })}
-              {phase === 'generating' && (
+              {(phase === 'generating' || phase === 'generation-error') && (
                 <span
-                  className="relative inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-4 py-2 text-xs font-medium text-content-primary"
+                  className={cn(
+                    'relative inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-4 py-2 text-xs font-medium text-content-primary',
+                  )}
                 >
-                  <Loader2 className="size-3 animate-spin" />
-                  Chapter {chapterIndex + 2}
+                  {phase === 'generating' ? (
+                    <Loader2 className="size-3 animate-spin" />
+                  ) : (
+                    <AlertTriangle className="size-3 text-status-error" />
+                  )}
+                  Chapter {generatingTabLabel}
                   <span className="absolute inset-x-0 -bottom-px h-0.5 bg-content-primary rounded-full" />
                 </span>
               )}
@@ -572,13 +572,13 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
             className="h-full overflow-y-auto pt-12"
           >
             <article ref={articleRef} style={{ fontSize: `${fontSize}px` }}>
-              {(phase === 'reading' || phase === 'generating') && showToc && (
+              {(phase === 'reading' || phase === 'generating' || phase === 'generation-error') && showToc && (
                 <div className="mx-auto px-8 pb-24" style={{ maxWidth: readingWidth }}>
                   <h1 className="text-2xl font-bold tracking-tight text-content-primary">Table of Contents</h1>
                   <div className="mt-6 space-y-1">
                     {tocChapters.map((ch, i) => {
                       const isGenerated = i < generatedUpTo
-                      const isClickable = isGenerated && phase !== 'generating'
+                      const isClickable = isGenerated && phase === 'reading'
                       return (
                         <button
                           key={i}
@@ -645,9 +645,18 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
                       )}
                     </>
                   ) : (
-                    <p className="pt-12 text-sm text-content-muted">
-                      Chapter {chapterIndex + 1} hasn't been generated yet.
-                    </p>
+                    <div className="pt-12 text-sm text-content-muted">
+                      {chapterIndex + 1 <= generatedUpTo ? (
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="size-4 animate-spin" />
+                          <span>Loading chapter...</span>
+                        </div>
+                      ) : chapterIndex + 1 === generatedUpTo + 1 ? (
+                        <p>This chapter is ready to generate. Complete the previous chapter to continue.</p>
+                      ) : (
+                        <p>Complete earlier chapters first to unlock this one.</p>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -670,14 +679,17 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
 
               {phase === 'generating' && !showToc && (
                 <div className="mx-auto px-8 pb-24" style={{ maxWidth: readingWidth }}>
-                  {streamingContent ? (
+                  {streaming.content ? (
                     <div className="reader-prose">
-                      <SafeMarkdown>{streamingContent}</SafeMarkdown>
+                      <SafeMarkdown>{streaming.content}</SafeMarkdown>
                     </div>
                   ) : (
                     <div className="pt-8">
                       <h1 className="text-2xl font-bold tracking-tight text-content-primary">
-                        {tocChapters[chapterIndex + 1]?.title ?? `Chapter ${chapterIndex + 2}`}
+                        {generatingChapterNum != null
+                          ? (tocChapters[generatingChapterNum - 1]?.title ?? `Chapter ${generatingChapterNum}`)
+                          : (tocChapters[chapterIndex + 1]?.title ?? `Chapter ${chapterIndex + 2}`)
+                        }
                       </h1>
                       <span className="mt-6 inline-block h-5 w-px animate-pulse bg-content-muted" />
                     </div>
@@ -688,6 +700,32 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
                       <span>{generationStage === 'saving' ? 'Saving chapter...' : 'Creating quiz...'}</span>
                     </div>
                   )}
+                </div>
+              )}
+
+              {phase === 'generation-error' && !showToc && (
+                <div className="mx-auto px-8 pb-24" style={{ maxWidth: readingWidth }}>
+                  <div className="pt-12">
+                    <div className="rounded-lg border border-status-error/20 bg-status-error/5 p-6">
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="size-5 text-status-error shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-sm font-semibold text-content-primary">Generation failed</h3>
+                          <p className="mt-1 text-sm text-content-muted">
+                            {generationError || 'An unexpected error occurred while generating this chapter.'}
+                          </p>
+                          <Button
+                            size="sm"
+                            onClick={handleRetryGeneration}
+                            className="mt-4 bg-[oklch(0.55_0.20_285)] text-white font-medium hover:bg-[oklch(0.50_0.22_285)]"
+                          >
+                            <RefreshCw className="size-3.5" data-icon="inline-start" />
+                            Retry
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -820,4 +858,3 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     </div>
   )
 }
-
