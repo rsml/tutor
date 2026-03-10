@@ -1,3 +1,4 @@
+import { diffWords } from 'diff'
 import { Check, X } from 'lucide-react'
 import { cn } from '@src/lib/utils'
 
@@ -102,17 +103,12 @@ function DiffSection({ title, changes, decisions, onDecision }: { title: string;
 function AboutMeDiff({ oldText, newText, decisions, onDecision }: { oldText: string; newText: string; decisions: Record<string, 'accepted' | 'rejected'>; onDecision: (id: string, d: 'accepted' | 'rejected') => void }) {
   if (oldText === newText) return null
 
-  const oldLines = oldText.split('\n')
-  const newLines = newText.split('\n')
+  const segments = diffWords(oldText, newText)
+  const hasChanges = segments.some(s => s.added || s.removed)
+  if (!hasChanges) return null
+
   const decision = decisions['aboutMe'] ?? 'accepted'
   const rejected = decision === 'rejected'
-
-  // Simple line-level diff: show removed lines then added lines
-  const removedLines = oldLines.filter(l => !newLines.includes(l))
-  const addedLines = newLines.filter(l => !oldLines.includes(l))
-  const unchangedLines = oldLines.filter(l => newLines.includes(l))
-
-  if (removedLines.length === 0 && addedLines.length === 0) return null
 
   return (
     <div>
@@ -123,18 +119,18 @@ function AboutMeDiff({ oldText, newText, decisions, onDecision }: { oldText: str
         <DecisionButtons id="aboutMe" decisions={decisions} onDecision={onDecision} />
       </div>
       <div className={cn(
-        'rounded-lg border border-border-default/50 bg-surface-raised/30 p-3 text-sm font-mono leading-relaxed transition-opacity',
+        'rounded-lg border border-border-default/50 bg-surface-raised/30 p-3 text-sm font-mono leading-relaxed whitespace-pre-wrap transition-opacity',
         rejected && 'opacity-40',
       )}>
-        {unchangedLines.map((line, i) => (
-          <div key={`u-${i}`} className="text-content-muted/70">{line || '\u00A0'}</div>
-        ))}
-        {removedLines.map((line, i) => (
-          <div key={`r-${i}`} className="text-red-400/80 bg-red-500/5 -mx-3 px-3">- {line || '\u00A0'}</div>
-        ))}
-        {addedLines.map((line, i) => (
-          <div key={`a-${i}`} className="text-emerald-400/80 bg-emerald-500/5 -mx-3 px-3">+ {line || '\u00A0'}</div>
-        ))}
+        {segments.map((segment, i) => {
+          if (segment.removed) {
+            return <span key={i} className="text-red-400/80 bg-red-500/10 line-through rounded-sm">{segment.value}</span>
+          }
+          if (segment.added) {
+            return <span key={i} className="text-emerald-400/80 bg-emerald-500/10 rounded-sm">{segment.value}</span>
+          }
+          return <span key={i} className="text-content-muted/70">{segment.value}</span>
+        })}
       </div>
     </div>
   )
