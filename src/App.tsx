@@ -565,12 +565,38 @@ export default function App() {
             <DialogTitle>Rate Book</DialogTitle>
             <DialogDescription>{rateDialog?.book.title}</DialogDescription>
           </DialogHeader>
-          <div className="flex justify-center py-4">
+          <div className="flex flex-col items-center gap-2 py-4">
             <StarRating
               value={rateDialog?.rating ?? 0}
               onChange={val => setRateDialog(prev => prev ? { ...prev, rating: val } : null)}
               size="lg"
             />
+            {rateDialog && rateDialog.book.rating > 0 && (
+              <button
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                onClick={async () => {
+                  if (!rateDialog) return
+                  setMutating(true)
+                  try {
+                    const res = await fetch(apiUrl(`/api/books/${rateDialog.book.id}/rating`), {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ rating: 0 }),
+                    })
+                    if (res.ok) await fetchBooks()
+                    else toast.error('Failed to clear rating')
+                  } catch {
+                    toast.error('Failed to clear rating — server unreachable')
+                  } finally {
+                    setMutating(false)
+                  }
+                  setRateDialog(null)
+                }}
+                disabled={mutating}
+              >
+                Clear rating
+              </button>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRateDialog(null)}>Cancel</Button>
