@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react'
 import { useAppSelector, selectTextureEnabled, selectTextureOpacity } from '@src/store'
 
 let cachedUrl: string | null = null
@@ -31,24 +30,17 @@ interface NoiseOverlayProps {
 }
 
 export function NoiseOverlay({ opacity = 1, position = 'fixed' }: NoiseOverlayProps) {
-  const ref = useRef<HTMLDivElement>(null)
   const textureEnabled = useAppSelector(selectTextureEnabled)
   const textureOpacity = useAppSelector(selectTextureOpacity)
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    el.style.backgroundImage = `url(${getNoiseUrl()})`
-  }, [])
 
   if (!textureEnabled) return null
 
   return (
     <div
-      ref={ref}
       className="pointer-events-none inset-0"
       style={{
         position,
+        backgroundImage: `url(${getNoiseUrl()})`,
         backgroundSize: '128px',
         zIndex: position === 'fixed' ? 9999 : undefined,
         opacity: (0.01 + 0.028 * textureOpacity) * opacity,
