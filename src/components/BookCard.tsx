@@ -18,11 +18,12 @@ interface BookCardProps {
   finalQuizScore?: number
   finalQuizTotal?: number
   coverUrl?: string
+  showTitleOnCover?: boolean
   onClick?: () => void
   onContextMenu?: (e: React.MouseEvent) => void
 }
 
-export function BookCard({ title, subtitle, chaptersRead, totalChapters, rating, finalQuizScore, finalQuizTotal, coverUrl, onClick, onContextMenu }: BookCardProps) {
+export function BookCard({ title, subtitle, chaptersRead, totalChapters, rating, finalQuizScore, finalQuizTotal, coverUrl, showTitleOnCover, onClick, onContextMenu }: BookCardProps) {
   const hue = stringToHue(title)
   const progress = totalChapters > 0 ? chaptersRead / totalChapters : 0
 
@@ -43,17 +44,21 @@ export function BookCard({ title, subtitle, chaptersRead, totalChapters, rating,
                 alt={title}
                 className="absolute inset-0 h-full w-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-              <div className="relative mt-auto w-full px-2 pb-1">
-                <h3 className="text-center text-[1.15em] leading-snug font-bold tracking-tight text-white/90">
-                  {title}
-                </h3>
-                {subtitle && (
-                  <p className="mt-1 text-center text-[0.75em] leading-snug text-white/60">
-                    {subtitle}
-                  </p>
-                )}
-              </div>
+              {showTitleOnCover && (
+                <>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                  <div className="relative mt-auto w-full px-2 pb-1">
+                    <h3 className="text-center text-[1.15em] leading-snug font-bold tracking-tight text-white/90">
+                      {title}
+                    </h3>
+                    {subtitle && (
+                      <p className="mt-1 text-center text-[0.75em] leading-snug text-white/60">
+                        {subtitle}
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
             </>
           ) : (
             <>

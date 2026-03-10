@@ -44,6 +44,7 @@ interface Book {
   finalQuizScore?: number
   finalQuizTotal?: number
   hasCover?: boolean
+  showTitleOnCover?: boolean
 }
 
 
@@ -167,8 +168,10 @@ export default function App() {
       const res = await fetch(apiUrl('/api/books'))
       if (res.ok) {
         const books = await res.json()
-        setApiBooks(
-          books.map((b: { id: string; title: string; subtitle?: string; prompt?: string; totalChapters: number; generatedUpTo: number; status?: string; rating?: number; finalQuizScore?: number; finalQuizTotal?: number; hasCover?: boolean }) => ({
+        setApiBooks(prev => {
+          // Preserve optimistic generating books not yet on server
+          const generatingBooks = prev.filter(b => b.status === 'generating' && !books.some((sb: { id: string }) => sb.id === b.id))
+          const serverBooks = books.map((b: { id: string; title: string; subtitle?: string; prompt?: string; totalChapters: number; generatedUpTo: number; status?: string; rating?: number; finalQuizScore?: number; finalQuizTotal?: number; hasCover?: boolean; showTitleOnCover?: boolean }) => ({
             id: b.id,
             title: b.title,
             subtitle: b.subtitle,
@@ -181,8 +184,10 @@ export default function App() {
             finalQuizScore: b.finalQuizScore,
             finalQuizTotal: b.finalQuizTotal,
             hasCover: b.hasCover,
-          })),
-        )
+            showTitleOnCover: b.showTitleOnCover,
+          }))
+          return [...serverBooks, ...generatingBooks]
+        })
       }
     } catch {
       toast.error('Failed to load books — is the server running?')
@@ -220,7 +225,7 @@ export default function App() {
     setView({ type: 'library' })
   }
 
-  const handleBookCreated = useCallback((bookId: string, title: string) => {
+  const handleBookCreated = useCallback((bookId: string, title: string, totalChapters?: number) => {
     // Optimistically add the book to the library so it's visible during creation
     setApiBooks(prev => {
       if (prev.some(b => b.id === bookId)) return prev
@@ -228,7 +233,7 @@ export default function App() {
         id: bookId,
         title,
         chaptersRead: 0,
-        totalChapters: 0,
+        totalChapters: totalChapters ?? 0,
         generatedUpTo: 0,
         status: 'generating',
       }]
@@ -544,6 +549,7 @@ export default function App() {
                     finalQuizScore={book.finalQuizScore}
                     finalQuizTotal={book.finalQuizTotal}
                     coverUrl={book.hasCover ? apiUrl(`/api/books/${book.id}/cover`) : undefined}
+                    showTitleOnCover={book.showTitleOnCover}
                     onClick={() => setView({ type: 'reading', book })}
                     onContextMenu={apiBookIds.has(book.id) ? (e) => {
                       e.preventDefault()
@@ -608,7 +614,7 @@ export default function App() {
             }}
             className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors"
           >
-            Generate Cover
+            Edit Cover
           </button>
           <button
             onClick={() => {
@@ -786,7 +792,9 @@ export default function App() {
           bookId={coverModal.book.id}
           bookTitle={coverModal.book.title}
           bookTopic={coverModal.book.prompt ?? coverModal.book.title}
-          onCoverUploaded={fetchBooks}
+          hasCover={coverModal.book.hasCover}
+          showTitleOnCover={coverModal.book.showTitleOnCover}
+          onCoverChanged={fetchBooks}
         />
       )}
 

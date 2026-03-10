@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { ImagePlus, Upload, Sparkles, Loader2 } from 'lucide-react'
+import { ImagePlus, Upload, Sparkles, Loader2, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@src/components/ui/button'
 import {
@@ -13,31 +13,49 @@ import {
 import { useAppSelector, selectFunctionModel } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
 
+const COVER_STYLES = [
+  'Minimalist pen-and-ink illustration on cream background, reminiscent of classic O\'Reilly animal covers',
+  'Bold typographic cover with subtle geometric patterns, inspired by Penguin Classics design language',
+  'Atmospheric watercolor composition with soft gradients, evoking literary fiction aesthetics',
+  'Clean vector illustration with a limited 2-3 color palette, contemporary tech publishing style',
+  'Photographic still life or detail study with dramatic lighting, premium non-fiction presentation',
+  'Abstract geometric composition with muted earth tones, modernist academic press style',
+  'Hand-drawn scientific or botanical illustration, scholarly naturalist aesthetic',
+  'Textured linen background with elegant gold-foil-style accents, premium hardcover feel',
+]
+
 interface CoverGenerationModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   bookId: string
   bookTitle: string
   bookTopic: string
-  onCoverUploaded: () => void
+  hasCover?: boolean
+  showTitleOnCover?: boolean
+  onCoverChanged: () => void
 }
 
 export function CoverGenerationModal({
   open,
   onOpenChange,
   bookId,
-  bookTitle,
+  bookTitle: _bookTitle,
   bookTopic,
-  onCoverUploaded,
+  hasCover,
+  showTitleOnCover: initialShowTitle,
+  onCoverChanged,
 }: CoverGenerationModalProps) {
   const [prompt, setPrompt] = useState('')
   const [generating, setGenerating] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [showTitle, setShowTitle] = useState(initialShowTitle ?? false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { provider, model } = useAppSelector(selectFunctionModel('image'))
 
   const handleSuggest = () => {
-    setPrompt(`Book cover for "${bookTitle}": ${bookTopic}. Clean, modern design with abstract imagery. No text on the cover.`)
+    const style = COVER_STYLES[Math.floor(Math.random() * COVER_STYLES.length)]
+    setPrompt(`Elegant book cover. ${style}. Subject: ${bookTopic}. Professional publishing quality, no text or lettering on the image.`)
   }
 
   const handleGenerate = async () => {
@@ -81,12 +99,41 @@ export function CoverGenerationModal({
       })
       if (!res.ok) throw new Error('Upload failed')
       toast.success('Cover uploaded')
-      onCoverUploaded()
+      onCoverChanged()
       onOpenChange(false)
     } catch {
       toast.error('Failed to upload cover')
     } finally {
       setUploading(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    setDeleting(true)
+    try {
+      const res = await fetch(apiUrl(`/api/books/${bookId}/cover`), { method: 'DELETE' })
+      if (!res.ok) throw new Error('Delete failed')
+      toast.success('Cover deleted')
+      onCoverChanged()
+      onOpenChange(false)
+    } catch {
+      toast.error('Failed to delete cover')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const handleToggleShowTitle = async (checked: boolean) => {
+    setShowTitle(checked)
+    try {
+      await fetch(apiUrl(`/api/books/${bookId}`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ showTitleOnCover: checked }),
+      })
+      onCoverChanged()
+    } catch {
+      toast.error('Failed to update setting')
     }
   }
 
@@ -124,6 +171,20 @@ export function CoverGenerationModal({
             </Button>
           </div>
 
+          {/* Show title on cover toggle */}
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="show-title-on-cover"
+              checked={showTitle}
+              onChange={e => handleToggleShowTitle(e.target.checked)}
+              className="accent-[oklch(0.55_0.20_285)]"
+            />
+            <label htmlFor="show-title-on-cover" className="text-sm text-content-primary cursor-pointer">
+              Show title on cover
+            </label>
+          </div>
+
           <div className="flex items-center gap-3">
             <div className="h-px flex-1 bg-border-default/50" />
             <span className="text-xs text-content-muted">or</span>
@@ -153,15 +214,33 @@ export function CoverGenerationModal({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button
-            onClick={handleGenerate}
-            disabled={!prompt.trim() || generating}
-            className="bg-[oklch(0.55_0.20_285)] text-white hover:bg-[oklch(0.50_0.22_285)]"
-          >
-            {generating ? <Loader2 className="size-4 animate-spin" data-icon="inline-start" /> : <ImagePlus className="size-4" data-icon="inline-start" />}
-            Generate
-          </Button>
+          <div className="flex w-full items-center justify-between">
+            {hasCover ? (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="gap-1"
+              >
+                {deleting ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+                Delete Cover
+              </Button>
+            ) : (
+              <div />
+            )}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button
+                onClick={handleGenerate}
+                disabled={!prompt.trim() || generating}
+                className="bg-[oklch(0.55_0.20_285)] text-white hover:bg-[oklch(0.50_0.22_285)]"
+              >
+                {generating ? <Loader2 className="size-4 animate-spin" data-icon="inline-start" /> : <ImagePlus className="size-4" data-icon="inline-start" />}
+                Generate
+              </Button>
+            </div>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
