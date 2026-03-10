@@ -571,7 +571,7 @@ export default function App() {
               onChange={val => setRateDialog(prev => prev ? { ...prev, rating: val } : null)}
               size="lg"
             />
-            {rateDialog && rateDialog.book.rating > 0 && (
+            {rateDialog && (rateDialog.book.rating ?? 0) > 0 && (
               <button
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 onClick={async () => {

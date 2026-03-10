@@ -20,7 +20,7 @@ interface ChatPanelProps {
 export function ChatPanel({ open, onClose, selectedText, chapterContent, initialPrompt, chatKey, onMissingApiKey, pendingNewChat, onConfirmNewChat, onDismissNewChat }: ChatPanelProps) {
   const hasApiKey = useAppSelector(selectHasApiKey)
   const { provider, model } = useAppSelector(selectFunctionModel('chat'))
-  const { messages, isStreaming, sendMessage, clearMessages } = useStreamingChat({
+  const { messages, isStreaming, sendMessage, restartChat, clearMessages } = useStreamingChat({
     model,
     provider,
     chapterContent,
@@ -34,18 +34,6 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
   const sentInitialRef = useRef(false)
   const userHasScrolledRef = useRef(false)
 
-  // Send initial prompt when panel opens with a new selection
-  useEffect(() => {
-    if (open && initialPrompt && !sentInitialRef.current) {
-      if (!hasApiKey) {
-        onMissingApiKey()
-        return
-      }
-      sentInitialRef.current = true
-      sendMessage(initialPrompt)
-    }
-  }, [open, initialPrompt]) // eslint-disable-line react-hooks/exhaustive-deps
-
   // Reset when panel closes
   useEffect(() => {
     if (!open) {
@@ -57,10 +45,26 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
   // Reset when chatKey changes (new chat requested while panel is open)
   useEffect(() => {
     if (chatKey === 0) return // skip initial mount
-    if (!open) return
-    clearMessages()
-    sentInitialRef.current = false
+    if (!open || !initialPrompt) return
+    if (!hasApiKey) {
+      onMissingApiKey()
+      return
+    }
+    sentInitialRef.current = true
+    restartChat(initialPrompt)
   }, [chatKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Send initial prompt when panel opens with a new selection
+  useEffect(() => {
+    if (open && initialPrompt && !sentInitialRef.current) {
+      if (!hasApiKey) {
+        onMissingApiKey()
+        return
+      }
+      sentInitialRef.current = true
+      sendMessage(initialPrompt)
+    }
+  }, [open, initialPrompt]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Smart auto-scroll: respect user's scroll position during streaming
   useEffect(() => {

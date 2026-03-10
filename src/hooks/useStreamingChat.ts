@@ -18,13 +18,8 @@ export function useStreamingChat({ model, provider, chapterContent, selectedText
   const [isStreaming, setIsStreaming] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
-  const sendMessage = useCallback(async (userMessage: string) => {
-    if (isStreaming) return
-
-    const userMsg: ChatMessage = { role: 'user', content: userMessage }
-    const history = messages.map(m => ({ role: m.role, content: m.content }))
-
-    setMessages(prev => [...prev, userMsg, { role: 'assistant', content: '' }])
+  const streamChat = useCallback(async (userMessage: string, history: ChatMessage[]) => {
+    setMessages([...history, { role: 'user', content: userMessage }, { role: 'assistant', content: '' }])
     setIsStreaming(true)
 
     const controller = new AbortController()
@@ -40,7 +35,7 @@ export function useStreamingChat({ model, provider, chapterContent, selectedText
           chapterContent,
           selectedText,
           userMessage,
-          history,
+          history: history.map(m => ({ role: m.role, content: m.content })),
         }),
         signal: controller.signal,
       })
@@ -78,10 +73,22 @@ export function useStreamingChat({ model, provider, chapterContent, selectedText
         })
       }
     } finally {
-      setIsStreaming(false)
-      abortRef.current = null
+      if (abortRef.current === controller) {
+        setIsStreaming(false)
+        abortRef.current = null
+      }
     }
-  }, [model, provider, chapterContent, selectedText, messages, isStreaming])
+  }, [model, provider, chapterContent, selectedText])
+
+  const sendMessage = useCallback(async (userMessage: string) => {
+    if (isStreaming) return
+    streamChat(userMessage, [...messages])
+  }, [isStreaming, messages, streamChat])
+
+  const restartChat = useCallback((userMessage: string) => {
+    abortRef.current?.abort()
+    streamChat(userMessage, [])
+  }, [streamChat])
 
   const clearMessages = useCallback(() => {
     abortRef.current?.abort()
@@ -89,5 +96,5 @@ export function useStreamingChat({ model, provider, chapterContent, selectedText
     setIsStreaming(false)
   }, [])
 
-  return { messages, isStreaming, sendMessage, clearMessages }
+  return { messages, isStreaming, sendMessage, restartChat, clearMessages }
 }
