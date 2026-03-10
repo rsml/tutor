@@ -84,6 +84,7 @@ export type BookStatus = z.infer<typeof BookStatusSchema>
 export const BookMetaSchema = z.object({
   id: z.string(),
   title: z.string(),
+  subtitle: z.string().optional(),
   prompt: z.string(),
   status: BookStatusSchema,
   totalChapters: z.number().int().positive(),
@@ -169,8 +170,8 @@ export const CompleteProfileSchema = z.object({
 })
 
 export const CreateBookBodySchema = AiRequestSchema.extend({
-  topic: z.string().min(1).max(500),
-  details: z.string().max(2000).optional(),
+  topic: z.string().min(1),
+  details: z.string().optional(),
   quizModel: ModelSchema.optional(),
   quizProvider: ProviderSchema.optional(),
 })
@@ -190,6 +191,7 @@ export const FinalQuizBodySchema = AiRequestSchema
 
 export const PatchBookBodySchema = z.object({
   title: z.string().min(1).max(300),
+  subtitle: z.string().max(500).optional(),
 })
 
 export const RatingBodySchema = z.object({

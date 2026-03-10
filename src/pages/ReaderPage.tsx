@@ -18,6 +18,7 @@ import { BookCompleteSummary } from '@src/components/BookCompleteSummary'
 interface Book {
   id: string
   title: string
+  subtitle?: string
   chaptersRead: number
   totalChapters: number
 }

@@ -1,6 +1,7 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import mermaid from 'mermaid'
 import { formatHex, parse } from 'culori'
+import { sanitizeMermaidChart } from '@src/lib/sanitize-mermaid'
 
 function oklchToHex(color: string): string {
   return formatHex(parse(color))!
@@ -185,6 +186,7 @@ export function MermaidDiagram({ chart }: { chart: string }) {
   const id = useId().replace(/:/g, '_')
   const [svg, setSvg] = useState<string | null>(null)
   const [error, setError] = useState(false)
+  const sanitized = useMemo(() => sanitizeMermaidChart(chart), [chart])
 
   useEffect(() => {
     let cancelled = false
@@ -192,7 +194,7 @@ export function MermaidDiagram({ chart }: { chart: string }) {
     async function render() {
       try {
         // mermaid.render() produces sanitized SVG — safe for injection
-        const result = await mermaid.render(`mermaid-${id}`, chart)
+        const result = await mermaid.render(`mermaid-${id}`, sanitized)
         if (!cancelled) setSvg(result.svg)
       } catch {
         if (!cancelled) setError(true)
@@ -201,7 +203,7 @@ export function MermaidDiagram({ chart }: { chart: string }) {
 
     render()
     return () => { cancelled = true }
-  }, [chart, id])
+  }, [sanitized, id])
 
   if (error) {
     return (
