@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { persistStore, persistReducer, createTransform, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER } from 'redux-persist'
 import storage from 'redux-persist/lib/storage'
 import type { ProviderId, AiFunctionGroup } from '@src/lib/providers'
+import { IMAGE_MODELS } from '@src/lib/providers'
 import quizHistoryReducer from '@src/store/quizHistorySlice'
 
 interface QuizResult {
@@ -217,6 +218,16 @@ export const selectModelAssignmentSeen = (state: RootState) => state.settings.mo
 export const selectFunctionModel = (group: AiFunctionGroup) => (state: RootState): { provider: ProviderId; model: string } => {
   const override = state.settings.functionModels?.[group]
   if (override) return override
+
+  // For image group, don't fall back to activeProvider (it may not support images)
+  if (group === 'image') {
+    const imageProviders = Object.keys(IMAGE_MODELS) as ProviderId[]
+    const withKey = imageProviders.find(p => !!state.settings.providers[p]?.apiKey)
+    const fallback = withKey ?? imageProviders[0] ?? 'openai'
+    const models = IMAGE_MODELS[fallback]
+    return { provider: fallback, model: models?.[0]?.value ?? '' }
+  }
+
   const p = state.settings.activeProvider
   return { provider: p, model: state.settings.providers[p]?.model ?? '' }
 }

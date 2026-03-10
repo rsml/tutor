@@ -219,6 +219,7 @@ export async function bookRoutes(fastify: FastifyInstance) {
     const augmented = await Promise.all(books.map(async b => ({
       ...b,
       hasCover: await store.hasCover(b.id),
+      showTitleOnCover: (b as Record<string, unknown>).showTitleOnCover ?? false,
     })))
     return augmented
   })
@@ -387,8 +388,9 @@ export async function bookRoutes(fastify: FastifyInstance) {
     try {
       const body = PatchBookBodySchema.parse(request.body)
       const meta = await store.getBook(request.params.id)
-      meta.title = body.title
+      if (body.title !== undefined) meta.title = body.title
       if (body.subtitle !== undefined) meta.subtitle = body.subtitle
+      if (body.showTitleOnCover !== undefined) (meta as Record<string, unknown>).showTitleOnCover = body.showTitleOnCover
       meta.updatedAt = new Date().toISOString()
       await store.saveBook(meta)
       return { ok: true }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Settings, Sun, Moon, Monitor, Type, Layers, Check, User, BarChart3, Sliders, MoveHorizontal, ListOrdered, BookOpen } from 'lucide-react'
+import { Settings, Sun, Moon, Monitor, Type, Layers, Check, CheckCircle2, User, BarChart3, Sliders, MoveHorizontal, ListOrdered, BookOpen } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import {
   Dialog,
@@ -153,7 +153,6 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
       } catch { /* server may not be ready */ }
     }
     dispatch(setProviderApiKey({ provider: dialogProvider, apiKey: trimmed || null }))
-    dispatch(setActiveProvider(dialogProvider))
     setDialogOpen(false)
   }
 
@@ -471,9 +470,25 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
           <DialogHeader>
             <DialogTitle>AI Provider</DialogTitle>
             <DialogDescription>
-              Select your AI provider and enter your API key.
+              Configure API keys for each provider independently.
             </DialogDescription>
           </DialogHeader>
+
+          {/* Default provider selector */}
+          {PROVIDER_IDS.some(id => !!providers[id]?.apiKey) && (
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-content-muted whitespace-nowrap">Default Text Provider</label>
+              <select
+                value={activeProvider}
+                onChange={e => dispatch(setActiveProvider(e.target.value as ProviderId))}
+                className="flex-1 h-7 rounded-md border border-border-default bg-surface-raised px-2 text-xs text-content-primary outline-none transition-colors focus:border-border-focus"
+              >
+                {PROVIDER_IDS.filter(id => !!providers[id]?.apiKey).map(id => (
+                  <option key={id} value={id}>{PROVIDERS[id].name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Provider tabs */}
           <div className="flex gap-1.5">
@@ -492,13 +507,15 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
                       : 'border-border-default text-content-muted hover:border-border-focus/50 hover:text-content-secondary'
                   }`}
                 >
-                  <div className="text-xs font-semibold">{def.name}</div>
-                  <div className="text-[10px] text-content-muted mt-0.5">{def.label}</div>
+                  <div className="flex items-center justify-center gap-1 text-xs font-semibold">
+                    {def.name}
+                    {hasKey && <CheckCircle2 className="size-3 text-status-ok" />}
+                  </div>
+                  <div className="text-[10px] text-content-muted mt-0.5">
+                    {hasKey ? def.label : '(no key)'}
+                  </div>
                   {isActive && (
                     <Check className="absolute top-1 right-1 size-3 text-status-ok" />
-                  )}
-                  {hasKey && !isActive && (
-                    <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-status-ok" />
                   )}
                 </button>
               )

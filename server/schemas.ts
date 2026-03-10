@@ -92,6 +92,7 @@ export const BookMetaSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   profileOverrides: z.record(z.string(), z.unknown()).optional(),
+  showTitleOnCover: z.boolean().optional(),
   rating: z.number().min(0).max(5).multipleOf(0.5).optional(),
   finalQuizScore: z.number().int().min(0).optional(),
   finalQuizTotal: z.number().int().min(0).optional(),
@@ -193,8 +194,9 @@ export const GenerateNextBodySchema = AiRequestSchema.extend({
 export const FinalQuizBodySchema = AiRequestSchema
 
 export const PatchBookBodySchema = z.object({
-  title: z.string().min(1).max(100),
+  title: z.string().min(1).max(100).optional(),
   subtitle: z.string().max(150).optional(),
+  showTitleOnCover: z.boolean().optional(),
 })
 
 export const RatingBodySchema = z.object({

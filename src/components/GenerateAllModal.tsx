@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Loader2, CheckCircle2, XCircle } from 'lucide-react'
+import { Loader2, CheckCircle2, XCircle, ChevronDown } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -67,9 +67,14 @@ export function GenerateAllModal({ open, onOpenChange, taskId, bookTitle, totalC
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="sm:max-w-sm" showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle>Generating Book</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>Generating Book</DialogTitle>
+            <button onClick={() => onOpenChange(false)} className="text-content-muted hover:text-content-primary transition-colors">
+              <ChevronDown className="size-4" />
+            </button>
+          </div>
           <DialogDescription>{bookTitle}</DialogDescription>
         </DialogHeader>
 

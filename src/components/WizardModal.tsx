@@ -17,6 +17,17 @@ import { store } from '@src/store'
 const CHAPTER_COUNTS = [1, 3, 6, 12, 25, 50]
 const CHAPTER_LABELS = ['Essay', 'Short', 'Novella', 'Standard', 'Long', 'Epic']
 
+const COVER_STYLES = [
+  'Minimalist pen-and-ink illustration on cream background, reminiscent of classic O\'Reilly animal covers',
+  'Bold typographic cover with subtle geometric patterns, inspired by Penguin Classics design language',
+  'Atmospheric watercolor composition with soft gradients, evoking literary fiction aesthetics',
+  'Clean vector illustration with a limited 2-3 color palette, contemporary tech publishing style',
+  'Photographic still life or detail study with dramatic lighting, premium non-fiction presentation',
+  'Abstract geometric composition with muted earth tones, modernist academic press style',
+  'Hand-drawn scientific or botanical illustration, scholarly naturalist aesthetic',
+  'Textured linen background with elegant gold-foil-style accents, premium hardcover feel',
+]
+
 interface WizardModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -51,7 +62,10 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
     if (!topic.trim()) return
     onOpenChange(false)
     const coverPromptValue = generateCover
-      ? (coverDescription.trim() || `Book cover for "${topic.trim()}": ${details.trim() || topic.trim()}. Clean, modern design with abstract imagery. No text on the cover.`)
+      ? (coverDescription.trim() || (() => {
+          const style = COVER_STYLES[Math.floor(Math.random() * COVER_STYLES.length)]
+          return `Elegant book cover. ${style}. Subject: ${details.trim() || topic.trim()}. Professional publishing quality, no text or lettering on the image.`
+        })())
       : undefined
     onCreate(topic.trim(), details.trim(), CHAPTER_COUNTS[chapterCountIndex], coverPromptValue)
     setTopic('')
@@ -157,11 +171,12 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
                 Generate cover image
               </label>
               {generateCover && (
-                <input
+                <textarea
                   value={coverDescription}
                   onChange={e => setCoverDescription(e.target.value)}
-                  placeholder="Describe the cover (optional — auto-generated if blank)"
-                  className="h-8 rounded-lg border border-border-default bg-surface-raised px-2 text-xs text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+                  placeholder="Describe the cover (optional — uses a random art-director style if blank)"
+                  rows={3}
+                  className="w-full resize-y rounded-lg border border-border-default bg-surface-raised px-3 py-2 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
                 />
               )}
             </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Loader2, CheckCircle2, XCircle, ChevronUp, X } from 'lucide-react'
+import { Loader2, CheckCircle2, XCircle, ChevronUp, ChevronDown, X } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -102,9 +102,14 @@ export function BackgroundTasksFooter() {
 
       {/* Expanded dialog */}
       <Dialog open={expanded} onOpenChange={setExpanded}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Background Tasks</DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle>Background Tasks</DialogTitle>
+              <button onClick={() => setExpanded(false)} className="text-content-muted hover:text-content-primary transition-colors">
+                <ChevronDown className="size-4" />
+              </button>
+            </div>
           </DialogHeader>
           <div className="max-h-64 space-y-2 overflow-y-auto">
             {taskList.length === 0 ? (

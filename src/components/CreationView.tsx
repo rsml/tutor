@@ -15,7 +15,7 @@ interface CreationViewProps {
   chapterCount: number
   onComplete: (bookId: string) => void
   onCancel: () => void
-  onBookCreated?: (bookId: string, title: string) => void
+  onBookCreated?: (bookId: string, title: string, totalChapters?: number) => void
 }
 
 export function CreationView({ topic, details, chapterCount, onComplete, onCancel, onBookCreated }: CreationViewProps) {
@@ -71,7 +71,7 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
               setBookId(event.bookId)
               setPhase('chapter')
               setActiveTab('chapter')
-              onBookCreated?.(event.bookId, event.title)
+              onBookCreated?.(event.bookId, event.title, event.totalChapters)
               break
 
             case 'chapter':

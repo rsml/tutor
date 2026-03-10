@@ -25,8 +25,8 @@ export interface BackgroundTask {
 export type TaskEvent =
   | { type: 'task_created'; task: ClientTask }
   | { type: 'task_progress'; taskId: string; progress: TaskProgress }
-  | { type: 'task_done'; taskId: string; result?: unknown }
-  | { type: 'task_error'; taskId: string; error: string }
+  | { type: 'task_done'; taskId: string; taskType: TaskType; result?: unknown }
+  | { type: 'task_error'; taskId: string; taskType: TaskType; error: string }
   | { type: 'task_cancelled'; taskId: string }
 
 export interface ClientTask {
@@ -101,7 +101,7 @@ export function completeTask(taskId: string, result?: unknown): void {
   task.status = 'done'
   task.result = result
   task.progress = { ...task.progress, current: task.progress.total, label: 'Complete' }
-  emitGlobal({ type: 'task_done', taskId, result })
+  emitGlobal({ type: 'task_done', taskId, taskType: task.type, result })
   scheduleCleanup(taskId)
 }
 
@@ -110,7 +110,7 @@ export function failTask(taskId: string, error: string): void {
   if (!task) return
   task.status = 'error'
   task.error = error
-  emitGlobal({ type: 'task_error', taskId, error })
+  emitGlobal({ type: 'task_error', taskId, taskType: task.type, error })
   scheduleCleanup(taskId)
 }
 

@@ -40,7 +40,7 @@ export const PROVIDERS: Record<ProviderId, ProviderDef> = {
   },
   google: {
     id: 'google',
-    name: 'Google',
+    name: 'Google (Gemini)',
     label: 'Gemini',
     models: [
       { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
