@@ -193,8 +193,8 @@ export const GenerateNextBodySchema = AiRequestSchema.extend({
 export const FinalQuizBodySchema = AiRequestSchema
 
 export const PatchBookBodySchema = z.object({
-  title: z.string().min(1).max(300),
-  subtitle: z.string().max(500).optional(),
+  title: z.string().min(1).max(100),
+  subtitle: z.string().max(150).optional(),
 })
 
 export const RatingBodySchema = z.object({
