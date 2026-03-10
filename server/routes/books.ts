@@ -437,6 +437,13 @@ export async function bookRoutes(fastify: FastifyInstance) {
 
     const { model, provider } = body
     const bookId = request.params.id
+
+    // Return cached final quiz if it already exists
+    if (store.finalQuizExists(bookId)) {
+      const cached = await store.getFinalQuiz(bookId)
+      return cached
+    }
+
     const meta = await store.getBook(bookId)
     const toc = await store.getToc(bookId)
 
@@ -486,6 +493,7 @@ Generate exactly 10 multiple-choice questions that test SYNTHESIS and CROSS-CHAP
 ${priorQuestions.map(q => `  - ${q}`).join('\n')}`,
       })
 
+      await store.saveFinalQuiz(bookId, result.object)
       return result.object
     } finally {
       timeout.clear()
