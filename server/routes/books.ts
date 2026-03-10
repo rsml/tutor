@@ -6,6 +6,7 @@ import { ZodError } from 'zod'
 import * as store from '../services/book-store.js'
 import { createModelClient } from '../services/model-client.js'
 import * as genManager from '../services/generation-manager.js'
+import * as taskManager from '../services/task-manager.js'
 import {
   CreateBookBodySchema,
   FeedbackBodySchema,
@@ -214,7 +215,12 @@ const sanitizeFeedback = (s: string) => s.replace(/<\/?[^>]+>/g, '')
 
 export async function bookRoutes(fastify: FastifyInstance) {
   fastify.get('/api/books', async () => {
-    return store.listBooks()
+    const books = await store.listBooks()
+    const augmented = await Promise.all(books.map(async b => ({
+      ...b,
+      hasCover: await store.hasCover(b.id),
+    })))
+    return augmented
   })
 
   fastify.get<{ Params: { id: string } }>('/api/books/:id', { schema: { params: bookIdSchema } }, async (request) => {
@@ -307,6 +313,10 @@ export async function bookRoutes(fastify: FastifyInstance) {
 
     if (genManager.isGenerating(bookId)) {
       return reply.status(409).send({ error: 'Generation already in progress for this book' })
+    }
+
+    if (taskManager.getActiveTaskForBook(bookId, 'generate-all')) {
+      return reply.status(409).send({ error: 'Generate-all is running for this book' })
     }
 
     genManager.startGeneration(bookId, { model, provider, quizModel, quizProvider, quizLength })
@@ -965,6 +975,176 @@ ${skillProgressContext || 'No skill mastery data yet.'}
       timeout.clear()
     }
   })
+
+  // --- Generate All ---
+
+  fastify.post<{ Params: { id: string }; Body: unknown }>(
+    '/api/books/:id/generate-all',
+    { schema: { params: bookIdSchema } },
+    async (request, reply) => {
+      let body: { model: string; provider?: string; quizModel?: string; quizProvider?: string; quizLength?: number }
+      try {
+        body = GenerateNextBodySchema.parse(request.body)
+      } catch (err) {
+        if (err instanceof ZodError) {
+          return reply.status(400).send({ error: 'Invalid request', details: err.issues })
+        }
+        throw err
+      }
+
+      const bookId = request.params.id
+      const meta = await store.getBook(bookId)
+
+      if (meta.generatedUpTo >= meta.totalChapters) {
+        return reply.status(400).send({ error: 'All chapters already generated' })
+      }
+
+      if (taskManager.getActiveTaskForBook(bookId, 'generate-all')) {
+        return reply.status(409).send({ error: 'Generate-all already in progress for this book' })
+      }
+
+      if (genManager.isGenerating(bookId)) {
+        return reply.status(409).send({ error: 'Single chapter generation in progress — wait for it to finish' })
+      }
+
+      const startFrom = meta.generatedUpTo + 1
+      const total = meta.totalChapters
+      const task = taskManager.createTask('generate-all', bookId, meta.title, total)
+
+      // Fire-and-forget
+      ;(async () => {
+        try {
+          for (let num = startFrom; num <= total; num++) {
+            // Check cancellation
+            if (task.abortController.signal.aborted) return
+
+            // Wait if single-chapter generation is active
+            while (genManager.isGenerating(bookId)) {
+              await new Promise(r => setTimeout(r, 1000))
+              if (task.abortController.signal.aborted) return
+            }
+
+            taskManager.updateProgress(task.id, num, `Generating chapter ${num} of ${total}`)
+
+            await genManager.generateSingleChapter(bookId, num, {
+              ...body,
+              abortSignal: task.abortController.signal,
+            })
+          }
+          taskManager.completeTask(task.id)
+        } catch (err) {
+          if (task.abortController.signal.aborted) return
+          taskManager.failTask(task.id, err instanceof Error ? err.message : 'Generation failed')
+        }
+      })()
+
+      return { taskId: task.id }
+    },
+  )
+
+  // --- EPUB Export ---
+
+  fastify.post<{ Params: { id: string }; Body: unknown }>(
+    '/api/books/:id/export-epub',
+    { schema: { params: bookIdSchema } },
+    async (request, reply) => {
+      const bookId = request.params.id
+      const meta = await store.getBook(bookId)
+
+      if (meta.generatedUpTo < meta.totalChapters) {
+        return reply.status(400).send({ error: 'Book is not complete — all chapters must be generated first' })
+      }
+
+      // Check for cached epub
+      if (store.epubExists(bookId)) {
+        return { cached: true, path: `/api/books/${bookId}/export-epub` }
+      }
+
+      if (taskManager.getActiveTaskForBook(bookId, 'generate-epub')) {
+        return reply.status(409).send({ error: 'EPUB export already in progress' })
+      }
+
+      const task = taskManager.createTask('generate-epub', bookId, meta.title, meta.totalChapters)
+
+      // Fire-and-forget
+      ;(async () => {
+        try {
+          const { markdownToHtml } = await import('../services/markdown-html.js')
+          const epub = (await import('epub-gen-memory')).default
+
+          const toc = await store.getToc(bookId)
+          const chapters: Array<{ title: string; content: string }> = []
+
+          for (let i = 1; i <= meta.totalChapters; i++) {
+            if (task.abortController.signal.aborted) return
+            taskManager.updateProgress(task.id, i, `Converting chapter ${i} of ${meta.totalChapters}`)
+            const md = await store.getChapter(bookId, i)
+            const html = await markdownToHtml(md)
+            chapters.push({
+              title: toc.chapters[i - 1]?.title ?? `Chapter ${i}`,
+              content: html,
+            })
+          }
+
+          if (task.abortController.signal.aborted) return
+
+          taskManager.updateProgress(task.id, meta.totalChapters, 'Assembling EPUB...')
+
+          // Build epub options
+          const epubOptions: {
+            title: string
+            author: string
+            cover?: string
+          } = {
+            title: meta.title + (meta.subtitle ? `: ${meta.subtitle}` : ''),
+            author: 'AI Books',
+          }
+
+          // Add cover if exists
+          const coverPath = await store.getCoverPath(bookId)
+          if (coverPath) {
+            const { pathToFileURL } = await import('node:url')
+            epubOptions.cover = pathToFileURL(coverPath).href
+          }
+
+          const epubBuffer = await epub(epubOptions, chapters)
+          const { writeFile: writeFileAsync, rename: renameAsync } = await import('node:fs/promises')
+          const epubDest = store.epubPath(bookId)
+          const tmp = epubDest + '.tmp'
+          await writeFileAsync(tmp, epubBuffer)
+          await renameAsync(tmp, epubDest)
+
+          taskManager.completeTask(task.id, { path: `/api/books/${bookId}/export-epub` })
+        } catch (err) {
+          if (task.abortController.signal.aborted) return
+          taskManager.failTask(task.id, err instanceof Error ? err.message : 'EPUB export failed')
+        }
+      })()
+
+      return { taskId: task.id }
+    },
+  )
+
+  fastify.get<{ Params: { id: string } }>(
+    '/api/books/:id/export-epub',
+    { schema: { params: bookIdSchema } },
+    async (request, reply) => {
+      const bookId = request.params.id
+      const meta = await store.getBook(bookId)
+
+      if (!store.epubExists(bookId)) {
+        return reply.status(404).send({ error: 'No EPUB file — generate it first' })
+      }
+
+      const { readFile: readFileAsync } = await import('node:fs/promises')
+      const data = await readFileAsync(store.epubPath(bookId))
+      const filename = `${meta.title.replace(/[^a-zA-Z0-9 ]/g, '')}.epub`
+
+      reply.header('Content-Type', 'application/epub+zip')
+      reply.header('Content-Disposition', `attachment; filename="${filename}"`)
+      return reply.send(data)
+    },
+  )
 
   // --- Chapter Progress ---
 

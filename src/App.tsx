@@ -17,12 +17,16 @@ import { SettingsMenu } from '@src/components/SettingsMenu'
 import { WizardModal } from '@src/components/WizardModal'
 import { CreationView } from '@src/components/CreationView'
 import { BookOverviewModal } from '@src/components/BookOverviewModal'
+import { CoverGenerationModal } from '@src/components/CoverGenerationModal'
+import { GenerateAllModal } from '@src/components/GenerateAllModal'
+import { BackgroundTasksFooter } from '@src/components/BackgroundTasksFooter'
 import { ReaderPage } from '@src/pages/ReaderPage'
 import { QuizReviewPage } from '@src/pages/QuizReviewPage'
 import { ReviewProgressPage } from '@src/pages/ReviewProgressPage'
 import { SkillDetailPage } from '@src/pages/SkillDetailPage'
 import { ProfileUpdatePage } from '@src/pages/ProfileUpdatePage'
-import { useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize, selectLibraryTab, setLibraryTab } from '@src/store'
+import { useBackgroundTasks } from '@src/hooks/useBackgroundTasks'
+import { store, useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize, selectLibraryTab, setLibraryTab, selectFunctionModel } from '@src/store'
 import { cn } from '@src/lib/utils'
 import { PROVIDER_IDS } from '@src/lib/providers'
 import { apiUrl } from '@src/lib/api-base'
@@ -31,12 +35,15 @@ interface Book {
   id: string
   title: string
   subtitle?: string
+  prompt?: string
   chaptersRead: number
   totalChapters: number
+  generatedUpTo: number
   status?: string
   rating?: number
   finalQuizScore?: number
   finalQuizTotal?: number
+  hasCover?: boolean
 }
 
 
@@ -59,6 +66,8 @@ export default function App() {
   const [deleteDialog, setDeleteDialog] = useState<{ book: Book; input: string } | null>(null)
   const [rateDialog, setRateDialog] = useState<{ book: Book; rating: number } | null>(null)
   const [overviewBook, setOverviewBook] = useState<Book | null>(null)
+  const [coverModal, setCoverModal] = useState<{ book: Book } | null>(null)
+  const [generateAllModal, setGenerateAllModal] = useState<{ taskId: string; book: Book } | null>(null)
   const [mutating, setMutating] = useState(false)
   const [serverAvailable, setServerAvailable] = useState(true)
   const furthest = useAppSelector(s => s.readingProgress.furthest)
@@ -66,6 +75,11 @@ export default function App() {
   const hasApiKey = useAppSelector(selectHasApiKey)
   const fontSize = useAppSelector(selectFontSize)
   const libraryTab = useAppSelector(selectLibraryTab)
+  const { provider: genProvider, model: genModel } = useAppSelector(selectFunctionModel('generation'))
+  const { provider: quizProvider, model: quizModel } = useAppSelector(selectFunctionModel('quiz'))
+
+  // Connect to background task SSE stream
+  useBackgroundTasks()
 
   useEffect(() => {
     if (window.electronAPI) {
@@ -154,16 +168,19 @@ export default function App() {
       if (res.ok) {
         const books = await res.json()
         setApiBooks(
-          books.map((b: { id: string; title: string; subtitle?: string; totalChapters: number; generatedUpTo: number; status?: string; rating?: number; finalQuizScore?: number; finalQuizTotal?: number }) => ({
+          books.map((b: { id: string; title: string; subtitle?: string; prompt?: string; totalChapters: number; generatedUpTo: number; status?: string; rating?: number; finalQuizScore?: number; finalQuizTotal?: number; hasCover?: boolean }) => ({
             id: b.id,
             title: b.title,
             subtitle: b.subtitle,
+            prompt: b.prompt,
             chaptersRead: 0,
             totalChapters: b.totalChapters,
+            generatedUpTo: b.generatedUpTo ?? 0,
             status: b.status,
             rating: b.rating,
             finalQuizScore: b.finalQuizScore,
             finalQuizTotal: b.finalQuizTotal,
+            hasCover: b.hasCover,
           })),
         )
       }
@@ -176,11 +193,24 @@ export default function App() {
     fetchBooks()
   }, [fetchBooks])
 
-  const handleCreate = (topic: string, details: string, chapterCount: number) => {
+  const [pendingCoverPrompt, setPendingCoverPrompt] = useState<string | null>(null)
+
+  const handleCreate = (topic: string, details: string, chapterCount: number, coverPrompt?: string) => {
+    setPendingCoverPrompt(coverPrompt ?? null)
     setView({ type: 'creating', topic, details, chapterCount })
   }
 
-  const handleCreationComplete = (_bookId: string) => {
+  const handleCreationComplete = (bookId: string) => {
+    // Fire cover generation if opted in during creation
+    if (pendingCoverPrompt) {
+      const { provider: imgProvider, model: imgModel } = selectFunctionModel('image')(store.getState())
+      fetch(apiUrl(`/api/books/${bookId}/cover/generate`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: pendingCoverPrompt, provider: imgProvider, model: imgModel }),
+      }).catch(() => {}) // fire-and-forget
+      setPendingCoverPrompt(null)
+    }
     fetchBooks()
     setView({ type: 'library' })
   }
@@ -199,10 +229,77 @@ export default function App() {
         title,
         chaptersRead: 0,
         totalChapters: 0,
+        generatedUpTo: 0,
         status: 'generating',
       }]
     })
   }, [])
+
+  const handleGenerateAll = async (book: Book) => {
+    try {
+      const res = await fetch(apiUrl(`/api/books/${book.id}/generate-all`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: genModel, provider: genProvider, quizModel, quizProvider }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed' }))
+        throw new Error(err.error)
+      }
+      const { taskId } = await res.json()
+      setGenerateAllModal({ taskId, book })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to start generation')
+    }
+  }
+
+  const handleExportEpub = async (book: Book) => {
+    try {
+      const res = await fetch(apiUrl(`/api/books/${book.id}/export-epub`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed' }))
+        throw new Error(err.error)
+      }
+      const data = await res.json()
+      if (data.cached) {
+        // Direct download
+        await downloadEpub(book)
+      } else {
+        // Background task created — will auto-download on completion
+        toast.success('EPUB export started — check background tasks')
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to export EPUB')
+    }
+  }
+
+  const downloadEpub = async (book: Book) => {
+    try {
+      const res = await fetch(apiUrl(`/api/books/${book.id}/export-epub`))
+      if (!res.ok) throw new Error('Download failed')
+      const blob = await res.blob()
+      const filename = `${book.title.replace(/[^a-zA-Z0-9 ]/g, '')}.epub`
+
+      if (window.electronAPI?.saveFile) {
+        const buffer = await blob.arrayBuffer()
+        const base64 = btoa(new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), ''))
+        await window.electronAPI.saveFile(filename, base64)
+      } else {
+        // Web fallback
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        a.click()
+        URL.revokeObjectURL(url)
+      }
+    } catch {
+      toast.error('Failed to download EPUB')
+    }
+  }
 
   const handleRename = async () => {
     if (!renameDialog) return
@@ -446,6 +543,7 @@ export default function App() {
                     rating={book.rating}
                     finalQuizScore={book.finalQuizScore}
                     finalQuizTotal={book.finalQuizTotal}
+                    coverUrl={book.hasCover ? apiUrl(`/api/books/${book.id}/cover`) : undefined}
                     onClick={() => setView({ type: 'reading', book })}
                     onContextMenu={apiBookIds.has(book.id) ? (e) => {
                       e.preventDefault()
@@ -502,6 +600,37 @@ export default function App() {
           >
             Book Overview
           </button>
+          <div className="my-1 h-px bg-border-default/50" />
+          <button
+            onClick={() => {
+              setCoverModal({ book: contextMenu.book })
+              setContextMenu(null)
+            }}
+            className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors"
+          >
+            Generate Cover
+          </button>
+          <button
+            onClick={() => {
+              handleGenerateAll(contextMenu.book)
+              setContextMenu(null)
+            }}
+            disabled={contextMenu.book.generatedUpTo >= contextMenu.book.totalChapters}
+            className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Generate Entire Book
+          </button>
+          <button
+            onClick={() => {
+              handleExportEpub(contextMenu.book)
+              setContextMenu(null)
+            }}
+            disabled={contextMenu.book.generatedUpTo < contextMenu.book.totalChapters}
+            className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Export EPUB
+          </button>
+          <div className="my-1 h-px bg-border-default/50" />
           <button
             onClick={() => {
               setDeleteDialog({ book: contextMenu.book, input: '' })
@@ -648,6 +777,37 @@ export default function App() {
         onOpenChange={(open) => { if (!open) setOverviewBook(null) }}
         book={overviewBook ?? { id: '', title: '', totalChapters: 0 }}
       />
+
+      {/* Cover generation modal */}
+      {coverModal && (
+        <CoverGenerationModal
+          open={true}
+          onOpenChange={(open) => { if (!open) setCoverModal(null) }}
+          bookId={coverModal.book.id}
+          bookTitle={coverModal.book.title}
+          bookTopic={coverModal.book.prompt ?? coverModal.book.title}
+          onCoverUploaded={fetchBooks}
+        />
+      )}
+
+      {/* Generate all modal */}
+      {generateAllModal && (
+        <GenerateAllModal
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) {
+              setGenerateAllModal(null)
+              fetchBooks()
+            }
+          }}
+          taskId={generateAllModal.taskId}
+          bookTitle={generateAllModal.book.title}
+          totalChapters={generateAllModal.book.totalChapters}
+        />
+      )}
+
+      {/* Background tasks footer */}
+      <BackgroundTasksFooter />
     </div>
   )
 }

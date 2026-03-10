@@ -9,4 +9,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadApiKey: (provider?: string) => ipcRenderer.invoke('apiKey:load', provider) as Promise<string | null>,
   removeApiKey: (provider?: string) => ipcRenderer.invoke('apiKey:remove', provider),
   getApiPort: () => ipcRenderer.invoke('get-api-port') as Promise<number>,
+  saveFile: (defaultName: string, base64Data: string) => ipcRenderer.invoke('file:save', defaultName, base64Data) as Promise<boolean>,
 })
