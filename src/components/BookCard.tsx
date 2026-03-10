@@ -36,17 +36,14 @@ export function BookCard({ title, subtitle, chaptersRead, totalChapters, rating,
       >
         <div className="relative flex h-full flex-col items-center justify-center p-5">
           <NoiseOverlay opacity={0.5} position="absolute" />
-          <div className="h-px w-8 bg-white/30" />
-          <h3 className="mt-3 text-center text-[1em] leading-snug font-semibold text-white/90">
+          <h3 className="text-center text-[1em] leading-snug font-semibold text-white/90">
             {title}
           </h3>
           {subtitle && (
-            <p className="mt-1 text-center text-[0.65em] leading-snug text-white/55 line-clamp-2 px-2">
+            <p className="mt-1 text-center text-[0.75em] leading-snug text-white/55 line-clamp-2 px-2">
               {subtitle}
             </p>
           )}
-          <div className="mt-3 h-px w-8 bg-white/30" />
-
           {/* Progress bar — inset with border-radius */}
           {progress > 0 && (
             <div className="absolute inset-x-3 bottom-3 h-1.5 overflow-hidden rounded-full bg-white/15">
@@ -61,15 +58,7 @@ export function BookCard({ title, subtitle, chaptersRead, totalChapters, rating,
 
       {/* Meta */}
       <div className="mt-2.5 px-0.5">
-        <p className="line-clamp-1 text-[0.875em] font-medium text-content-primary">
-          {title}
-        </p>
-        {subtitle && (
-          <p className="line-clamp-1 text-[0.75em] text-content-muted">
-            {subtitle}
-          </p>
-        )}
-        <p className="mt-0.5 text-[0.75em] text-content-muted">
+        <p className="text-[0.75em] text-content-muted">
           {chaptersRead === 0
             ? `${totalChapters} chapters`
             : `${chaptersRead} of ${totalChapters} chapters`}
