@@ -58,6 +58,11 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
       await parseSSEStream(res, {
         onEvent: (event) => {
           switch (event.type) {
+            case 'book_created':
+              setBookId(event.bookId)
+              onBookCreated?.(event.bookId, event.title, event.totalChapters)
+              break
+
             case 'toc':
               toc.appendChunk(event.text)
               // Auto-scroll TOC
@@ -71,7 +76,6 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
               setBookId(event.bookId)
               setPhase('chapter')
               setActiveTab('chapter')
-              onBookCreated?.(event.bookId, event.title, event.totalChapters)
               break
 
             case 'chapter':

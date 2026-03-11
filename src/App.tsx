@@ -168,7 +168,7 @@ export default function App() {
         const books = await res.json()
         setApiBooks(prev => {
           // Preserve optimistic generating books not yet on server
-          const generatingBooks = prev.filter(b => b.status === 'generating' && !books.some((sb: { id: string }) => sb.id === b.id))
+          const generatingBooks = prev.filter(b => (b.status === 'generating' || b.status === 'generating_toc') && !books.some((sb: { id: string }) => sb.id === b.id))
           const serverBooks = books.map((b: { id: string; title: string; subtitle?: string; prompt?: string; totalChapters: number; generatedUpTo: number; status?: string; rating?: number; finalQuizScore?: number; finalQuizTotal?: number; hasCover?: boolean; showTitleOnCover?: boolean; coverUpdatedAt?: string | null }) => ({
             id: b.id,
             title: b.title,
@@ -223,6 +223,11 @@ export default function App() {
   }
 
   const handleCreationCancel = () => {
+    // Delete any partially-created book from the server
+    const creatingBook = apiBooks.find(b => b.status === 'generating_toc' || b.status === 'generating')
+    if (creatingBook) {
+      fetch(apiUrl(`/api/books/${creatingBook.id}`), { method: 'DELETE' }).catch(() => {})
+    }
     fetchBooks()
     setView({ type: 'library' })
   }
@@ -237,7 +242,7 @@ export default function App() {
         chaptersRead: 0,
         totalChapters: totalChapters ?? 0,
         generatedUpTo: 0,
-        status: 'generating',
+        status: 'generating_toc',
       }]
     })
   }, [])
@@ -547,6 +552,7 @@ export default function App() {
                     subtitle={book.subtitle}
                     chaptersRead={chaptersRead}
                     totalChapters={book.totalChapters}
+                    status={book.status}
                     rating={book.rating}
                     finalQuizScore={book.finalQuizScore}
                     finalQuizTotal={book.finalQuizTotal}

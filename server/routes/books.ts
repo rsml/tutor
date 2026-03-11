@@ -688,6 +688,20 @@ Suggest profile updates based on this completed book. Return the complete update
     }
 
     try {
+      // Persist book immediately so it appears in the library during generation
+      const now = new Date().toISOString()
+      await store.saveBook({
+        id: bookId,
+        title: topic,
+        prompt: `${topic}${details ? `\n\n${details}` : ''}`,
+        status: 'generating_toc',
+        totalChapters: chapterCount ?? 12,
+        generatedUpTo: 0,
+        createdAt: now,
+        updatedAt: now,
+      })
+      send({ type: 'book_created', bookId, title: topic, totalChapters: chapterCount ?? 12 })
+
       // Phase 1: Generate TOC
       const profileContext = await buildProfileContext()
       let tocText = ''
@@ -782,18 +796,14 @@ Use consistent, human-readable skill names. Think of skills as what would appear
         })),
       }
 
-      const now = new Date().toISOString()
-      await store.saveBook({
-        id: bookId,
-        title,
-        subtitle,
-        prompt: `${topic}${details ? `\n\n${details}` : ''}`,
-        status: 'generating',
-        totalChapters: chapters.length,
-        generatedUpTo: 0,
-        createdAt: now,
-        updatedAt: now,
-      })
+      // Update the early-persisted book with real title/subtitle from AI
+      const existingMeta = await store.getBook(bookId)
+      existingMeta.title = title
+      existingMeta.subtitle = subtitle
+      existingMeta.status = 'generating'
+      existingMeta.totalChapters = chapters.length
+      existingMeta.updatedAt = new Date().toISOString()
+      await store.saveBook(existingMeta)
       await store.saveToc(bookId, tocWithSkills)
 
       send({ type: 'toc_done', bookId, title, subtitle, totalChapters: chapters.length })
@@ -851,6 +861,8 @@ Write this chapter now.`,
 
       send({ type: 'done', bookId, title, totalChapters: chapters.length })
     } catch (error) {
+      // Clean up the early-persisted book on failure
+      try { await store.deleteBook(bookId) } catch { /* ignore */ }
       send({
         type: 'error',
         message: error instanceof Error ? error.message : 'Generation failed',
