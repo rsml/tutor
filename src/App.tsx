@@ -45,6 +45,7 @@ interface Book {
   finalQuizTotal?: number
   hasCover?: boolean
   showTitleOnCover?: boolean
+  coverUpdatedAt?: string | null
 }
 
 
@@ -78,9 +79,6 @@ export default function App() {
   const libraryTab = useAppSelector(selectLibraryTab)
   const { provider: genProvider, model: genModel } = useAppSelector(selectFunctionModel('generation'))
   const { provider: quizProvider, model: quizModel } = useAppSelector(selectFunctionModel('quiz'))
-
-  // Connect to background task SSE stream
-  useBackgroundTasks()
 
   useEffect(() => {
     if (window.electronAPI) {
@@ -171,7 +169,7 @@ export default function App() {
         setApiBooks(prev => {
           // Preserve optimistic generating books not yet on server
           const generatingBooks = prev.filter(b => b.status === 'generating' && !books.some((sb: { id: string }) => sb.id === b.id))
-          const serverBooks = books.map((b: { id: string; title: string; subtitle?: string; prompt?: string; totalChapters: number; generatedUpTo: number; status?: string; rating?: number; finalQuizScore?: number; finalQuizTotal?: number; hasCover?: boolean; showTitleOnCover?: boolean }) => ({
+          const serverBooks = books.map((b: { id: string; title: string; subtitle?: string; prompt?: string; totalChapters: number; generatedUpTo: number; status?: string; rating?: number; finalQuizScore?: number; finalQuizTotal?: number; hasCover?: boolean; showTitleOnCover?: boolean; coverUpdatedAt?: string | null }) => ({
             id: b.id,
             title: b.title,
             subtitle: b.subtitle,
@@ -185,6 +183,7 @@ export default function App() {
             finalQuizTotal: b.finalQuizTotal,
             hasCover: b.hasCover,
             showTitleOnCover: b.showTitleOnCover,
+            coverUpdatedAt: b.coverUpdatedAt,
           }))
           return [...serverBooks, ...generatingBooks]
         })
@@ -197,6 +196,9 @@ export default function App() {
   useEffect(() => {
     fetchBooks()
   }, [fetchBooks])
+
+  // Connect to background task SSE stream — refresh library on cover generation
+  useBackgroundTasks({ onCoverGenerated: fetchBooks })
 
   const [pendingCoverPrompt, setPendingCoverPrompt] = useState<string | null>(null)
 
@@ -548,7 +550,7 @@ export default function App() {
                     rating={book.rating}
                     finalQuizScore={book.finalQuizScore}
                     finalQuizTotal={book.finalQuizTotal}
-                    coverUrl={book.hasCover ? apiUrl(`/api/books/${book.id}/cover`) : undefined}
+                    coverUrl={book.hasCover ? apiUrl(`/api/books/${book.id}/cover?v=${book.coverUpdatedAt ?? ''}`) : undefined}
                     showTitleOnCover={book.showTitleOnCover}
                     onClick={() => setView({ type: 'reading', book })}
                     onContextMenu={apiBookIds.has(book.id) ? (e) => {

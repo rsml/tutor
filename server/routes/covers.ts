@@ -63,6 +63,14 @@ export async function coverRoutes(fastify: FastifyInstance) {
           const image = result.image
           const imageData = Buffer.from(image.base64, 'base64')
           const mediaType = image.mediaType ?? 'image/png'
+
+          // Safety guard: don't overwrite a cover that was set after this task started
+          const existingMtime = await store.getCoverMtime(bookId)
+          if (existingMtime && existingMtime > new Date(task.createdAt)) {
+            taskManager.completeTask(task.id, { skipped: true })
+            return
+          }
+
           await store.saveCover(bookId, imageData, mediaType)
           taskManager.completeTask(task.id)
         } catch (err) {

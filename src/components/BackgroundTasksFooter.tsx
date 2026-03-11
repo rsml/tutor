@@ -147,12 +147,21 @@ export function BackgroundTasksFooter() {
                       <p className="text-xs text-status-error mt-0.5">{task.error}</p>
                     )}
                   </div>
-                  {task.status === 'running' && (
+                  {task.status === 'running' ? (
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleCancel(task.id)}
                       className="shrink-0 size-7 p-0 text-content-muted hover:text-status-error"
+                    >
+                      <X className="size-3.5" />
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => dispatch(taskRemoved({ taskId: task.id }))}
+                      className="shrink-0 size-7 p-0 text-content-muted hover:text-content-primary"
                     >
                       <X className="size-3.5" />
                     </Button>

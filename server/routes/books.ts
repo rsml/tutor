@@ -220,6 +220,7 @@ export async function bookRoutes(fastify: FastifyInstance) {
       ...b,
       hasCover: await store.hasCover(b.id),
       showTitleOnCover: (b as Record<string, unknown>).showTitleOnCover ?? false,
+      coverUpdatedAt: (await store.getCoverMtime(b.id))?.toISOString() ?? null,
     })))
     return augmented
   })

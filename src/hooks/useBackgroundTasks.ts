@@ -21,7 +21,11 @@ function taskErrorMessage(taskType?: string, error?: string): string {
   return error ? `${prefix}: ${error}` : prefix
 }
 
-export function useBackgroundTasks() {
+interface UseBackgroundTasksOptions {
+  onCoverGenerated?: () => void
+}
+
+export function useBackgroundTasks({ onCoverGenerated }: UseBackgroundTasksOptions = {}) {
   const dispatch = useAppDispatch()
 
   useEffect(() => {
@@ -44,6 +48,8 @@ export function useBackgroundTasks() {
             case 'task_done':
               dispatch(taskCompleted({ taskId: event.taskId, result: event.result }))
               toast.success(taskDoneMessage(event.taskType))
+              if (event.taskType === 'generate-cover') onCoverGenerated?.()
+
               break
             case 'task_error':
               dispatch(taskFailed({ taskId: event.taskId, error: event.error }))
@@ -69,5 +75,5 @@ export function useBackgroundTasks() {
       evtSource?.close()
       if (reconnectTimer) clearTimeout(reconnectTimer)
     }
-  }, [dispatch])
+  }, [dispatch, onCoverGenerated])
 }

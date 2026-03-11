@@ -353,6 +353,13 @@ export async function hasCover(bookId: string): Promise<boolean> {
   return (await getCoverPath(bookId)) !== null
 }
 
+export async function getCoverMtime(bookId: string): Promise<Date | null> {
+  const coverPath = await getCoverPath(bookId)
+  if (!coverPath) return null
+  const s = await stat(coverPath)
+  return s.mtime
+}
+
 export async function saveCover(bookId: string, data: Buffer, mediaType: string): Promise<void> {
   const dir = bookDir(bookId)
   await mkdir(dir, { recursive: true })
