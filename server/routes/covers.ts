@@ -154,28 +154,30 @@ export async function coverRoutes(fastify: FastifyInstance) {
           model: modelClient,
           abortSignal: controller.signal,
           schema: z.object({ prompt: z.string() }),
-          prompt: `Generate a creative book cover image prompt for a book titled "${meta.title}"${meta.subtitle ? ` with subtitle "${meta.subtitle}"` : ''}.
+          prompt: `Generate a minimal, tasteful design
 
-The book is about: ${meta.prompt}
+It is an art piece vaguely suggestive of or complementary of: ${meta.prompt}
 
-Output a prompt in this EXACT format (fill in the bracketed parts creatively based on the book's topic, choosing a unique visual style, color palette, and background concept):
+Output a prompt in this EXACT format (fill in the bracketed parts creatively based on this theme topic, choosing a unique visual style, color palette, and background concept):
 
-raw png in golden ratio
-Large title
-Smaller subtitle
-[creative background/style description for this specific topic — be vivid and specific, e.g. "deep navy background with constellation patterns and orbiting planets" or "weathered parchment texture with hand-drawn botanical illustrations"]
+very minimal abstract art
 
-high resolution book cover scan style --ar 2:3 --stylize 250 --v 6
+2-3 colors
 
-title reads:
-"${meta.title}"
-${meta.subtitle ? `subtitle reads:\n"${meta.subtitle}"` : '(no subtitle)'}
+lots of negative space
+
+high resolution
+
+--stylize 1 --v 6 --style raw --ar 21:34 --weird 0 --no photo --no realistic --no objects in center
+
+top and bottom framing elements, large empty center
 
 Important:
-- The title and subtitle lines at the end must use the EXACT text shown above — never paraphrase
-- Be creative and varied with the style/background — avoid generic descriptions
-- The background/style should evoke the book's subject matter
-- Keep the overall prompt under 500 characters`,
+- Prefer simple abstract symbols over literal scenes
+- Limit visual elements to 1–2 shapes or motifs
+- Avoid complex textures, lighting, or realism
+- Emphasize strong graphic design and negative space
+- Keep the prompt under 450 characters`,
         })
 
         return result.object

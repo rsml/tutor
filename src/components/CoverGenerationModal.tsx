@@ -39,7 +39,7 @@ export function CoverGenerationModal({
   const [suggesting, setSuggesting] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [showTitle, setShowTitle] = useState(initialShowTitle ?? false)
+  const [showTitle, setShowTitle] = useState(initialShowTitle ?? true)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { provider, model } = useAppSelector(selectFunctionModel('image'))
   const textModel = useAppSelector(selectFunctionModel('generation'))

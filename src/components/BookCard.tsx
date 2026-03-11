@@ -48,11 +48,11 @@ export function BookCard({ title, subtitle, chaptersRead, totalChapters, rating,
                 <>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                   <div className="relative w-full px-2 pv-5 justify-center align-middle">
-                    <h3 className="text-center text-[1.2em] leading-snug font-bold tracking-wide text-white [text-shadow:0_3px_6px_rgba(0,0,0,1)]">
+                    <h3 className="text-center text-[1.2em] leading-7 font-extrabold tracking-wider text-white [text-shadow:0_1px_3px_rgba(0,0,0,1),0_4px_12px_rgba(0,0,0,0.9),0_7px_21px_rgba(0,0,0,0.6),0_11px_33px_rgba(0,0,0,0.4)]">
                       {title}
                     </h3>
                     {subtitle && (
-                      <p className="mt-1 text-center text-[0.75em] leading-snug text-white/90 [text-shadow:0_3px_6px_rgba(0,0,0,1)]">
+                      <p className="mt-3 font-medium text-center text-[0.8em] leading-snug tracking-normal text-white/95 [text-shadow:0_1px_3px_rgba(0,0,0,1),0_4px_12px_rgba(0,0,0,0.9),0_7px_21px_rgba(0,0,0,0.8),0_11px_33px_rgba(0,0,0,0.8),0_6px_18px_rgba(0,0,0,1)]">
                         {subtitle}
                       </p>
                     )}
