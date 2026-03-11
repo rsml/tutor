@@ -2,6 +2,7 @@
  * Parsed SSE event types emitted by the generation endpoints.
  */
 export type SSEEvent =
+  | { type: 'book_created'; bookId: string; title: string; totalChapters: number }
   | { type: 'toc'; text: string }
   | { type: 'toc_done'; bookId: string; title: string; subtitle?: string; totalChapters: number }
   | { type: 'skills_classified' }

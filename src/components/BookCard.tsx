@@ -1,3 +1,4 @@
+import { Loader2 } from 'lucide-react'
 import { NoiseOverlay } from '@src/components/NoiseOverlay'
 import { StarRating } from '@src/components/StarRating'
 
@@ -14,6 +15,7 @@ interface BookCardProps {
   subtitle?: string
   chaptersRead: number
   totalChapters: number
+  status?: string
   rating?: number
   finalQuizScore?: number
   finalQuizTotal?: number
@@ -23,12 +25,13 @@ interface BookCardProps {
   onContextMenu?: (e: React.MouseEvent) => void
 }
 
-export function BookCard({ title, subtitle, chaptersRead, totalChapters, rating, finalQuizScore, finalQuizTotal, coverUrl, showTitleOnCover, onClick, onContextMenu }: BookCardProps) {
+export function BookCard({ title, subtitle, chaptersRead, totalChapters, status, rating, finalQuizScore, finalQuizTotal, coverUrl, showTitleOnCover, onClick, onContextMenu }: BookCardProps) {
   const hue = stringToHue(title)
   const progress = totalChapters > 0 ? chaptersRead / totalChapters : 0
+  const isGenerating = status === 'generating_toc' || status === 'generating'
 
   return (
-    <div className="group cursor-pointer" onClick={onClick} onContextMenu={onContextMenu}>
+    <div className={`group ${isGenerating ? 'cursor-default' : 'cursor-pointer'}`} onClick={isGenerating ? undefined : onClick} onContextMenu={isGenerating ? undefined : onContextMenu}>
       {/* Cover */}
       <div
         className="aspect-[1/1.618] overflow-hidden rounded-xl shadow-md transition-all duration-200 group-hover:scale-[1.02] group-hover:shadow-xl"
@@ -73,8 +76,17 @@ export function BookCard({ title, subtitle, chaptersRead, totalChapters, rating,
               )}
             </>
           )}
+          {/* Generating badge */}
+          {isGenerating && (
+            <div className="absolute inset-x-3 bottom-3 flex items-center justify-center gap-1.5 rounded-full bg-black/50 px-3 py-1 backdrop-blur-sm">
+              <Loader2 className="size-3 animate-spin text-white/80" />
+              <span className="text-xs font-medium text-white/80">
+                {status === 'generating_toc' ? 'Generating...' : 'Generating...'}
+              </span>
+            </div>
+          )}
           {/* Progress bar — inset with border-radius */}
-          {progress > 0 && (
+          {!isGenerating && progress > 0 && (
             <div className="absolute inset-x-3 bottom-3 h-1.5 overflow-hidden rounded-full bg-white/15">
               <div
                 className="h-full rounded-full bg-white/70 transition-all duration-500"
