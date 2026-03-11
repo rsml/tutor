@@ -1,11 +1,11 @@
 import type { FastifyInstance } from 'fastify'
 import { readFile } from 'node:fs/promises'
-import { ZodError } from 'zod'
-import { generateImage } from 'ai'
+import { ZodError, z } from 'zod'
+import { generateImage, generateObject } from 'ai'
 import * as store from '../services/book-store.js'
-import { createImageModelClient } from '../services/model-client.js'
+import { createImageModelClient, createModelClient } from '../services/model-client.js'
 import * as taskManager from '../services/task-manager.js'
-import { GenerateCoverBodySchema, UploadCoverBodySchema } from '../schemas.js'
+import { GenerateCoverBodySchema, UploadCoverBodySchema, SuggestCoverPromptBodySchema } from '../schemas.js'
 
 const bookIdSchema = {
   type: 'object' as const,
@@ -124,6 +124,64 @@ export async function coverRoutes(fastify: FastifyInstance) {
       reply.header('Content-Type', contentType)
       reply.header('Cache-Control', 'public, max-age=3600')
       return reply.send(data)
+    },
+  )
+
+  // Suggest cover prompt via AI
+  fastify.post<{ Params: { id: string }; Body: unknown }>(
+    '/api/books/:id/cover/suggest-prompt',
+    { schema: { params: bookIdSchema } },
+    async (request, reply) => {
+      let body: z.infer<typeof SuggestCoverPromptBodySchema>
+      try {
+        body = SuggestCoverPromptBodySchema.parse(request.body)
+      } catch (err) {
+        if (err instanceof ZodError) {
+          return reply.status(400).send({ error: 'Invalid request', details: err.issues })
+        }
+        throw err
+      }
+
+      const bookId = request.params.id
+      const meta = await store.getBook(bookId)
+      const modelClient = createModelClient(body.provider ?? 'anthropic', body.model)
+
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 5 * 60 * 1000)
+
+      try {
+        const result = await generateObject({
+          model: modelClient,
+          abortSignal: controller.signal,
+          schema: z.object({ prompt: z.string() }),
+          prompt: `Generate a creative book cover image prompt for a book titled "${meta.title}"${meta.subtitle ? ` with subtitle "${meta.subtitle}"` : ''}.
+
+The book is about: ${meta.prompt}
+
+Output a prompt in this EXACT format (fill in the bracketed parts creatively based on the book's topic, choosing a unique visual style, color palette, and background concept):
+
+raw png in golden ratio
+Large title
+Smaller subtitle
+[creative background/style description for this specific topic — be vivid and specific, e.g. "deep navy background with constellation patterns and orbiting planets" or "weathered parchment texture with hand-drawn botanical illustrations"]
+
+high resolution book cover scan style --ar 2:3 --stylize 250 --v 6
+
+title reads:
+"${meta.title}"
+${meta.subtitle ? `subtitle reads:\n"${meta.subtitle}"` : '(no subtitle)'}
+
+Important:
+- The title and subtitle lines at the end must use the EXACT text shown above — never paraphrase
+- Be creative and varied with the style/background — avoid generic descriptions
+- The background/style should evoke the book's subject matter
+- Keep the overall prompt under 500 characters`,
+        })
+
+        return result.object
+      } finally {
+        clearTimeout(timer)
+      }
     },
   )
 
