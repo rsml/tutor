@@ -13,17 +13,6 @@ import {
 import { useAppSelector, selectFunctionModel } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
 
-const COVER_STYLES = [
-  'Minimalist pen-and-ink illustration on cream background, reminiscent of classic O\'Reilly animal covers',
-  'Bold typographic cover with subtle geometric patterns, inspired by Penguin Classics design language',
-  'Atmospheric watercolor composition with soft gradients, evoking literary fiction aesthetics',
-  'Clean vector illustration with a limited 2-3 color palette, contemporary tech publishing style',
-  'Photographic still life or detail study with dramatic lighting, premium non-fiction presentation',
-  'Abstract geometric composition with muted earth tones, modernist academic press style',
-  'Hand-drawn scientific or botanical illustration, scholarly naturalist aesthetic',
-  'Textured linen background with elegant gold-foil-style accents, premium hardcover feel',
-]
-
 interface CoverGenerationModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -40,22 +29,41 @@ export function CoverGenerationModal({
   onOpenChange,
   bookId,
   bookTitle: _bookTitle,
-  bookTopic,
+  bookTopic: _bookTopic,
   hasCover,
   showTitleOnCover: initialShowTitle,
   onCoverChanged,
 }: CoverGenerationModalProps) {
   const [prompt, setPrompt] = useState('')
   const [generating, setGenerating] = useState(false)
+  const [suggesting, setSuggesting] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showTitle, setShowTitle] = useState(initialShowTitle ?? false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { provider, model } = useAppSelector(selectFunctionModel('image'))
+  const textModel = useAppSelector(selectFunctionModel('generation'))
 
-  const handleSuggest = () => {
-    const style = COVER_STYLES[Math.floor(Math.random() * COVER_STYLES.length)]
-    setPrompt(`Elegant book cover. ${style}. Subject: ${bookTopic}. Professional publishing quality, no text or lettering on the image.`)
+  const handleSuggest = async () => {
+    if (suggesting) return
+    setSuggesting(true)
+    try {
+      const res = await fetch(apiUrl(`/api/books/${bookId}/cover/suggest-prompt`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: textModel.provider, model: textModel.model }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Suggestion failed' }))
+        throw new Error(err.error)
+      }
+      const data = await res.json()
+      setPrompt(data.prompt)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to suggest prompt')
+    } finally {
+      setSuggesting(false)
+    }
   }
 
   const handleGenerate = async () => {
@@ -157,17 +165,18 @@ export function CoverGenerationModal({
               value={prompt}
               onChange={e => setPrompt(e.target.value)}
               placeholder="Describe the cover you want..."
-              rows={3}
+              rows={8}
               className="resize-y rounded-lg border border-border-default bg-surface-raised px-3 py-2 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
             />
             <Button
               variant="ghost"
               size="sm"
               onClick={handleSuggest}
+              disabled={suggesting}
               className="self-start gap-1 text-xs text-[var(--color-ai)] hover:text-[var(--color-ai-hover)]"
             >
-              <Sparkles className="size-3" />
-              Auto-suggest
+              {suggesting ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3" />}
+              {suggesting ? 'Suggesting...' : 'Auto-suggest'}
             </Button>
           </div>
 

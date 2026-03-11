@@ -240,6 +240,8 @@ export const UploadCoverBodySchema = z.object({
   mediaType: z.enum(['image/png', 'image/jpeg', 'image/webp']),
 })
 
+export const SuggestCoverPromptBodySchema = AiRequestSchema
+
 export const SuggestBookBodySchema = AiRequestSchema.extend({
   quizHistory: z.record(
     z.string(),
