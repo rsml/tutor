@@ -157,31 +157,6 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
             )}
           </div>
 
-          {/* Generate cover checkbox */}
-          <div className="flex items-start gap-2">
-            <input
-              type="checkbox"
-              id="generate-cover"
-              checked={generateCover}
-              onChange={e => setGenerateCover(e.target.checked)}
-              className="mt-0.5 accent-[oklch(0.55_0.20_285)]"
-            />
-            <div className="grid gap-1">
-              <label htmlFor="generate-cover" className="text-sm font-medium text-content-primary cursor-pointer">
-                Generate cover image
-              </label>
-              {generateCover && (
-                <textarea
-                  value={coverDescription}
-                  onChange={e => setCoverDescription(e.target.value)}
-                  placeholder="Describe the cover (optional — uses a random art-director style if blank)"
-                  rows={3}
-                  className="w-full resize-y rounded-lg border border-border-default bg-surface-raised px-3 py-2 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
-                />
-              )}
-            </div>
-          </div>
-
           {/* Chapter count slider */}
           <div className="grid gap-1.5">
             <div className="flex items-center justify-between">

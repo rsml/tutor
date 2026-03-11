@@ -154,11 +154,11 @@ export async function coverRoutes(fastify: FastifyInstance) {
           model: modelClient,
           abortSignal: controller.signal,
           schema: z.object({ prompt: z.string() }),
-          prompt: `Generate a minimal, tasteful design
+          prompt: `Output a prompt in this EXACT format (fill in the bracketed parts creatively based on this theme topic, choosing a unique visual style, color palette, and background concept):
+
+          Generate a minimal, tasteful design
 
 It is an art piece vaguely suggestive of or complementary of: ${meta.prompt}
-
-Output a prompt in this EXACT format (fill in the bracketed parts creatively based on this theme topic, choosing a unique visual style, color palette, and background concept):
 
 very minimal abstract art
 
