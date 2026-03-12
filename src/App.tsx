@@ -269,6 +269,7 @@ export default function App() {
     try {
       const res = await fetch(apiUrl(`/api/books/${book.id}/export-epub`), {
         method: 'POST',
+        body: JSON.stringify({}),
         headers: { 'Content-Type': 'application/json' },
       })
       if (!res.ok) {
