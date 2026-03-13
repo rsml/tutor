@@ -24,9 +24,10 @@ function taskErrorMessage(taskType?: string, error?: string): string {
 interface UseBackgroundTasksOptions {
   onCoverGenerated?: () => void
   onEpubExported?: (bookId: string, bookTitle: string) => void
+  onGenerateAllCompleted?: () => void
 }
 
-export function useBackgroundTasks({ onCoverGenerated, onEpubExported }: UseBackgroundTasksOptions = {}) {
+export function useBackgroundTasks({ onCoverGenerated, onEpubExported, onGenerateAllCompleted }: UseBackgroundTasksOptions = {}) {
   const dispatch = useAppDispatch()
 
   useEffect(() => {
@@ -50,6 +51,7 @@ export function useBackgroundTasks({ onCoverGenerated, onEpubExported }: UseBack
               dispatch(taskCompleted({ taskId: event.taskId, result: event.result }))
               toast.success(taskDoneMessage(event.taskType))
               if (event.taskType === 'generate-cover') onCoverGenerated?.()
+              if (event.taskType === 'generate-all') onGenerateAllCompleted?.()
               if (event.taskType === 'generate-epub') {
                 const task = store.getState().backgroundTasks.tasks[event.taskId]
                 if (task) onEpubExported?.(task.bookId, task.bookTitle)
@@ -80,5 +82,5 @@ export function useBackgroundTasks({ onCoverGenerated, onEpubExported }: UseBack
       evtSource?.close()
       if (reconnectTimer) clearTimeout(reconnectTimer)
     }
-  }, [dispatch, onCoverGenerated, onEpubExported])
+  }, [dispatch, onCoverGenerated, onEpubExported, onGenerateAllCompleted])
 }
