@@ -7,28 +7,35 @@ export async function taskRoutes(fastify: FastifyInstance) {
   })
 
   fastify.get('/api/tasks/stream', async (request, reply) => {
-    reply.raw.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
-    })
+    try {
+      reply.raw.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      })
 
-    // Send current tasks as initial state
-    const currentTasks = taskManager.listTasks()
-    for (const task of currentTasks) {
-      reply.raw.write(`data: ${JSON.stringify({ type: 'task_created', task })}\n\n`)
+      // Send current tasks as initial state
+      const currentTasks = taskManager.listTasks()
+      for (const task of currentTasks) {
+        reply.raw.write(`data: ${JSON.stringify({ type: 'task_created', task })}\n\n`)
+      }
+
+      let ended = false
+      const unsubscribe = taskManager.subscribeGlobal((event) => {
+        if (ended) return
+        reply.raw.write(`data: ${JSON.stringify(event)}\n\n`)
+      })
+
+      request.raw.on('close', () => {
+        unsubscribe()
+        if (!ended) { ended = true; reply.raw.end() }
+      })
+    } catch (err) {
+      console.error('[GET /api/tasks/stream] SSE setup failed:', err)
+      if (!reply.raw.headersSent) {
+        reply.status(500).send({ error: 'Stream setup failed' })
+      }
     }
-
-    let ended = false
-    const unsubscribe = taskManager.subscribeGlobal((event) => {
-      if (ended) return
-      reply.raw.write(`data: ${JSON.stringify(event)}\n\n`)
-    })
-
-    request.raw.on('close', () => {
-      unsubscribe()
-      if (!ended) { ended = true; reply.raw.end() }
-    })
   })
 
   fastify.delete<{ Params: { taskId: string } }>(
