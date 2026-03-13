@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, BarChart3, ChevronLeft, ChevronRight, Loader2, RefreshCw } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, BarChart3, ChevronLeft, ChevronRight, Loader2, MessageSquare, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@src/components/ui/button'
 import { SelectionTooltip } from '@src/components/SelectionTooltip'
@@ -399,6 +399,9 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     if (phase !== 'reading') return
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) return
+
       if (e.metaKey && e.key === 'ArrowLeft') {
         e.preventDefault()
         goPrev()
@@ -443,6 +446,21 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
             </Button>
           )}
           <SettingsMenu subtle />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => {
+              if (!chatOpen) {
+                setChatSelectedText('')
+                setChatPrompt(null)
+              }
+              setChatOpen(o => !o)
+            }}
+            aria-label="Toggle chat"
+            className="text-content-faint hover:text-content-muted"
+          >
+            <MessageSquare className="size-4" />
+          </Button>
         </div>
       </header>
 
@@ -818,6 +836,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
           pendingNewChat={pendingChatAction}
           onConfirmNewChat={handleConfirmNewChat}
           onDismissNewChat={handleDismissPending}
+          bookId={book.id}
         />
       </div>
 
