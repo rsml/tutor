@@ -201,7 +201,16 @@ export default function App() {
   const handleEpubExported = useCallback((bookId: string, bookTitle: string) => {
     downloadEpub({ id: bookId, title: bookTitle } as Book)
   }, [])
-  useBackgroundTasks({ onCoverGenerated: fetchBooks, onEpubExported: handleEpubExported })
+  useBackgroundTasks({ onCoverGenerated: fetchBooks, onEpubExported: handleEpubExported, onGenerateAllCompleted: fetchBooks })
+
+  // Poll for status updates when any book is generating
+  useEffect(() => {
+    const hasGenerating = apiBooks.some(b => b.status === 'generating_toc' || b.status === 'generating')
+    if (!hasGenerating) return
+
+    const interval = setInterval(fetchBooks, 1000)
+    return () => clearInterval(interval)
+  }, [apiBooks, fetchBooks])
 
   const [pendingCoverPrompt, setPendingCoverPrompt] = useState<string | null>(null)
 
