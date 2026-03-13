@@ -4,6 +4,7 @@ import { apiUrl } from '@src/lib/api-base'
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
+  selectedText?: string
 }
 
 interface UseStreamingChatOptions {
@@ -11,15 +12,18 @@ interface UseStreamingChatOptions {
   provider: string
   chapterContent: string
   selectedText: string
+  initialMessages?: ChatMessage[]
 }
 
-export function useStreamingChat({ model, provider, chapterContent, selectedText }: UseStreamingChatOptions) {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+export function useStreamingChat({ model, provider, chapterContent, selectedText, initialMessages }: UseStreamingChatOptions) {
+  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages ?? [])
   const [isStreaming, setIsStreaming] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
-  const streamChat = useCallback(async (userMessage: string, history: ChatMessage[]) => {
-    setMessages([...history, { role: 'user', content: userMessage }, { role: 'assistant', content: '' }])
+  const streamChat = useCallback(async (userMessage: string, history: ChatMessage[], msgSelectedText?: string) => {
+    const userMsg: ChatMessage = { role: 'user', content: userMessage }
+    if (msgSelectedText) userMsg.selectedText = msgSelectedText
+    setMessages([...history, userMsg, { role: 'assistant', content: '' }])
     setIsStreaming(true)
 
     const controller = new AbortController()
@@ -80,14 +84,14 @@ export function useStreamingChat({ model, provider, chapterContent, selectedText
     }
   }, [model, provider, chapterContent, selectedText])
 
-  const sendMessage = useCallback(async (userMessage: string) => {
+  const sendMessage = useCallback(async (userMessage: string, msgSelectedText?: string) => {
     if (isStreaming) return
-    streamChat(userMessage, [...messages])
+    streamChat(userMessage, [...messages], msgSelectedText)
   }, [isStreaming, messages, streamChat])
 
-  const restartChat = useCallback((userMessage: string) => {
+  const restartChat = useCallback((userMessage: string, msgSelectedText?: string) => {
     abortRef.current?.abort()
-    streamChat(userMessage, [])
+    streamChat(userMessage, [], msgSelectedText)
   }, [streamChat])
 
   const clearMessages = useCallback(() => {

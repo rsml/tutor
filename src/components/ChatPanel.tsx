@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { X, SendHorizontal } from 'lucide-react'
 import { ChatMessage } from '@src/components/ChatMessage'
 import { useStreamingChat } from '@src/hooks/useStreamingChat'
-import { useAppSelector, selectHasApiKey, selectFunctionModel } from '@src/store'
+import { useAppDispatch, useAppSelector, selectHasApiKey, selectFunctionModel, setChatMessages, selectChatMessages } from '@src/store'
 
 interface ChatPanelProps {
   open: boolean
@@ -15,16 +15,20 @@ interface ChatPanelProps {
   pendingNewChat: { text: string; prompt: string } | null
   onConfirmNewChat: () => void
   onDismissNewChat: () => void
+  bookId: string
 }
 
-export function ChatPanel({ open, onClose, selectedText, chapterContent, initialPrompt, chatKey, onMissingApiKey, pendingNewChat, onConfirmNewChat, onDismissNewChat }: ChatPanelProps) {
+export function ChatPanel({ open, onClose, selectedText, chapterContent, initialPrompt, chatKey, onMissingApiKey, pendingNewChat, onConfirmNewChat, onDismissNewChat, bookId }: ChatPanelProps) {
+  const dispatch = useAppDispatch()
   const hasApiKey = useAppSelector(selectHasApiKey)
   const { provider, model } = useAppSelector(selectFunctionModel('chat'))
-  const { messages, isStreaming, sendMessage, restartChat, clearMessages } = useStreamingChat({
+  const persistedMessages = useAppSelector(selectChatMessages(bookId))
+  const { messages, isStreaming, sendMessage, restartChat } = useStreamingChat({
     model,
     provider,
     chapterContent,
     selectedText,
+    initialMessages: persistedMessages.length > 0 ? persistedMessages : undefined,
   })
   const [input, setInput] = useState('')
   const [width, setWidth] = useState(420)
@@ -34,13 +38,20 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
   const sentInitialRef = useRef(false)
   const userHasScrolledRef = useRef(false)
 
-  // Reset when panel closes
+  // Reset sentInitialRef when panel closes (but keep messages for persistence)
   useEffect(() => {
     if (!open) {
       sentInitialRef.current = false
-      clearMessages()
     }
-  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open])
+
+  // Sync messages to Redux for persistence (skip empty streaming placeholders)
+  useEffect(() => {
+    const completed = messages.filter(m => m.role === 'user' || m.content !== '')
+    if (completed.length > 0) {
+      dispatch(setChatMessages({ bookId, messages: completed }))
+    }
+  }, [messages, bookId, dispatch])
 
   // Reset when chatKey changes (new chat requested while panel is open)
   useEffect(() => {
@@ -51,7 +62,7 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
       return
     }
     sentInitialRef.current = true
-    restartChat(initialPrompt)
+    restartChat(initialPrompt, selectedText || undefined)
   }, [chatKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Send initial prompt when panel opens with a new selection
@@ -62,7 +73,7 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
         return
       }
       sentInitialRef.current = true
-      sendMessage(initialPrompt)
+      sendMessage(initialPrompt, selectedText || undefined)
     }
   }, [open, initialPrompt]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -215,8 +226,6 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
           <ChatMessage
             key={i}
             message={msg}
-            selectedText={selectedText}
-            isFirst={i === 0}
           />
         ))}
       </div>
@@ -233,7 +242,7 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
                 handleSubmit()
               }
             }}
-            placeholder="Ask a follow-up..."
+            placeholder={messages.length === 0 ? "Ask a question..." : "Ask a follow-up..."}
             rows={1}
             className="flex-1 resize-none bg-transparent text-sm text-content-primary placeholder:text-content-muted/50 outline-none"
             style={{ maxHeight: '120px' }}

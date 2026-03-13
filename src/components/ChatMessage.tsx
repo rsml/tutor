@@ -3,18 +3,16 @@ import type { ChatMessage as ChatMessageType } from '@src/hooks/useStreamingChat
 
 interface ChatMessageProps {
   message: ChatMessageType
-  selectedText?: string
-  isFirst?: boolean
 }
 
-export function ChatMessage({ message, selectedText, isFirst }: ChatMessageProps) {
+export function ChatMessage({ message }: ChatMessageProps) {
   if (message.role === 'user') {
     return (
       <div className="flex justify-end">
         <div className="max-w-[85%]">
-          {isFirst && selectedText && (
+          {message.selectedText && (
             <div className="mb-1.5 rounded-lg rounded-br-md border-l-2 border-border-focus/60 bg-surface-muted/50 px-3 py-2 text-xs text-content-muted">
-              "{selectedText.length > 150 ? selectedText.slice(0, 150) + '...' : selectedText}"
+              "{message.selectedText.length > 150 ? message.selectedText.slice(0, 150) + '...' : message.selectedText}"
             </div>
           )}
           <div className="rounded-2xl rounded-br-md bg-[oklch(0.55_0.20_285)] px-3.5 py-2 text-sm text-white">

@@ -5,6 +5,7 @@ import storage from 'redux-persist/lib/storage'
 import type { ProviderId, AiFunctionGroup } from '@src/lib/providers'
 import { IMAGE_MODELS } from '@src/lib/providers'
 import quizHistoryReducer from '@src/store/quizHistorySlice'
+import chatHistoryReducer from '@src/store/chatHistorySlice'
 
 interface QuizResult {
   questions: Array<{
@@ -303,6 +304,7 @@ const rootReducer = combineReducers({
   settings: settingsSlice.reducer,
   chapterData: chapterDataSlice.reducer,
   quizHistory: quizHistoryReducer,
+  chatHistory: chatHistoryReducer,
   backgroundTasks: backgroundTasksSlice.reducer,
 })
 
@@ -393,6 +395,9 @@ export const useAppSelector = useSelector.withTypes<RootState>()
 
 export { recordQuizAttempt } from '@src/store/quizHistorySlice'
 export type { QuizQuestion as QuizHistoryQuestion, QuizAttempt, ChapterQuiz } from '@src/store/quizHistorySlice'
+
+export { setChatMessages, clearChatHistory } from '@src/store/chatHistorySlice'
+export { selectChatMessages } from '@src/store/chatHistorySlice'
 
 export {
   selectChapterQuiz,
