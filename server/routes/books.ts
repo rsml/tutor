@@ -216,12 +216,24 @@ const sanitizeFeedback = (s: string) => s.replace(/<\/?[^>]+>/g, '')
 export async function bookRoutes(fastify: FastifyInstance) {
   fastify.get('/api/books', async () => {
     const books = await store.listBooks()
-    const augmented = await Promise.all(books.map(async b => ({
-      ...b,
-      hasCover: await store.hasCover(b.id),
-      showTitleOnCover: (b as Record<string, unknown>).showTitleOnCover ?? false,
-      coverUpdatedAt: (await store.getCoverMtime(b.id))?.toISOString() ?? null,
-    })))
+    const augmented = await Promise.all(books.map(async b => {
+      try {
+        return {
+          ...b,
+          hasCover: await store.hasCover(b.id),
+          showTitleOnCover: (b as Record<string, unknown>).showTitleOnCover ?? false,
+          coverUpdatedAt: (await store.getCoverMtime(b.id))?.toISOString() ?? null,
+        }
+      } catch (err) {
+        console.error(`[GET /api/books] Failed to augment book "${b.id}":`, err)
+        return {
+          ...b,
+          hasCover: false,
+          showTitleOnCover: false,
+          coverUpdatedAt: null,
+        }
+      }
+    }))
     return augmented
   })
 
