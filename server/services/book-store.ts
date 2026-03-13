@@ -98,6 +98,22 @@ export async function getBook(bookId: string): Promise<BookMeta> {
   return readYaml(join(bookDir(bookId), 'meta.yml'), BookMetaSchema)
 }
 
+/**
+ * Reset books stuck in transient generation states (generating_toc, generating)
+ * to 'failed'. Called once at server startup — if the server restarted mid-generation,
+ * the in-memory job is gone and these books will never complete on their own.
+ */
+export async function recoverStuckBooks(): Promise<void> {
+  const books = await listBooks()
+  const stuck = books.filter(b => b.status === 'generating_toc' || b.status === 'generating')
+  for (const book of stuck) {
+    console.warn(`[startup] Resetting stuck book "${book.id}" (${book.title}) from "${book.status}" to "failed"`)
+    book.status = 'failed'
+    book.updatedAt = new Date().toISOString()
+    await saveBook(book)
+  }
+}
+
 export async function saveBook(meta: BookMeta): Promise<void> {
   BookMetaSchema.parse(meta)
   const dir = bookDir(meta.id)
