@@ -8,7 +8,7 @@ import { useTextSelection } from '@src/hooks/useTextSelection'
 import { useSectionNavigation } from '@src/hooks/useSectionNavigation'
 import { useStreamingContent } from '@src/hooks/useStreamingContent'
 import { parseSSEStream } from '@src/lib/parse-sse-stream'
-import { store, useAppDispatch, useAppSelector, setPosition, setChapterFeedback, setChapterQuizResult, recordQuizAttempt, selectFontSize, selectReadingWidth, selectQuizLength, selectFunctionModel } from '@src/store'
+import { store, useAppDispatch, useAppSelector, setPosition, setChapterFeedback, setChapterQuizResult, recordQuizAttempt, selectFontSize, selectReadingWidth, selectQuizLength, selectFunctionModel, selectChatMessages } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
 import { cn } from '@src/lib/utils'
 import { SafeMarkdown } from '@src/components/SafeMarkdown'
@@ -36,6 +36,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
   const dispatch = useAppDispatch()
   const fontSize = useAppSelector(selectFontSize)
   const readingWidth = useAppSelector(selectReadingWidth)
+  const chatMessages = useAppSelector(selectChatMessages(book.id))
 
   const [phase, setPhase] = useState<Phase>('reading')
   const [generatedUpTo, setGeneratedUpTo] = useState(book.totalChapters)
@@ -167,12 +168,21 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
       setPendingChatAction({ text: selectedText, prompt })
       clearSelection()
     } else {
-      setChatSelectedText(selectedText)
-      setChatPrompt(prompt)
-      setChatOpen(true)
+      if (chatMessages.length > 0) {
+        // Existing chat — open panel and ask before replacing
+        setChatSelectedText('')
+        setChatPrompt(null)
+        setChatOpen(true)
+        setPendingChatAction({ text: selectedText, prompt })
+      } else {
+        // No history — open and send immediately
+        setChatSelectedText(selectedText)
+        setChatPrompt(prompt)
+        setChatOpen(true)
+      }
       clearSelection()
     }
-  }, [selectedText, clearSelection, chatOpen])
+  }, [selectedText, clearSelection, chatOpen, chatMessages.length])
 
   const handleConfirmNewChat = useCallback(() => {
     if (!pendingChatAction) return
