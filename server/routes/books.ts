@@ -215,7 +215,13 @@ const sanitizeFeedback = (s: string) => s.replace(/<\/?[^>]+>/g, '')
 
 export async function bookRoutes(fastify: FastifyInstance) {
   fastify.get('/api/books', async () => {
-    const books = await store.listBooks()
+    let books: Awaited<ReturnType<typeof store.listBooks>>
+    try {
+      books = await store.listBooks()
+    } catch (err) {
+      console.error('[GET /api/books] listBooks() failed:', err)
+      books = []
+    }
     const augmented = await Promise.all(books.map(async b => {
       try {
         return {

@@ -72,13 +72,13 @@ export async function startServer(port = 3147, host = '127.0.0.1') {
   await fastify.register(coverRoutes)
 
   // Global error handler — clean 404 for ENOENT, no path leak
-  fastify.setErrorHandler((error: Error & { code?: string; statusCode?: number }, _request, reply) => {
+  fastify.setErrorHandler((error: Error & { code?: string; statusCode?: number }, request, reply) => {
     if (error.code === 'ENOENT') {
       return reply.status(404).send({ error: 'Not found' })
     }
     const statusCode = error.statusCode ?? 500
     if (statusCode >= 500) {
-      fastify.log.error(error)
+      fastify.log.error({ err: error, req: { method: request.method, url: request.url } }, 'Unhandled server error')
       return reply.status(500).send({ error: 'Internal server error' })
     }
     reply.status(statusCode).send({
