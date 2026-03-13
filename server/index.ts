@@ -6,6 +6,7 @@ import { settingsRoutes } from './routes/settings.js'
 import { profileRoutes } from './routes/profile.js'
 import { taskRoutes } from './routes/tasks.js'
 import { coverRoutes } from './routes/covers.js'
+import { recoverStuckBooks } from './services/book-store.js'
 
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
@@ -88,6 +89,7 @@ export async function startServer(port = 3147, host = '127.0.0.1') {
 
   fastify.get('/api/health', async () => ({ status: 'ok' }))
 
+  await recoverStuckBooks()
   await fastify.listen({ port, host })
   return fastify
 }
