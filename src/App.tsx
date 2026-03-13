@@ -187,6 +187,8 @@ export default function App() {
           }))
           return [...serverBooks, ...generatingBooks]
         })
+      } else {
+        console.error('[fetchBooks] Server returned', res.status)
       }
     } catch {
       toast.error('Failed to load books — is the server running?')

@@ -86,8 +86,8 @@ export async function listBooks(): Promise<BookMeta[]> {
     try {
       const meta = await readYaml(metaPath, BookMetaSchema)
       books.push(meta)
-    } catch {
-      // Skip invalid books
+    } catch (err) {
+      console.error(`[listBooks] Failed to load book "${entry.name}":`, err)
     }
   }
 
