@@ -23,7 +23,7 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
   const hasApiKey = useAppSelector(selectHasApiKey)
   const { provider, model } = useAppSelector(selectFunctionModel('chat'))
   const persistedMessages = useAppSelector(selectChatMessages(bookId))
-  const { messages, isStreaming, sendMessage, restartChat, clearMessages } = useStreamingChat({
+  const { messages, isStreaming, sendMessage, restartChat } = useStreamingChat({
     model,
     provider,
     chapterContent,
