@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { toast } from 'sonner'
-import { useAppDispatch } from '@src/store'
+import { store, useAppDispatch } from '@src/store'
 import { taskCreated, taskProgressUpdated, taskCompleted, taskFailed, taskCancelled } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
 
@@ -23,9 +23,10 @@ function taskErrorMessage(taskType?: string, error?: string): string {
 
 interface UseBackgroundTasksOptions {
   onCoverGenerated?: () => void
+  onEpubExported?: (bookId: string, bookTitle: string) => void
 }
 
-export function useBackgroundTasks({ onCoverGenerated }: UseBackgroundTasksOptions = {}) {
+export function useBackgroundTasks({ onCoverGenerated, onEpubExported }: UseBackgroundTasksOptions = {}) {
   const dispatch = useAppDispatch()
 
   useEffect(() => {
@@ -49,6 +50,10 @@ export function useBackgroundTasks({ onCoverGenerated }: UseBackgroundTasksOptio
               dispatch(taskCompleted({ taskId: event.taskId, result: event.result }))
               toast.success(taskDoneMessage(event.taskType))
               if (event.taskType === 'generate-cover') onCoverGenerated?.()
+              if (event.taskType === 'generate-epub') {
+                const task = store.getState().backgroundTasks.tasks[event.taskId]
+                if (task) onEpubExported?.(task.bookId, task.bookTitle)
+              }
 
               break
             case 'task_error':
@@ -75,5 +80,5 @@ export function useBackgroundTasks({ onCoverGenerated }: UseBackgroundTasksOptio
       evtSource?.close()
       if (reconnectTimer) clearTimeout(reconnectTimer)
     }
-  }, [dispatch, onCoverGenerated])
+  }, [dispatch, onCoverGenerated, onEpubExported])
 }

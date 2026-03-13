@@ -197,8 +197,11 @@ export default function App() {
     fetchBooks()
   }, [fetchBooks])
 
-  // Connect to background task SSE stream — refresh library on cover generation
-  useBackgroundTasks({ onCoverGenerated: fetchBooks })
+  // Connect to background task SSE stream — refresh library on cover generation + auto-download EPUB
+  const handleEpubExported = useCallback((bookId: string, bookTitle: string) => {
+    downloadEpub({ id: bookId, title: bookTitle } as Book)
+  }, [])
+  useBackgroundTasks({ onCoverGenerated: fetchBooks, onEpubExported: handleEpubExported })
 
   const [pendingCoverPrompt, setPendingCoverPrompt] = useState<string | null>(null)
 
