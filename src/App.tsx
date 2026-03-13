@@ -241,6 +241,8 @@ export default function App() {
     const creatingBook = apiBooks.find(b => b.status === 'generating_toc' || b.status === 'generating')
     if (creatingBook) {
       fetch(apiUrl(`/api/books/${creatingBook.id}`), { method: 'DELETE' }).catch(() => {})
+      // Remove optimistic book immediately so it doesn't persist as a phantom
+      setApiBooks(prev => prev.filter(b => b.id !== creatingBook.id))
     }
     fetchBooks()
     setView({ type: 'library' })

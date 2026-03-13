@@ -1,4 +1,4 @@
-import { Loader2 } from 'lucide-react'
+import { AlertTriangle, Loader2 } from 'lucide-react'
 import { NoiseOverlay } from '@src/components/NoiseOverlay'
 import { StarRating } from '@src/components/StarRating'
 
@@ -29,6 +29,7 @@ export function BookCard({ title, subtitle, chaptersRead, totalChapters, status,
   const hue = stringToHue(title)
   const progress = totalChapters > 0 ? chaptersRead / totalChapters : 0
   const isGenerating = status === 'generating_toc' || status === 'generating'
+  const isFailed = status === 'failed'
 
   return (
     <div className={`group ${isGenerating ? 'cursor-default' : 'cursor-pointer'}`} onClick={isGenerating ? undefined : onClick} onContextMenu={isGenerating ? undefined : onContextMenu}>
@@ -81,7 +82,16 @@ export function BookCard({ title, subtitle, chaptersRead, totalChapters, status,
             <div className="absolute inset-x-3 bottom-3 flex items-center justify-center gap-1.5 rounded-full bg-black/50 px-3 py-1 backdrop-blur-sm">
               <Loader2 className="size-3 animate-spin text-white/80" />
               <span className="text-xs font-medium text-white/80">
-                {status === 'generating_toc' ? 'Generating...' : 'Generating...'}
+                Generating...
+              </span>
+            </div>
+          )}
+          {/* Failed badge */}
+          {isFailed && (
+            <div className="absolute inset-x-3 bottom-3 flex items-center justify-center gap-1.5 rounded-full bg-red-900/60 px-3 py-1 backdrop-blur-sm">
+              <AlertTriangle className="size-3 text-red-300" />
+              <span className="text-xs font-medium text-red-200">
+                Failed
               </span>
             </div>
           )}

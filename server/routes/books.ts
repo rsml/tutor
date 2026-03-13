@@ -873,11 +873,21 @@ Write this chapter now.`,
 
       send({ type: 'done', bookId, title, totalChapters: chapters.length })
     } catch (error) {
-      // Clean up the early-persisted book on failure
-      try { await store.deleteBook(bookId) } catch { /* ignore */ }
+      const errorMessage = error instanceof Error ? error.message : 'Generation failed'
+      console.error(`[POST /api/books] Book "${bookId}" generation failed:`, error)
+      // Mark as failed instead of deleting — preserves any partial content
+      try {
+        const meta = await store.getBook(bookId)
+        meta.status = 'failed'
+        meta.updatedAt = new Date().toISOString()
+        await store.saveBook(meta)
+      } catch {
+        // If we can't even update the status, delete as last resort
+        try { await store.deleteBook(bookId) } catch { /* ignore */ }
+      }
       send({
         type: 'error',
-        message: error instanceof Error ? error.message : 'Generation failed',
+        message: errorMessage,
       })
     }
 

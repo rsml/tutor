@@ -77,6 +77,7 @@ export const BookStatusSchema = z.enum([
   'generating',
   'reading',
   'complete',
+  'failed',
 ])
 
 export type BookStatus = z.infer<typeof BookStatusSchema>
