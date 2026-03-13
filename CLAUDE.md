@@ -1,6 +1,6 @@
 # AI Books — Adaptive Learning Library
 
-AI-generated books tailored to Ross's learning style. Books are generated chapter-by-chapter with a feedback loop: after each chapter, quiz questions and feedback shape how subsequent chapters are generated. The book literally rewrites itself based on how you're learning.
+AI-generated books tailored to your learning style. Books are generated chapter-by-chapter with a feedback loop: after each chapter, quiz questions and feedback shape how subsequent chapters are generated. The book literally rewrites itself based on how you're learning.
 
 ## How It Works
 
