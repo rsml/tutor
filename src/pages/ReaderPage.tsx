@@ -644,7 +644,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
                       <div className="reader-prose">
                         <SafeMarkdown>{currentSection.markdown}</SafeMarkdown>
                       </div>
-                      {(isLastSectionOfLastGenerated || isLastSectionOfBook) && (
+                      {(isLastSectionOfLastGenerated || isLastSectionOfBook) ? (
                         <div className="mt-12 flex justify-center">
                           <Button
                             size="lg"
@@ -653,6 +653,21 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
                           >
                             {isLastSectionOfBook ? 'Finish Book' : 'Next Chapter'}
                           </Button>
+                        </div>
+                      ) : (hasPrev || hasNext) && (
+                        <div className="mt-12 flex justify-between">
+                          {hasPrev ? (
+                            <Button variant="ghost" onClick={goPrev}>
+                              <ChevronLeft className="size-4" />
+                              Previous
+                            </Button>
+                          ) : <div />}
+                          {hasNext ? (
+                            <Button variant="ghost" onClick={goNext}>
+                              Next
+                              <ChevronRight className="size-4" />
+                            </Button>
+                          ) : <div />}
                         </div>
                       )}
                     </>
