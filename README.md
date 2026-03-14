@@ -82,7 +82,7 @@ Set your Claude, ChatGPT or Gemini API key in Settings (gear icon) on first laun
 | UI | shadcn/ui + Tailwind CSS v4 |
 | State | Redux Toolkit |
 | Backend | Fastify |
-| AI | Vercel AI SDK + Anthropic |
+| AI | Vercel AI SDK |
 | Storage | Filesystem (Markdown + YAML) |
 | Desktop | Electron (via vite-plugin-electron) |
 | Testing | Vitest |
@@ -91,7 +91,7 @@ Set your Claude, ChatGPT or Gemini API key in Settings (gear icon) on first laun
 
 - **Filesystem storage** — Chapters are Markdown files, metadata is YAML. No database.
 - **Fastify backend** — REST API with an in-memory generation queue for background chapter generation
-- **React frontend** — Redux state, react-markdown rendering, scroll-based progress tracking
+- **React frontend** — Redux state, react-markdown rendering
 - **Electron shell** — Custom window chrome, system dark mode, native packaging (DMG)
 
 ## License
