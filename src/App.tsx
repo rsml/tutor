@@ -61,6 +61,7 @@ type View =
 export default function App() {
   const [view, setView] = useState<View>({ type: 'library' })
   const [apiBooks, setApiBooks] = useState<Book[]>([])
+  const [hasLoaded, setHasLoaded] = useState(false)
   const [wizardOpen, setWizardOpen] = useState(false)
   const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ book: Book; x: number; y: number } | null>(null)
@@ -187,10 +188,13 @@ export default function App() {
           }))
           return [...serverBooks, ...generatingBooks]
         })
+        setHasLoaded(true)
       } else {
         console.error('[fetchBooks] Server returned', res.status)
+        setHasLoaded(true)
       }
     } catch {
+      setHasLoaded(true)
       toast.error('Failed to load books — is the server running?')
     }
   }, [])
@@ -536,7 +540,7 @@ export default function App() {
       {/* Library grid */}
       <main className="flex-1 overflow-y-auto px-8 py-8" style={{ fontSize: `${fontSize}px` }}>
         <div className="mx-auto max-w-7xl">
-          {allBooks.length === 0 ? (
+          {hasLoaded && allBooks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-32 text-center">
               <BookOpen className="size-12 text-content-faint" />
               <h2 className="mt-4 text-lg font-semibold text-content-primary">No books yet</h2>
