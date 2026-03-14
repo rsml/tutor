@@ -65,7 +65,7 @@
     "json-schema-ref-resolver": "^3.0.0",
     "katex": "^0.16.37",
     "lucide-react": "^0.577.0",
-    "mermaid": "^11.12.3",
+    "mermaid": "^11.13.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-hook-form": "^7.71.2",
