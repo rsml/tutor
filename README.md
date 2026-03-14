@@ -4,7 +4,10 @@
 
 Pick any topic. Tutor generates a book for you chapter by chapter — then adapts each new chapter based on your feedback and quiz performance. The books literally write itself around how you learn.
 
-![Tutor library](docs/screenshots/library.png)
+<p align="center">
+  <img src="docs/screenshots/library.png" alt="Library" width="49%">
+  <img src="docs/screenshots/new-book.png" alt="New Book" width="49%">
+</p>
 
 ## How It Works
 
