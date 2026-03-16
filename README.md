@@ -35,7 +35,7 @@ After each chapter, take a quick quiz to reinforce retention. Then tell Tutor wh
 
 ### 4. Adapt
 
-The next chapter is generates on-demand, incorporating your written feedback, quiz results, and your accumulated "Learning Profile". Each chapter is shaped by everything that came before it.
+The next chapter generates on-demand, incorporating your written feedback, quiz results, and your accumulated "Learning Profile". Each chapter is shaped by everything that came before it. You can also right-click any book to generate the entire book at once.
 
 ## Features
 
