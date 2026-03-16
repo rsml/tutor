@@ -841,7 +841,7 @@ Use markdown formatting:
 - Bullet/numbered lists where appropriate
 - Code blocks with language tags where relevant
 - > blockquotes for key insights or memorable takeaways
-- If you include mermaid diagrams, do NOT add style, classDef, or class directives for colors — the app applies its own theme automatically
+- If you include mermaid diagrams, do NOT add style, classDef, or class directives for colors — the app applies its own theme automatically. ALWAYS wrap node labels in double quotes (e.g., \`A["My Label"]\` not \`A[My Label]\`)
 
 Write in a conversational but knowledgeable tone. Use concrete examples and real-world analogies. Make complex ideas accessible without being condescending.
 ${profileContext ? `\nReader profile:\n${profileContext}\n` : ''}`,
