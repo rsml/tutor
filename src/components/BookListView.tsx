@@ -39,7 +39,7 @@ export function BookListView({ items, onBookClick, onSeriesClick, onContextMenu,
   return (
     <div className="w-full">
       {/* Column headers — sticky, breaks out of parent padding to cover full scroll area */}
-      <div className="sticky top-0 z-10 -mx-8 -mt-8 pt-8 bg-surface-base">
+      <div className="sticky top-0 z-10 -mx-8 bg-surface-base">
         <div className="flex items-center gap-4 px-12 py-1 border-b border-border-default/30 text-[11px] font-medium uppercase tracking-wider text-content-faint select-none">
           <div className="flex-[2] min-w-0">Title</div>
           <div className="w-[160px] shrink-0">Tags</div>
