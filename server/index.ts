@@ -64,6 +64,32 @@ export async function startServer(port = 3147, host = '127.0.0.1') {
     }
   })
 
+  // Mermaid renderer — Electron sets this to a BrowserWindow-based renderer.
+  // Falls back to kroki.io API for standalone/dev server mode.
+  fastify.decorate('mermaidRenderer', (async (charts: string[]) => {
+    const results: string[] = []
+    for (const chart of charts) {
+      try {
+        const res = await fetch('https://kroki.io/mermaid/svg', {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: chart,
+          signal: AbortSignal.timeout(30_000),
+        })
+        if (res.ok) {
+          results.push(await res.text())
+        } else {
+          console.warn(`[mermaid-renderer] kroki.io returned ${res.status}: ${await res.text().catch(() => '')}`)
+          results.push('')
+        }
+      } catch (err) {
+        console.warn('[mermaid-renderer] kroki.io fallback failed:', err)
+        results.push('')
+      }
+    }
+    return results
+  }) as (charts: string[]) => Promise<string[]>)
+
   await fastify.register(rateLimit, { global: false })
 
   await fastify.register(chatRoutes)

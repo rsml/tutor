@@ -7,7 +7,6 @@ import * as store from '../services/book-store.js'
 import { createModelClient } from '../services/model-client.js'
 import * as genManager from '../services/generation-manager.js'
 import * as taskManager from '../services/task-manager.js'
-import { renderMermaidCharts } from '../services/mermaid-renderer.js'
 import {
   CreateBookBodySchema,
   FeedbackBodySchema,
@@ -1240,7 +1239,14 @@ ${skillProgressContext || 'No skill mastery data yet.'}
           let allMermaidSvgs: string[] = []
           if (allMermaidSources.length > 0) {
             taskManager.updateProgress(task.id, meta.totalChapters, `Rendering ${allMermaidSources.length} diagram(s)...`)
-            allMermaidSvgs = await renderMermaidCharts(allMermaidSources)
+            const renderer = (fastify as unknown as { mermaidRenderer: ((charts: string[]) => Promise<string[]>) | null }).mermaidRenderer
+            if (renderer) {
+              try {
+                allMermaidSvgs = await renderer(allMermaidSources)
+              } catch (err) {
+                console.error('[mermaid-renderer] Batch render failed:', err)
+              }
+            }
           }
 
           if (task.abortController.signal.aborted) return
