@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, useDeferredValue } from 'react'
 import { toast } from 'sonner'
-import { Plus, BookOpen } from 'lucide-react'
+import { Plus, BookOpen, X } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
+import { Badge } from '@src/components/ui/badge'
 import {
   Dialog,
   DialogContent,
@@ -27,7 +28,7 @@ import { ReviewProgressPage } from '@src/pages/ReviewProgressPage'
 import { SkillDetailPage } from '@src/pages/SkillDetailPage'
 import { ProfileUpdatePage } from '@src/pages/ProfileUpdatePage'
 import { useBackgroundTasks } from '@src/hooks/useBackgroundTasks'
-import { store, useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize, selectLibraryFilters, selectFunctionModel } from '@src/store'
+import { store, useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize, selectLibraryFilters, selectLibrarySort, clearLibraryFilters, setLibraryFilters, selectFunctionModel, DEFAULT_LIBRARY_FILTERS } from '@src/store'
 import { PROVIDER_IDS } from '@src/lib/providers'
 import { apiUrl } from '@src/lib/api-base'
 
@@ -83,11 +84,12 @@ export default function App() {
   const [fullSearch, setFullSearch] = useState(false)
   const deferredSearch = useDeferredValue(searchQuery)
   const furthest = useAppSelector(s => s.readingProgress.furthest)
+  const readingPositions = useAppSelector(s => s.readingProgress.positions)
   const dispatch = useAppDispatch()
   const hasApiKey = useAppSelector(selectHasApiKey)
   const fontSize = useAppSelector(selectFontSize)
   const libraryFilters = useAppSelector(selectLibraryFilters)
-  const libraryTab = libraryFilters.status
+  const librarySort = useAppSelector(selectLibrarySort)
   const { provider: genProvider, model: genModel } = useAppSelector(selectFunctionModel('generation'))
   const { provider: quizProvider, model: quizModel } = useAppSelector(selectFunctionModel('quiz'))
 
@@ -399,21 +401,51 @@ export default function App() {
     return 'not-started'
   }, [furthest])
 
+  // Compute allTags from all books
+  const allTags = useMemo(() => {
+    const tagSet = new Set<string>()
+    for (const book of allBooks) {
+      for (const tag of book.tags) tagSet.add(tag)
+    }
+    return [...tagSet].sort()
+  }, [allBooks])
+
   const { filteredBooks, searchResultCount } = useMemo(() => {
-    const classOrder = { 'in-progress': 0, 'not-started': 1, 'finished': 2 } as const
     const bookClasses = new Map(allBooks.map(b => [b.id, classifyBook(b)]))
 
-    // Sort: in-progress first, then not-started, then finished
-    const sorted = [...allBooks].sort((a, b) => {
-      return classOrder[bookClasses.get(a.id)!] - classOrder[bookClasses.get(b.id)!]
-    })
+    // --- Filter logic ---
+    let filtered = [...allBooks]
 
-    let filtered = libraryTab === 'all'
-      ? sorted
-      : sorted.filter(b => bookClasses.get(b.id) === libraryTab)
+    // Status filter
+    if (libraryFilters.status !== 'all') {
+      filtered = filtered.filter(b => bookClasses.get(b.id) === libraryFilters.status)
+    }
+
+    // Tags filter (OR logic)
+    if (libraryFilters.tags.length > 0) {
+      filtered = filtered.filter(b =>
+        b.tags.some(tag => libraryFilters.tags.includes(tag))
+      )
+    }
+
+    // Rating filter
+    if (libraryFilters.ratingMin != null) {
+      filtered = filtered.filter(b =>
+        (b.rating ?? 0) >= libraryFilters.ratingMin!
+      )
+    }
+
+    // Date preset filter
+    if (libraryFilters.datePreset !== 'any') {
+      const now = Date.now()
+      const days = libraryFilters.datePreset === 'week' ? 7
+        : libraryFilters.datePreset === 'month' ? 30
+        : 90 // 3months
+      const cutoff = now - days * 24 * 60 * 60 * 1000
+      filtered = filtered.filter(b => new Date(b.createdAt).getTime() >= cutoff)
+    }
 
     // Client-side search filtering (title + subtitle)
-    // TODO: Implement server-side full-text search when fullSearch is enabled
     const query = deferredSearch.trim().toLowerCase()
     if (query) {
       filtered = filtered.filter(b =>
@@ -422,11 +454,153 @@ export default function App() {
       )
     }
 
-    return {
-      filteredBooks: filtered,
-      searchResultCount: query ? filtered.length : undefined,
+    // --- Sort logic ---
+    const dir = librarySort.direction === 'asc' ? 1 : -1
+
+    const compareFn = (a: Book, b: Book): number => {
+      switch (librarySort.field) {
+        case 'date':
+          return dir * (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0)
+        case 'title':
+          return dir * a.title.localeCompare(b.title)
+        case 'rating': {
+          const ra = a.rating ?? -1
+          const rb = b.rating ?? -1
+          // Unrated goes last regardless of direction
+          if (ra < 0 && rb >= 0) return 1
+          if (rb < 0 && ra >= 0) return -1
+          return dir * (ra - rb)
+        }
+        case 'progress': {
+          const pa = a.totalChapters > 0
+            ? ((furthest[a.id] != null ? furthest[a.id] + 1 : a.chaptersRead) / a.totalChapters)
+            : 0
+          const pb = b.totalChapters > 0
+            ? ((furthest[b.id] != null ? furthest[b.id] + 1 : b.chaptersRead) / b.totalChapters)
+            : 0
+          return dir * (pa - pb)
+        }
+        case 'recent': {
+          const la = readingPositions[a.id]?.lastReadAt ?? ''
+          const lb = readingPositions[b.id]?.lastReadAt ?? ''
+          // Never-read goes last regardless of direction
+          if (!la && lb) return 1
+          if (!lb && la) return -1
+          return dir * (la < lb ? -1 : la > lb ? 1 : 0)
+        }
+        case 'manual': {
+          const sa = a.sortOrder ?? Number.MAX_SAFE_INTEGER
+          const sb = b.sortOrder ?? Number.MAX_SAFE_INTEGER
+          // Undefined sortOrder goes last regardless of direction
+          if (sa === Number.MAX_SAFE_INTEGER && sb !== Number.MAX_SAFE_INTEGER) return 1
+          if (sb === Number.MAX_SAFE_INTEGER && sa !== Number.MAX_SAFE_INTEGER) return -1
+          return dir * (sa - sb)
+        }
+        default:
+          return 0
+      }
     }
-  }, [allBooks, libraryTab, classifyBook, deferredSearch])
+
+    // Group series books together: find lead book position, then insert series members adjacent
+    const seriesGroups = new Map<string, Book[]>()
+    const nonSeries: Book[] = []
+    for (const book of filtered) {
+      if (book.series) {
+        const group = seriesGroups.get(book.series) ?? []
+        group.push(book)
+        seriesGroups.set(book.series, group)
+      } else {
+        nonSeries.push(book)
+      }
+    }
+
+    // Sort non-series books
+    nonSeries.sort(compareFn)
+
+    // Sort within each series group by seriesOrder
+    for (const group of seriesGroups.values()) {
+      group.sort((a, b) => (a.seriesOrder ?? 0) - (b.seriesOrder ?? 0))
+    }
+
+    if (seriesGroups.size === 0) {
+      // No series — just return sorted
+      return {
+        filteredBooks: nonSeries,
+        searchResultCount: query ? nonSeries.length : undefined,
+      }
+    }
+
+    // Merge: for each series, find where its lead book would rank among nonSeries+leads
+    // Create a combined list of non-series books + lead books (first in series by seriesOrder)
+    const leads = new Map<string, Book>()
+    for (const [series, group] of seriesGroups) {
+      leads.set(series, group[0])
+    }
+
+    const allLeadsAndNonSeries = [...nonSeries, ...leads.values()]
+    allLeadsAndNonSeries.sort(compareFn)
+
+    // Now expand: replace each lead with the full series group
+    const sorted: Book[] = []
+    const insertedSeries = new Set<string>()
+    for (const book of allLeadsAndNonSeries) {
+      if (book.series && !insertedSeries.has(book.series)) {
+        insertedSeries.add(book.series)
+        sorted.push(...(seriesGroups.get(book.series) ?? [book]))
+      } else if (!book.series) {
+        sorted.push(book)
+      }
+    }
+
+    return {
+      filteredBooks: sorted,
+      searchResultCount: query ? sorted.length : undefined,
+    }
+  }, [allBooks, libraryFilters, librarySort, classifyBook, deferredSearch, furthest, readingPositions])
+
+  // Compute active filter chips for display
+  const activeFilterChips = useMemo(() => {
+    const chips: Array<{ key: string; label: string; onRemove: () => void }> = []
+    if (libraryFilters.status !== DEFAULT_LIBRARY_FILTERS.status) {
+      const labels: Record<string, string> = {
+        'in-progress': 'In Progress',
+        'not-started': 'Not Started',
+        'finished': 'Finished',
+      }
+      chips.push({
+        key: 'status',
+        label: `Status: ${labels[libraryFilters.status] ?? libraryFilters.status}`,
+        onRemove: () => dispatch(setLibraryFilters({ status: DEFAULT_LIBRARY_FILTERS.status })),
+      })
+    }
+    for (const tag of libraryFilters.tags) {
+      chips.push({
+        key: `tag-${tag}`,
+        label: `Tag: ${tag}`,
+        onRemove: () => dispatch(setLibraryFilters({ tags: libraryFilters.tags.filter(t => t !== tag) })),
+      })
+    }
+    if (libraryFilters.ratingMin != null) {
+      chips.push({
+        key: 'rating',
+        label: `Rating: ${'★'.repeat(libraryFilters.ratingMin)}${libraryFilters.ratingMin < 5 ? '+' : ''}`,
+        onRemove: () => dispatch(setLibraryFilters({ ratingMin: DEFAULT_LIBRARY_FILTERS.ratingMin })),
+      })
+    }
+    if (libraryFilters.datePreset !== DEFAULT_LIBRARY_FILTERS.datePreset) {
+      const labels: Record<string, string> = {
+        week: 'Last week',
+        month: 'Last month',
+        '3months': 'Last 3 months',
+      }
+      chips.push({
+        key: 'date',
+        label: `Created: ${labels[libraryFilters.datePreset] ?? libraryFilters.datePreset}`,
+        onRemove: () => dispatch(setLibraryFilters({ datePreset: DEFAULT_LIBRARY_FILTERS.datePreset })),
+      })
+    }
+    return chips
+  }, [libraryFilters, dispatch])
 
   if (view.type === 'creating') {
     return (
@@ -533,8 +707,33 @@ export default function App() {
           fullSearch={fullSearch}
           onFullSearchChange={setFullSearch}
           resultCount={searchResultCount}
-          onFilterClick={() => {/* TODO: Open filter popover (Phase 3) */}}
+          allTags={allTags}
         />
+      )}
+
+      {/* Filter chips row */}
+      {activeFilterChips.length > 0 && (
+        <div className="border-b border-border-default/50 bg-surface-base/90 px-8">
+          <div className="mx-auto max-w-7xl flex items-center gap-2 py-2 flex-wrap">
+            {activeFilterChips.map(chip => (
+              <Badge key={chip.key} variant="secondary" className="gap-1 pr-1">
+                <span className="text-xs">{chip.label}</span>
+                <button
+                  onClick={chip.onRemove}
+                  className="ml-0.5 rounded-full p-0.5 hover:bg-foreground/10 transition-colors"
+                >
+                  <X className="size-3" />
+                </button>
+              </Badge>
+            ))}
+            <button
+              onClick={() => dispatch(clearLibraryFilters())}
+              className="text-xs text-content-muted hover:text-content-primary transition-colors ml-1"
+            >
+              Clear all
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Library grid */}

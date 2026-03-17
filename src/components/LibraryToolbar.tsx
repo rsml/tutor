@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Search, X, SlidersHorizontal, ArrowUpDown, LayoutGrid, List, Calendar, Type, Star, BarChart3, Clock, GripVertical } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import { Input } from '@src/components/ui/input'
@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '@src/components/ui/dropdown-menu'
+import { FilterPopover } from '@src/components/FilterPopover'
 import {
   useAppSelector,
   useAppDispatch,
@@ -29,7 +30,7 @@ interface LibraryToolbarProps {
   fullSearch: boolean
   onFullSearchChange: (isFull: boolean) => void
   resultCount?: number
-  onFilterClick: () => void
+  allTags: string[]
 }
 
 const SORT_OPTIONS: Array<{ field: LibrarySort['field']; label: string; icon: typeof Calendar }> = [
@@ -47,12 +48,13 @@ export function LibraryToolbar({
   fullSearch,
   onFullSearchChange,
   resultCount,
-  onFilterClick,
+  allTags,
 }: LibraryToolbarProps) {
   const dispatch = useAppDispatch()
   const sort = useAppSelector(selectLibrarySort)
   const view = useAppSelector(selectLibraryView)
   const filters = useAppSelector(selectLibraryFilters)
+  const [filterOpen, setFilterOpen] = useState(false)
 
   const searchRef = useRef<HTMLInputElement>(null)
 
@@ -135,21 +137,22 @@ export function LibraryToolbar({
 
         {/* Right zone: Filter, Sort, View toggle */}
         <div className="flex items-center gap-1.5">
-          {/* Filter button (placeholder) */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onFilterClick}
-            className="relative gap-1.5"
-          >
-            <SlidersHorizontal className="size-3.5" />
-            Filter
-            {activeFilterCount > 0 && (
-              <Badge variant="default" className="ml-0.5 h-4 min-w-4 px-1 text-[10px]">
-                {activeFilterCount}
-              </Badge>
-            )}
-          </Button>
+          {/* Filter popover */}
+          <FilterPopover allTags={allTags} open={filterOpen} onOpenChange={setFilterOpen}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="relative gap-1.5"
+            >
+              <SlidersHorizontal className="size-3.5" />
+              Filter
+              {activeFilterCount > 0 && (
+                <Badge variant="default" className="ml-0.5 h-4 min-w-4 px-1 text-[10px]">
+                  {activeFilterCount}
+                </Badge>
+              )}
+            </Button>
+          </FilterPopover>
 
           {/* Sort dropdown */}
           <DropdownMenu>
