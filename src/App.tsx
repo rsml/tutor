@@ -26,7 +26,7 @@ import { ReviewProgressPage } from '@src/pages/ReviewProgressPage'
 import { SkillDetailPage } from '@src/pages/SkillDetailPage'
 import { ProfileUpdatePage } from '@src/pages/ProfileUpdatePage'
 import { useBackgroundTasks } from '@src/hooks/useBackgroundTasks'
-import { store, useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize, selectLibraryTab, setLibraryTab, selectFunctionModel } from '@src/store'
+import { store, useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize, selectLibraryFilters, setLibraryFilters, selectFunctionModel } from '@src/store'
 import { cn } from '@src/lib/utils'
 import { PROVIDER_IDS } from '@src/lib/providers'
 import { apiUrl } from '@src/lib/api-base'
@@ -83,7 +83,8 @@ export default function App() {
   const dispatch = useAppDispatch()
   const hasApiKey = useAppSelector(selectHasApiKey)
   const fontSize = useAppSelector(selectFontSize)
-  const libraryTab = useAppSelector(selectLibraryTab)
+  const libraryFilters = useAppSelector(selectLibraryFilters)
+  const libraryTab = libraryFilters.status
   const { provider: genProvider, model: genModel } = useAppSelector(selectFunctionModel('generation'))
   const { provider: quizProvider, model: quizModel } = useAppSelector(selectFunctionModel('quiz'))
 
@@ -412,7 +413,7 @@ export default function App() {
     for (const cls of bookClasses.values()) counts[cls]++
 
     return { sortedBooks: sorted, filteredBooks: filtered, tabCounts: counts }
-  }, [allBooks, libraryTab, classifyBook])
+  }, [allBooks, libraryTab, libraryFilters, classifyBook])
 
   if (view.type === 'creating') {
     return (
@@ -524,7 +525,7 @@ export default function App() {
               ] as const).map(([key, label]) => (
                 <button
                   key={key}
-                  onClick={() => dispatch(setLibraryTab(key))}
+                  onClick={() => dispatch(setLibraryFilters({ status: key }))}
                   className={cn(
                     'relative py-2.5 text-sm font-medium transition-colors',
                     libraryTab === key
