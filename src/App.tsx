@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useDeferredValue } from 'react'
 import { toast } from 'sonner'
 import { Plus, BookOpen } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
@@ -11,6 +11,7 @@ import {
   DialogFooter,
 } from '@src/components/ui/dialog'
 import { BookCard } from '@src/components/BookCard'
+import { LibraryToolbar } from '@src/components/LibraryToolbar'
 import { StarRating } from '@src/components/StarRating'
 import { NoiseOverlay } from '@src/components/NoiseOverlay'
 import { SettingsMenu } from '@src/components/SettingsMenu'
@@ -26,8 +27,7 @@ import { ReviewProgressPage } from '@src/pages/ReviewProgressPage'
 import { SkillDetailPage } from '@src/pages/SkillDetailPage'
 import { ProfileUpdatePage } from '@src/pages/ProfileUpdatePage'
 import { useBackgroundTasks } from '@src/hooks/useBackgroundTasks'
-import { store, useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize, selectLibraryFilters, setLibraryFilters, selectFunctionModel } from '@src/store'
-import { cn } from '@src/lib/utils'
+import { store, useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize, selectLibraryFilters, selectFunctionModel } from '@src/store'
 import { PROVIDER_IDS } from '@src/lib/providers'
 import { apiUrl } from '@src/lib/api-base'
 
@@ -79,6 +79,9 @@ export default function App() {
   const [generateAllModal, setGenerateAllModal] = useState<{ taskId: string; book: Book } | null>(null)
   const [mutating, setMutating] = useState(false)
   const [serverAvailable, setServerAvailable] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [fullSearch, setFullSearch] = useState(false)
+  const deferredSearch = useDeferredValue(searchQuery)
   const furthest = useAppSelector(s => s.readingProgress.furthest)
   const dispatch = useAppDispatch()
   const hasApiKey = useAppSelector(selectHasApiKey)
@@ -396,7 +399,7 @@ export default function App() {
     return 'not-started'
   }, [furthest])
 
-  const { sortedBooks, filteredBooks, tabCounts } = useMemo(() => {
+  const { filteredBooks, searchResultCount } = useMemo(() => {
     const classOrder = { 'in-progress': 0, 'not-started': 1, 'finished': 2 } as const
     const bookClasses = new Map(allBooks.map(b => [b.id, classifyBook(b)]))
 
@@ -405,15 +408,25 @@ export default function App() {
       return classOrder[bookClasses.get(a.id)!] - classOrder[bookClasses.get(b.id)!]
     })
 
-    const filtered = libraryTab === 'all'
+    let filtered = libraryTab === 'all'
       ? sorted
       : sorted.filter(b => bookClasses.get(b.id) === libraryTab)
 
-    const counts = { all: allBooks.length, 'in-progress': 0, 'not-started': 0, finished: 0 }
-    for (const cls of bookClasses.values()) counts[cls]++
+    // Client-side search filtering (title + subtitle)
+    // TODO: Implement server-side full-text search when fullSearch is enabled
+    const query = deferredSearch.trim().toLowerCase()
+    if (query) {
+      filtered = filtered.filter(b =>
+        b.title.toLowerCase().includes(query) ||
+        (b.subtitle?.toLowerCase().includes(query) ?? false)
+      )
+    }
 
-    return { sortedBooks: sorted, filteredBooks: filtered, tabCounts: counts }
-  }, [allBooks, libraryTab, classifyBook])
+    return {
+      filteredBooks: filtered,
+      searchResultCount: query ? filtered.length : undefined,
+    }
+  }, [allBooks, libraryTab, classifyBook, deferredSearch])
 
   if (view.type === 'creating') {
     return (
@@ -512,44 +525,16 @@ export default function App() {
         </div>
       </header>
 
-      {/* Filter tabs */}
+      {/* Library toolbar */}
       {allBooks.length > 0 && (
-        <div className="border-b border-border-default/50 bg-surface-base/90 backdrop-blur-sm px-8">
-          <div className="mx-auto max-w-7xl">
-            <nav className="flex gap-6">
-              {([
-                ['all', 'All'],
-                ['in-progress', 'In Progress'],
-                ['not-started', 'Not Started'],
-                ['finished', 'Finished'],
-              ] as const).map(([key, label]) => (
-                <button
-                  key={key}
-                  onClick={() => dispatch(setLibraryFilters({ status: key }))}
-                  className={cn(
-                    'relative py-2.5 text-sm font-medium transition-colors',
-                    libraryTab === key
-                      ? 'text-content-primary'
-                      : 'text-content-muted hover:text-content-primary',
-                  )}
-                >
-                  {label}
-                  {tabCounts[key] > 0 && (
-                    <span className={cn(
-                      'ml-1.5 text-xs',
-                      libraryTab === key ? 'text-content-muted' : 'text-content-faint',
-                    )}>
-                      {tabCounts[key]}
-                    </span>
-                  )}
-                  {libraryTab === key && (
-                    <span className="absolute inset-x-0 -bottom-px h-0.5 bg-content-primary rounded-full" />
-                  )}
-                </button>
-              ))}
-            </nav>
-          </div>
-        </div>
+        <LibraryToolbar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          fullSearch={fullSearch}
+          onFullSearchChange={setFullSearch}
+          resultCount={searchResultCount}
+          onFilterClick={() => {/* TODO: Open filter popover (Phase 3) */}}
+        />
       )}
 
       {/* Library grid */}
@@ -572,7 +557,9 @@ export default function App() {
           ) : filteredBooks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-32 text-center">
               <BookOpen className="size-12 text-content-faint" />
-              <p className="mt-4 text-sm text-content-muted">No books match this filter.</p>
+              <p className="mt-4 text-sm text-content-muted">
+                {deferredSearch ? 'No books match your search.' : 'No books match this filter.'}
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 lg:gap-8 xl:grid-cols-5">
