@@ -24,7 +24,7 @@ describe('markdownToHtml', () => {
     it('renders inline KaTeX with source preservation', async () => {
       const result = await markdownToHtml('Inline $E = mc^2$ here', { preserveSources: true })
       expect(result.html).toContain('class="katex"')
-      expect(result.html).toContain('data-tutor-type="katex-inline"')
+      expect(result.html).toContain('class="tutor-katex-inline"')
       expect(result.html).toContain('E = mc^2')
       expect(result.html).toContain('display:none')
     })
@@ -32,7 +32,7 @@ describe('markdownToHtml', () => {
     it('renders display KaTeX with source preservation', async () => {
       const result = await markdownToHtml('$$\n\\int_0^1 x^2 dx\n$$', { preserveSources: true })
       expect(result.html).toContain('class="katex"')
-      expect(result.html).toContain('data-tutor-type="katex-display"')
+      expect(result.html).toContain('class="tutor-katex-display"')
       expect(result.html).toContain('\\int_0^1 x^2 dx')
       expect(result.html).toContain('display:none')
     })

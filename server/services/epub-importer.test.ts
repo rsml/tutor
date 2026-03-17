@@ -6,15 +6,20 @@ import TurndownService from 'turndown'
 
 // Re-create the addTutorSourceRules logic inline since it's a private function.
 // This tests the same patterns the importer uses.
+//
+// Note: epub-gen-memory strips data-* attributes from XHTML output, so all
+// Tutor metadata uses class names for identification.
 function createTurndownWithTutorRules(): TurndownService {
   const turndown = new TurndownService({
     headingStyle: 'atx',
     codeBlockStyle: 'fenced',
   })
 
+  const hasClass = (node: Node, cls: string) =>
+    (node as HTMLElement).classList?.contains?.(cls) === true
+
   turndown.addRule('tutor-mermaid-source', {
-    filter: (node) =>
-      node.getAttribute?.('data-tutor-type') === 'mermaid',
+    filter: (node) => hasClass(node, 'tutor-mermaid-source'),
     replacement: (_content, node) => {
       const raw = (node as HTMLElement).textContent ?? ''
       return `\n\n\`\`\`mermaid\n${raw}\n\`\`\`\n\n`
@@ -22,8 +27,7 @@ function createTurndownWithTutorRules(): TurndownService {
   })
 
   turndown.addRule('tutor-katex-inline', {
-    filter: (node) =>
-      node.getAttribute?.('data-tutor-type') === 'katex-inline',
+    filter: (node) => hasClass(node, 'tutor-katex-inline'),
     replacement: (_content, node) => {
       const raw = (node as HTMLElement).textContent ?? ''
       return `$${raw}$`
@@ -31,8 +35,7 @@ function createTurndownWithTutorRules(): TurndownService {
   })
 
   turndown.addRule('tutor-katex-display', {
-    filter: (node) =>
-      node.getAttribute?.('data-tutor-type') === 'katex-display',
+    filter: (node) => hasClass(node, 'tutor-katex-display'),
     replacement: (_content, node) => {
       const raw = (node as HTMLElement).textContent ?? ''
       return `\n\n$$\n${raw}\n$$\n\n`
@@ -40,8 +43,7 @@ function createTurndownWithTutorRules(): TurndownService {
   })
 
   turndown.addRule('tutor-mermaid-rendered', {
-    filter: (node) =>
-      (node as HTMLElement).classList?.contains?.('tutor-mermaid-rendered') === true,
+    filter: (node) => hasClass(node, 'tutor-mermaid-rendered'),
     replacement: () => '',
   })
 
@@ -63,7 +65,7 @@ describe('Tutor EPUB source recovery rules', () => {
   it('recovers mermaid source from hidden div', () => {
     const html = `
       <div class="tutor-mermaid-rendered"><svg>diagram</svg></div>
-      <div data-tutor-type="mermaid" style="display:none">graph TD
+      <div class="tutor-mermaid-source" style="display:none">graph TD
   A["Start"] --&gt; B["End"]</div>
     `
     const md = turndown.turndown(html)
@@ -75,7 +77,7 @@ describe('Tutor EPUB source recovery rules', () => {
 
   it('recovers inline KaTeX source from hidden span', () => {
     const html = `
-      <p>The equation <span class="katex"><span class="katex-html">rendered</span></span><span data-tutor-type="katex-inline" style="display:none">E = mc^2</span> is famous.</p>
+      <p>The equation <span class="katex"><span class="katex-html">rendered</span></span><span class="tutor-katex-inline" style="display:none">E = mc^2</span> is famous.</p>
     `
     const md = turndown.turndown(html)
     expect(md).toContain('$E = mc^2$')
@@ -85,7 +87,7 @@ describe('Tutor EPUB source recovery rules', () => {
   it('recovers display KaTeX source from hidden div', () => {
     const html = `
       <div class="katex-display"><span class="katex">rendered</span></div>
-      <div data-tutor-type="katex-display" style="display:none">\\int_0^1 x^2 dx</div>
+      <div class="tutor-katex-display" style="display:none">\\int_0^1 x^2 dx</div>
     `
     const md = turndown.turndown(html)
     expect(md).toContain('$$')
@@ -102,7 +104,7 @@ describe('Tutor EPUB source recovery rules', () => {
   it('handles HTML entities in mermaid source', () => {
     const html = `
       <div class="tutor-mermaid-rendered"><svg>diagram</svg></div>
-      <div data-tutor-type="mermaid" style="display:none">graph TD
+      <div class="tutor-mermaid-source" style="display:none">graph TD
   A["Auth &amp; Access"] --&gt; B["Read &amp; Write"]</div>
     `
     const md = turndown.turndown(html)

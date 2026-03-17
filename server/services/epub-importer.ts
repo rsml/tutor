@@ -17,11 +17,13 @@ export interface EpubPreview {
   coverBase64?: string
 }
 
+type EPubInstance = InstanceType<typeof EPub>
+
 // Map to track temp file paths for cleanup
-const tmpPaths = new WeakMap<EPub, string>()
+const tmpPaths = new WeakMap<EPubInstance, string>()
 
 /** Write buffer to a temp file, parse with epub2, and clean up */
-async function parseEpub(buffer: Buffer): Promise<EPub> {
+async function parseEpub(buffer: Buffer): Promise<EPubInstance> {
   const tmpPath = join(tmpdir(), `tutor-epub-${randomUUID()}.epub`)
   await writeFile(tmpPath, buffer)
   try {
@@ -38,7 +40,7 @@ async function parseEpub(buffer: Buffer): Promise<EPub> {
   }
 }
 
-async function cleanupEpub(epub: EPub): Promise<void> {
+async function cleanupEpub(epub: EPubInstance): Promise<void> {
   const tmpPath = tmpPaths.get(epub)
   if (tmpPath) {
     tmpPaths.delete(epub)
@@ -47,7 +49,7 @@ async function cleanupEpub(epub: EPub): Promise<void> {
 }
 
 /** Extract cover image from epub if available */
-async function extractCover(epub: EPub): Promise<{ data: Buffer; mediaType: string } | null> {
+async function extractCover(epub: EPubInstance): Promise<{ data: Buffer; mediaType: string } | null> {
   try {
     const coverId = epub.metadata?.cover
     if (!coverId) return null
@@ -71,8 +73,13 @@ export async function previewEpub(buffer: Buffer): Promise<EpubPreview> {
     const title = epub.metadata?.title ?? 'Untitled'
     const subtitle = epub.metadata?.description || undefined
 
-    // Count chapters from the spine (flow)
-    const chapterCount = epub.flow?.length ?? 0
+    // Count chapters from the spine, excluding TOC/nav pages
+    const chapterCount = (epub.flow ?? []).filter((item: { id?: string; href?: string }) => {
+      if (!item.id) return false
+      const id = item.id.toLowerCase()
+      const href = (item.href ?? '').toLowerCase()
+      return id !== 'toc' && id !== 'nav' && !href.includes('toc.xhtml') && !href.includes('nav.xhtml')
+    }).length
 
     // Try to get cover
     const cover = await extractCover(epub)
@@ -94,7 +101,7 @@ export async function importEpub(
 ): Promise<BookMeta> {
   const epub = await parseEpub(buffer)
   try {
-    const title = epub.metadata?.title ?? 'Untitled'
+    const rawTitle = epub.metadata?.title ?? 'Untitled'
     const bookId = randomUUID()
     const now = new Date().toISOString()
 
@@ -113,14 +120,25 @@ export async function importEpub(
     // Extract chapters in spine order
     const chapterContents: string[] = []
     const tocChapters: Array<{ title: string; description: string }> = []
+    let bookLevelMeta: Record<string, unknown> = {}
 
     for (let i = 0; i < epub.flow.length; i++) {
       const spineItem = epub.flow[i]
       if (!spineItem.id) continue
 
       try {
-        const html = await epub.getChapterAsync(spineItem.id)
-        const markdown = turndown.turndown(html || '')
+        const rawHtml = await epub.getChapterAsync(spineItem.id)
+
+        // Skip TOC / navigation pages (epub generators include these in the spine)
+        if (isTocPage(spineItem, rawHtml || '')) continue
+
+        // Extract Tutor round-trip metadata before markdown conversion
+        const { description, bookMeta, html } = extractTutorMeta(rawHtml || '')
+        if (bookMeta && chapterContents.length === 0) {
+          bookLevelMeta = bookMeta
+        }
+
+        const markdown = turndown.turndown(html)
 
         // Only include chapters with meaningful content
         if (markdown.trim().length < 10) continue
@@ -128,12 +146,13 @@ export async function importEpub(
         chapterContents.push(markdown)
 
         // Find matching TOC entry for title
-        const tocEntry = epub.toc?.find((t) => t.id === spineItem.id)
-        const chapterTitle = tocEntry?.title || spineItem.title || `Chapter ${chapterContents.length}`
+        const tocEntry = epub.toc?.find((t: { id?: string }) => t.id === spineItem.id)
+        const rawTitle = tocEntry?.title || spineItem.title || `Chapter ${chapterContents.length}`
+        const chapterTitle = stripNumericPrefix(rawTitle)
 
         tocChapters.push({
           title: chapterTitle,
-          description: '',
+          description: description || '',
         })
       } catch {
         // Skip chapters that can't be read
@@ -144,10 +163,23 @@ export async function importEpub(
       throw new Error('No readable chapters found in EPUB')
     }
 
+    // Split title/subtitle: prefer embedded metadata, fall back to splitting "Title: Subtitle"
+    let title = rawTitle
+    let subtitle: string | undefined
+    if (typeof bookLevelMeta.subtitle === 'string') {
+      subtitle = bookLevelMeta.subtitle
+      // Strip the subtitle suffix the exporter appended to dc:title
+      const suffix = `: ${subtitle}`
+      if (title.endsWith(suffix)) {
+        title = title.slice(0, -suffix.length)
+      }
+    }
+
     // Create the book metadata
     const meta: BookMeta = {
       id: bookId,
       title,
+      ...(subtitle ? { subtitle } : {}),
       prompt: 'Imported from EPUB',
       status: 'reading',
       totalChapters: chapterContents.length,
@@ -155,6 +187,9 @@ export async function importEpub(
       createdAt: now,
       updatedAt: now,
       imported: true,
+      ...(typeof bookLevelMeta.showTitleOnCover === 'boolean'
+        ? { showTitleOnCover: bookLevelMeta.showTitleOnCover }
+        : {}),
       tags: options?.tags ?? [],
       ...(options?.series ? { series: options.series } : {}),
       ...(options?.seriesOrder ? { seriesOrder: options.seriesOrder } : {}),
@@ -183,16 +218,79 @@ export async function importEpub(
   }
 }
 
+/** Decode basic HTML entities. */
+function decodeHtmlEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+}
+
+/**
+ * Extract Tutor round-trip metadata embedded as hidden divs during export.
+ * Returns the extracted values and the HTML with those divs removed.
+ */
+function extractTutorMeta(html: string): {
+  description?: string
+  bookMeta?: Record<string, unknown>
+  html: string
+} {
+  let description: string | undefined
+  let bookMeta: Record<string, unknown> | undefined
+  let cleaned = html
+
+  const descRe = /<div[^>]*class="tutor-chapter-description"[^>]*>([\s\S]*?)<\/div>/
+  const descMatch = cleaned.match(descRe)
+  if (descMatch) {
+    description = decodeHtmlEntities(descMatch[1].trim())
+    cleaned = cleaned.replace(descMatch[0], '')
+  }
+
+  const metaRe = /<div[^>]*class="tutor-book-meta"[^>]*>([\s\S]*?)<\/div>/
+  const metaMatch = cleaned.match(metaRe)
+  if (metaMatch) {
+    try {
+      bookMeta = JSON.parse(decodeHtmlEntities(metaMatch[1].trim()))
+    } catch { /* not valid JSON — ignore */ }
+    cleaned = cleaned.replace(metaMatch[0], '')
+  }
+
+  return { description, bookMeta, html: cleaned }
+}
+
+/** Detect TOC / navigation pages that epub generators include in the spine. */
+function isTocPage(spineItem: { id?: string; href?: string }, html: string): boolean {
+  const id = spineItem.id?.toLowerCase() ?? ''
+  const href = spineItem.href?.toLowerCase() ?? ''
+  if (id === 'toc' || id === 'nav') return true
+  if (href.includes('toc.xhtml') || href.includes('nav.xhtml')) return true
+  // EPUB3 navigation document
+  if (html.includes('epub:type="toc"')) return true
+  return false
+}
+
+/** Strip leading numeric prefixes like "1. ", "01. " added by epub generators. */
+function stripNumericPrefix(title: string): string {
+  return title.replace(/^\d+\.\s+/, '')
+}
+
 /**
  * Add Turndown rules that recover raw mermaid/KaTeX source from Tutor-exported
- * hidden elements (`data-tutor-type`), reconstructing the original markdown.
+ * hidden elements (identified by class name), reconstructing the original markdown.
  * For non-Tutor EPUBs these rules simply never match.
+ *
+ * Note: epub-gen-memory strips data-* attributes from XHTML output, so all
+ * Tutor metadata uses class names for identification.
  */
 function addTutorSourceRules(turndown: TurndownService): void {
+  const hasClass = (node: Node, cls: string) =>
+    (node as HTMLElement).classList?.contains?.(cls) === true
+
   // Hidden mermaid source → ```mermaid code block
   turndown.addRule('tutor-mermaid-source', {
-    filter: (node) =>
-      node.getAttribute?.('data-tutor-type') === 'mermaid',
+    filter: (node) => hasClass(node, 'tutor-mermaid-source'),
     replacement: (_content, node) => {
       const raw = (node as HTMLElement).textContent ?? ''
       return `\n\n\`\`\`mermaid\n${raw}\n\`\`\`\n\n`
@@ -201,8 +299,7 @@ function addTutorSourceRules(turndown: TurndownService): void {
 
   // Hidden inline KaTeX source → $...$
   turndown.addRule('tutor-katex-inline', {
-    filter: (node) =>
-      node.getAttribute?.('data-tutor-type') === 'katex-inline',
+    filter: (node) => hasClass(node, 'tutor-katex-inline'),
     replacement: (_content, node) => {
       const raw = (node as HTMLElement).textContent ?? ''
       return `$${raw}$`
@@ -211,8 +308,7 @@ function addTutorSourceRules(turndown: TurndownService): void {
 
   // Hidden display KaTeX source → $$...$$
   turndown.addRule('tutor-katex-display', {
-    filter: (node) =>
-      node.getAttribute?.('data-tutor-type') === 'katex-display',
+    filter: (node) => hasClass(node, 'tutor-katex-display'),
     replacement: (_content, node) => {
       const raw = (node as HTMLElement).textContent ?? ''
       return `\n\n$$\n${raw}\n$$\n\n`
@@ -221,8 +317,7 @@ function addTutorSourceRules(turndown: TurndownService): void {
 
   // Remove rendered mermaid SVG containers (the source div handles reconstruction)
   turndown.addRule('tutor-mermaid-rendered', {
-    filter: (node) =>
-      (node as HTMLElement).classList?.contains?.('tutor-mermaid-rendered') === true,
+    filter: (node) => hasClass(node, 'tutor-mermaid-rendered'),
     replacement: () => '',
   })
 

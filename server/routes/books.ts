@@ -1246,23 +1246,25 @@ ${skillProgressContext || 'No skill mastery data yet.'}
 
           // Phase 3: Substitute mermaid SVGs into chapter HTML
           let svgIndex = 0
-          const chapters: Array<{ title: string; content: string }> = chapterResults.map(ch => {
+          const escHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+          const chapters: Array<{ title: string; content: string }> = chapterResults.map((ch, i) => {
             let html = ch.html
             for (const block of ch.mermaidBlocks) {
               const svg = allMermaidSvgs[svgIndex]
-              const escapedSource = block.source.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+              const escapedSource = escHtml(block.source)
 
               let renderedHtml: string
               if (svg && !svg.startsWith('<pre>')) {
                 // Successfully rendered — wrap in container + hidden source
                 renderedHtml =
                   `<div class="tutor-mermaid-rendered">${svg}</div>` +
-                  `<div class="tutor-mermaid-source" style="display:none" data-tutor-type="mermaid">${escapedSource}</div>`
+                  `<div class="tutor-mermaid-source" style="display:none">${escapedSource}</div>`
               } else {
                 // Fallback (no renderer or render failed) — keep code block + hidden source
                 renderedHtml =
                   `<pre><code class="language-mermaid">${escapedSource}</code></pre>` +
-                  `<div class="tutor-mermaid-source" style="display:none" data-tutor-type="mermaid">${escapedSource}</div>`
+                  `<div class="tutor-mermaid-source" style="display:none">${escapedSource}</div>`
               }
 
               // Replace the placeholder div with the rendered content
@@ -1272,8 +1274,25 @@ ${skillProgressContext || 'No skill mastery data yet.'}
               )
               svgIndex++
             }
+
+            // Embed chapter description for round-trip preservation
+            const desc = toc.chapters[i]?.description ?? ''
+            if (desc) {
+              html = `<div class="tutor-chapter-description" style="display:none">${escHtml(desc)}</div>\n` + html
+            }
+
             return { title: ch.title, content: html }
           })
+
+          // Embed book-level metadata in first chapter for round-trip preservation
+          if (chapters.length > 0) {
+            const tutorMeta: Record<string, unknown> = {}
+            if (meta.showTitleOnCover !== undefined) tutorMeta.showTitleOnCover = meta.showTitleOnCover
+            if (meta.subtitle) tutorMeta.subtitle = meta.subtitle
+            if (Object.keys(tutorMeta).length > 0) {
+              chapters[0].content = `<div class="tutor-book-meta" style="display:none">${escHtml(JSON.stringify(tutorMeta))}</div>\n` + chapters[0].content
+            }
+          }
 
           if (task.abortController.signal.aborted) return
 
@@ -1283,11 +1302,15 @@ ${skillProgressContext || 'No skill mastery data yet.'}
           const epubOptions: {
             title: string
             author: string
+            numberChaptersInTOC: boolean
+            prependChapterTitles: boolean
             cover?: string
             css?: string
           } = {
             title: meta.title + (meta.subtitle ? `: ${meta.subtitle}` : ''),
             author: 'Tutor',
+            numberChaptersInTOC: false,
+            prependChapterTitles: false,
           }
 
           // Inline KaTeX CSS if any chapter has math

@@ -56,7 +56,7 @@ function rehypePreserveKatexSources() {
 
       if (!texSource) return
 
-      const tutorType = isDisplayMath ? 'katex-display' : 'katex-inline'
+      const tutorClass = isDisplayMath ? 'tutor-katex-display' : 'tutor-katex-inline'
       const tag = isDisplayMath ? 'div' : 'span'
 
       // Insert a hidden element after the katex node with the raw source
@@ -64,7 +64,7 @@ function rehypePreserveKatexSources() {
         type: 'element',
         tagName: tag,
         properties: {
-          'data-tutor-type': tutorType,
+          className: [tutorClass],
           style: 'display:none',
         },
         children: [{ type: 'text', value: texSource }],
