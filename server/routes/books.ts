@@ -7,6 +7,7 @@ import * as store from '../services/book-store.js'
 import { createModelClient } from '../services/model-client.js'
 import * as genManager from '../services/generation-manager.js'
 import * as taskManager from '../services/task-manager.js'
+import { renderMermaidCharts } from '../services/mermaid-renderer.js'
 import {
   CreateBookBodySchema,
   FeedbackBodySchema,
@@ -1204,7 +1205,7 @@ ${skillProgressContext || 'No skill mastery data yet.'}
       ;(async () => {
         try {
           const { markdownToHtml } = await import('../services/markdown-html.js')
-          const { renderMermaidCharts } = await import('../services/mermaid-renderer.js')
+
           const epub = (await import('epub-gen-memory')).default
           const { readFile: readFileAsync2 } = await import('node:fs/promises')
           const { createRequire } = await import('node:module')
