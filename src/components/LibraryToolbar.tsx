@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Search, X, SlidersHorizontal, ArrowUpDown, LayoutGrid, List, Calendar, Type, Star, BarChart3, Clock, GripVertical } from 'lucide-react'
+import { Search, X, SlidersHorizontal, LayoutGrid, List, Calendar, Type, Star, BarChart3, Clock, GripVertical } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import { Input } from '@src/components/ui/input'
 import { Badge } from '@src/components/ui/badge'
@@ -58,6 +58,7 @@ export function LibraryToolbar({
   const [searchExpanded, setSearchExpanded] = useState(false)
 
   const searchRef = useRef<HTMLInputElement>(null)
+  const searchContainerRef = useRef<HTMLDivElement>(null)
 
   // Cmd+F focuses the search input
   useEffect(() => {
@@ -114,15 +115,17 @@ export function LibraryToolbar({
               <Search className="size-4" />
             </button>
           ) : (
-            <>
+            <div ref={searchContainerRef} className="flex items-center gap-2">
               <div className="relative group animate-in fade-in slide-in-from-left-2 duration-200">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-content-muted pointer-events-none" />
                 <Input
                   ref={searchRef}
                   value={searchQuery}
                   onChange={(e) => onSearchChange((e.target as HTMLInputElement).value)}
-                  onBlur={() => {
-                    if (!searchQuery) setSearchExpanded(false)
+                  onBlur={(e) => {
+                    if (!searchQuery && !searchContainerRef.current?.contains(e.relatedTarget as Node)) {
+                      setSearchExpanded(false)
+                    }
                   }}
                   placeholder="Search books..."
                   className="w-[280px] pl-8 pr-8 h-7 text-xs bg-surface-raised/50 border-border-default/50 transition-all duration-200"
@@ -157,7 +160,7 @@ export function LibraryToolbar({
                   {resultCount} {resultCount === 1 ? 'result' : 'results'}
                 </span>
               )}
-            </>
+            </div>
           )}
         </div>
 
@@ -185,7 +188,7 @@ export function LibraryToolbar({
             <DropdownMenuTrigger
               render={<Button variant="outline" size="sm" className="gap-1.5" />}
             >
-              <ArrowUpDown className="size-3.5" />
+              {(() => { const Icon = currentSortOption.icon; return <Icon className="size-3.5" /> })()}
               <span className="text-xs">{currentSortOption.label} {directionArrow}</span>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" sideOffset={4}>
