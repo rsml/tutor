@@ -52,7 +52,7 @@ function formatRelativeDate(dateStr: string): string {
   return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`
 }
 
-export function BookListRow({ book, chaptersRead, onClick, onContextMenu, nested }: BookListRowProps) {
+export function BookListRow({ book, chaptersRead, onClick, onContextMenu, nested: _nested }: BookListRowProps) {
   const progress = book.totalChapters > 0 ? chaptersRead / book.totalChapters : 0
   const isGenerating = book.status === 'generating_toc' || book.status === 'generating'
   const maxVisibleTags = 3
