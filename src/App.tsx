@@ -25,6 +25,7 @@ import { BackgroundTasksFooter } from '@src/components/BackgroundTasksFooter'
 import { EditTagsDialog } from '@src/components/EditTagsDialog'
 import { SetSeriesDialog } from '@src/components/SetSeriesDialog'
 import { SeriesStackCard } from '@src/components/SeriesStackCard'
+import { BookListView } from '@src/components/BookListView'
 import { SeriesView } from '@src/components/SeriesView'
 import { ReaderPage } from '@src/pages/ReaderPage'
 import { QuizReviewPage } from '@src/pages/QuizReviewPage'
@@ -32,7 +33,7 @@ import { ReviewProgressPage } from '@src/pages/ReviewProgressPage'
 import { SkillDetailPage } from '@src/pages/SkillDetailPage'
 import { ProfileUpdatePage } from '@src/pages/ProfileUpdatePage'
 import { useBackgroundTasks } from '@src/hooks/useBackgroundTasks'
-import { store, useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize, selectLibraryFilters, selectLibrarySort, clearLibraryFilters, setLibraryFilters, selectFunctionModel, DEFAULT_LIBRARY_FILTERS } from '@src/store'
+import { store, useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize, selectLibraryFilters, selectLibrarySort, selectLibraryView, clearLibraryFilters, setLibraryFilters, selectFunctionModel, DEFAULT_LIBRARY_FILTERS } from '@src/store'
 import { PROVIDER_IDS } from '@src/lib/providers'
 import { apiUrl } from '@src/lib/api-base'
 
@@ -97,6 +98,7 @@ export default function App() {
   const fontSize = useAppSelector(selectFontSize)
   const libraryFilters = useAppSelector(selectLibraryFilters)
   const librarySort = useAppSelector(selectLibrarySort)
+  const libraryView = useAppSelector(selectLibraryView)
   const { provider: genProvider, model: genModel } = useAppSelector(selectFunctionModel('generation'))
   const { provider: quizProvider, model: quizModel } = useAppSelector(selectFunctionModel('quiz'))
 
@@ -819,6 +821,54 @@ export default function App() {
                 {deferredSearch ? 'No books match your search.' : 'No books match this filter.'}
               </p>
             </div>
+          ) : libraryView === 'list' ? (
+            (() => {
+              // Build list items: group series, keep non-series as individual rows
+              const renderedSeries = new Set<string>()
+              const listItems: Array<
+                | { type: 'book'; book: Book; chaptersRead: number }
+                | { type: 'series'; seriesName: string; bookCount: number; books: Array<{ book: Book; chaptersRead: number }> }
+              > = []
+
+              for (const book of filteredBooks) {
+                if (book.series) {
+                  if (renderedSeries.has(book.series)) continue
+                  renderedSeries.add(book.series)
+
+                  const seriesBooks = filteredBooks.filter(b => b.series === book.series)
+                  listItems.push({
+                    type: 'series',
+                    seriesName: book.series,
+                    bookCount: seriesBooks.length,
+                    books: seriesBooks.map(b => {
+                      const rp = furthest[b.id]
+                      return { book: b, chaptersRead: rp != null ? rp + 1 : b.chaptersRead }
+                    }),
+                  })
+                } else {
+                  const rp = furthest[book.id]
+                  listItems.push({
+                    type: 'book',
+                    book,
+                    chaptersRead: rp != null ? rp + 1 : book.chaptersRead,
+                  })
+                }
+              }
+
+              return (
+                <BookListView
+                  items={listItems}
+                  onBookClick={(book) => setView({ type: 'reading', book })}
+                  onSeriesClick={(seriesName) => setView({ type: 'series', seriesName })}
+                  onContextMenu={(book, e) => {
+                    if (apiBookIds.has(book.id)) {
+                      e.preventDefault()
+                      setContextMenu({ book, x: e.clientX, y: e.clientY })
+                    }
+                  }}
+                />
+              )
+            })()
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 lg:gap-8 xl:grid-cols-5">
               {(() => {
