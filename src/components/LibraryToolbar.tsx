@@ -55,6 +55,7 @@ export function LibraryToolbar({
   const view = useAppSelector(selectLibraryView)
   const filters = useAppSelector(selectLibraryFilters)
   const [filterOpen, setFilterOpen] = useState(false)
+  const [searchExpanded, setSearchExpanded] = useState(false)
 
   const searchRef = useRef<HTMLInputElement>(null)
 
@@ -63,12 +64,16 @@ export function LibraryToolbar({
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
         e.preventDefault()
-        searchRef.current?.focus()
+        setSearchExpanded(true)
+        setTimeout(() => searchRef.current?.focus(), 100)
+      }
+      if (e.key === 'Escape' && searchExpanded && !searchQuery) {
+        setSearchExpanded(false)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [searchExpanded, searchQuery])
 
   // Count active filters (non-default values)
   const activeFilterCount = [
@@ -97,41 +102,62 @@ export function LibraryToolbar({
       <div className="mx-auto max-w-7xl flex items-center justify-between gap-4 py-2">
         {/* Left zone: Search */}
         <div className="flex items-center gap-2">
-          <div className="relative group">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-content-muted pointer-events-none" />
-            <Input
-              ref={searchRef}
-              value={searchQuery}
-              onChange={(e) => onSearchChange((e.target as HTMLInputElement).value)}
-              placeholder="Search books..."
-              className="w-[280px] pl-8 pr-8 h-7 text-xs bg-surface-raised/50 border-border-default/50 focus-visible:w-[360px] transition-all duration-200"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => onSearchChange('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-content-muted hover:text-content-primary transition-colors"
-              >
-                <X className="size-3.5" />
-              </button>
-            )}
-          </div>
+          {!searchExpanded ? (
+            <button
+              onClick={() => {
+                setSearchExpanded(true)
+                setTimeout(() => searchRef.current?.focus(), 100)
+              }}
+              className="flex items-center justify-center size-7 rounded-lg text-content-muted hover:text-content-primary hover:bg-surface-raised/50 transition-colors"
+              title="Search (⌘F)"
+            >
+              <Search className="size-4" />
+            </button>
+          ) : (
+            <>
+              <div className="relative group animate-in fade-in slide-in-from-left-2 duration-200">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-content-muted pointer-events-none" />
+                <Input
+                  ref={searchRef}
+                  value={searchQuery}
+                  onChange={(e) => onSearchChange((e.target as HTMLInputElement).value)}
+                  onBlur={() => {
+                    if (!searchQuery) setSearchExpanded(false)
+                  }}
+                  placeholder="Search books..."
+                  className="w-[280px] pl-8 pr-8 h-7 text-xs bg-surface-raised/50 border-border-default/50 transition-all duration-200"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => {
+                      onSearchChange('')
+                      setSearchExpanded(false)
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-content-muted hover:text-content-primary transition-colors"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                )}
+              </div>
 
-          {/* Full-text search toggle */}
-          <label className="flex items-center gap-1.5 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={fullSearch}
-              onChange={(e) => onFullSearchChange(e.target.checked)}
-              className="size-3.5 rounded border-border-default accent-[oklch(0.55_0.20_285)]"
-            />
-            <span className="text-xs text-content-muted whitespace-nowrap">Full</span>
-          </label>
+              {/* Full-text search toggle */}
+              <label className="flex items-center gap-1.5 cursor-pointer select-none animate-in fade-in duration-200">
+                <input
+                  type="checkbox"
+                  checked={fullSearch}
+                  onChange={(e) => onFullSearchChange(e.target.checked)}
+                  className="size-3.5 rounded border-border-default accent-[oklch(0.55_0.20_285)]"
+                />
+                <span className="text-xs text-content-muted whitespace-nowrap">Also search contents</span>
+              </label>
 
-          {/* Result count */}
-          {searchQuery && resultCount != null && (
-            <span className="text-xs text-content-muted whitespace-nowrap">
-              {resultCount} {resultCount === 1 ? 'result' : 'results'}
-            </span>
+              {/* Result count */}
+              {searchQuery && resultCount != null && (
+                <span className="text-xs text-content-muted whitespace-nowrap">
+                  {resultCount} {resultCount === 1 ? 'result' : 'results'}
+                </span>
+              )}
+            </>
           )}
         </div>
 

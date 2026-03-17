@@ -1,4 +1,5 @@
 import { NoiseOverlay } from '@src/components/NoiseOverlay'
+import { apiUrl } from '@src/lib/api-base'
 
 function stringToHue(str: string): number {
   let hash = 0
@@ -13,6 +14,7 @@ interface Book {
   title: string
   hasCover?: boolean
   coverUpdatedAt?: string | null
+  showTitleOnCover?: boolean
 }
 
 interface SeriesStackCardProps {
@@ -21,64 +23,86 @@ interface SeriesStackCardProps {
   chaptersRead: number
   totalChapters: number
   onClick: () => void
+  onContextMenu?: (e: React.MouseEvent) => void
 }
 
-export function SeriesStackCard({ seriesName, books, chaptersRead, totalChapters, onClick }: SeriesStackCardProps) {
+export function SeriesStackCard({ seriesName, books, chaptersRead, totalChapters, onClick, onContextMenu }: SeriesStackCardProps) {
   const hue = stringToHue(seriesName)
   const progress = totalChapters > 0 ? chaptersRead / totalChapters : 0
+  const bookCount = books.length
+
+  // Use the first book's cover if available
+  const coverBook = books.find(b => b.hasCover)
+  const coverUrl = coverBook ? apiUrl(`/api/books/${coverBook.id}/cover?v=${coverBook.coverUpdatedAt ?? ''}`) : undefined
 
   return (
-    <div className="group cursor-pointer" onClick={onClick}>
-      {/* Stack effect: two offset shadow layers behind the main card */}
+    <div className="group cursor-pointer" onClick={onClick} onContextMenu={onContextMenu}>
+      {/* Stack effect — offset cards behind the main card */}
       <div className="relative">
-        {/* Bottom shadow layer */}
-        <div
-          className="absolute inset-0 translate-x-2 translate-y-2 rounded-xl opacity-40"
-          style={{
-            background: `linear-gradient(145deg, oklch(0.35 0.12 ${hue + 20}), oklch(0.20 0.08 ${hue + 60}))`,
-            aspectRatio: '1/1.618',
-          }}
-        />
-        {/* Middle shadow layer */}
-        <div
-          className="absolute inset-0 translate-x-1 translate-y-1 rounded-xl opacity-60"
-          style={{
-            background: `linear-gradient(145deg, oklch(0.40 0.14 ${hue + 10}), oklch(0.22 0.10 ${hue + 55}))`,
-            aspectRatio: '1/1.618',
-          }}
-        />
+        {/* Back cards (only show if more than 1 book) */}
+        {bookCount > 1 && (
+          <>
+            {/* Third card (only for 3+) */}
+            {bookCount > 2 && (
+              <div
+                className="absolute top-1.5 -right-2.5 bottom-0 left-2.5 rounded-xl opacity-30"
+                style={{
+                  background: `linear-gradient(145deg, oklch(0.35 0.10 ${hue + 30}), oklch(0.20 0.06 ${hue + 60}))`,
+                  aspectRatio: '1/1.618',
+                }}
+              />
+            )}
+            {/* Second card */}
+            <div
+              className="absolute top-0.5 -right-1.5 bottom-0 left-1.5 rounded-xl opacity-50"
+              style={{
+                background: `linear-gradient(145deg, oklch(0.40 0.13 ${hue + 15}), oklch(0.22 0.08 ${hue + 55}))`,
+                aspectRatio: '1/1.618',
+              }}
+            />
+          </>
+        )}
 
         {/* Main card */}
         <div
           className="relative aspect-[1/1.618] overflow-hidden rounded-xl shadow-md transition-all duration-200 group-hover:scale-[1.02] group-hover:shadow-xl"
-          style={{
+          style={coverUrl ? undefined : {
             background: `linear-gradient(145deg, oklch(0.45 0.16 ${hue}), oklch(0.25 0.12 ${hue + 50}))`,
           }}
         >
           <div className="relative flex h-full flex-col items-center justify-center p-4">
-            <NoiseOverlay opacity={0.5} position="absolute" />
+            {coverUrl ? (
+              <>
+                <img
+                  src={coverUrl}
+                  alt={seriesName}
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/10" />
+                <div className="relative w-full px-2 text-center">
+                  <h3 className="text-[1.15em] leading-snug font-bold tracking-tight text-white [text-shadow:0_1px_3px_rgba(0,0,0,1),0_4px_12px_rgba(0,0,0,0.8)]">
+                    {seriesName}
+                  </h3>
+                  <p className="mt-2 text-[0.75em] text-white/70 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
+                    {bookCount} {bookCount === 1 ? 'book' : 'books'}
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <NoiseOverlay opacity={0.5} position="absolute" />
 
-            {/* Series icon */}
-            <div className="mb-3 flex items-center gap-1">
-              <div className="flex -space-x-1">
-                {[...Array(Math.min(books.length, 3))].map((_, i) => (
-                  <div
-                    key={i}
-                    className="h-4 w-3 rounded-sm border border-white/30 bg-white/15"
-                  />
-                ))}
-              </div>
-            </div>
+                {/* Series name */}
+                <h3 className="text-center text-[1.15em] leading-snug font-bold tracking-tight text-white/90">
+                  {seriesName}
+                </h3>
 
-            {/* Series name */}
-            <h3 className="text-center text-[1.15em] leading-snug font-bold tracking-tight text-white/90">
-              {seriesName}
-            </h3>
-
-            {/* Book count */}
-            <p className="mt-2 text-center text-[0.75em] text-white/60">
-              {books.length} {books.length === 1 ? 'book' : 'books'}
-            </p>
+                {/* Book count */}
+                <p className="mt-2 text-center text-[0.75em] text-white/60">
+                  {bookCount} {bookCount === 1 ? 'book' : 'books'}
+                </p>
+              </>
+            )}
 
             {/* Progress bar */}
             {progress > 0 && (

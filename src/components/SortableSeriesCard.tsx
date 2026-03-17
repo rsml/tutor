@@ -8,6 +8,7 @@ interface Book {
   title: string
   hasCover?: boolean
   coverUpdatedAt?: string | null
+  showTitleOnCover?: boolean
 }
 
 interface SortableSeriesCardProps {
@@ -17,6 +18,7 @@ interface SortableSeriesCardProps {
   chaptersRead: number
   totalChapters: number
   onClick: () => void
+  onContextMenu?: (e: React.MouseEvent) => void
 }
 
 export function SortableSeriesCard({ id, ...cardProps }: SortableSeriesCardProps) {
