@@ -42,16 +42,28 @@ Exports:
 - `setMermaidRenderer(fn: (charts: string[]) => Promise<string[]>): void` — called by `electron/main.ts` to inject the Electron-based renderer
 - `renderMermaidCharts(charts: string[]): Promise<string[]>` — returns SVG strings; falls back to empty array if no renderer is set (standalone server mode)
 
+#### Shared mermaid theme (`lib/mermaid-theme.ts`)
+
+The OKLCH palette, `themeCSS`, and `themeVariables` are currently defined inline in `src/components/MermaidDiagram.tsx` (~100 lines). Extract these into `lib/mermaid-theme.ts` — a shared module importable by both the frontend component and the Electron renderer. This avoids duplication and keeps the EPUB diagrams visually consistent with the in-app reader.
+
+#### Mermaid sanitization
+
+Before rendering, each chart source is passed through `sanitizeMermaidChart()` (from `src/lib/sanitize-mermaid.ts`) to strip `style`/`classDef`/`class` directives that would override the OKLCH theme. This is the same sanitization the frontend applies. Since the server-side renderer needs this, the function stays in `src/lib/` (already accessible to the server via the existing path aliases).
+
 #### Electron integration (`electron/main.ts`)
 
 After app ready, calls `setMermaidRenderer()` with a function that:
 1. Creates a hidden `BrowserWindow` (`show: false`, `offscreen: true`)
-2. Loads a minimal inline HTML page with mermaid initialized (same OKLCH dark-mode theme as `MermaidDiagram.tsx`)
-3. For each chart source, calls `webContents.executeJavaScript()` to run `mermaid.render(id, source)` and collect the SVG string
+2. Loads a minimal inline HTML page with mermaid initialized using the shared theme from `lib/mermaid-theme.ts`
+3. For each chart source, calls `webContents.executeJavaScript()` to run `mermaid.render(id, source)` and collect the SVG string. Each call has a 10-second timeout — if a chart hangs, it falls back to a raw `<pre><code>` block for that chart and continues with the rest.
 4. Closes the window
-5. Returns the array of SVG strings
+5. Returns the array of SVG strings (or fallback HTML for failed charts)
 
 The window is created once per export batch, reused for all charts, then destroyed.
+
+#### Per-chart error handling
+
+If an individual chart fails to render (invalid syntax, timeout, mermaid error), the renderer returns a fallback `<pre><code class="language-mermaid">` block for that chart — the same as the no-renderer case. The hidden source div is still emitted so round-trip import works regardless. The export continues; one bad chart does not abort the batch.
 
 #### Source preservation
 
@@ -73,7 +85,7 @@ When no renderer is registered (running `pnpm dev:server` outside Electron), mer
 
 ### Enhanced `markdownToHtml()`
 
-The function signature changes to support EPUB-specific behavior:
+The function uses overloaded signatures to maintain backward compatibility:
 
 ```ts
 interface MarkdownToHtmlResult {
@@ -81,13 +93,17 @@ interface MarkdownToHtmlResult {
   mermaidBlocks: Array<{ placeholder: string; source: string }>
 }
 
-function markdownToHtml(md: string, opts?: {
-  preserveSources?: boolean
+// Existing call sites — returns plain string, no behavior change
+function markdownToHtml(md: string): Promise<string>
+
+// EPUB export — returns result object with mermaid extraction
+function markdownToHtml(md: string, opts: {
+  preserveSources: true
 }): Promise<MarkdownToHtmlResult>
 ```
 
-- `preserveSources: false` (default) — current behavior, returns `{ html, mermaidBlocks: [] }`
-- `preserveSources: true` (EPUB export) — adds KaTeX source preservation divs, extracts mermaid code blocks as placeholders for external rendering, returns the mermaid sources for batch rendering
+- No options (default) — returns `Promise<string>` as today. KaTeX and mermaid are not processed. Existing call sites require zero changes.
+- `preserveSources: true` (EPUB export) — returns `Promise<MarkdownToHtmlResult>`. Adds remark-math + rehype-katex with source preservation divs, extracts mermaid code blocks as placeholders for external rendering.
 
 ### EPUB Export Pipeline Changes (`server/routes/books.ts`)
 
@@ -103,14 +119,20 @@ New flow:
 4. **Substitute** mermaid SVGs + hidden source divs back into each chapter's HTML
 5. **Assemble EPUB** with KaTeX CSS inlined at the book level
 
+### EPUB cache invalidation
+
+The current export route caches the EPUB at `books/{id}/book.epub` and returns it on subsequent requests. When the rendering pipeline changes (this feature), stale cached EPUBs would not include rendered diagrams/math. The EPUB export route already deletes the cached EPUB when a book's content changes (chapter regeneration). For the pipeline upgrade, no special cache invalidation is needed — users who want re-rendered EPUBs simply re-export (the POST endpoint already regenerates when no cache exists). If a cached EPUB exists and the user wants the new rendering, they delete and re-export via the UI.
+
 ### File Changes
 
 | File | Change |
 |------|--------|
-| `server/services/markdown-html.ts` | Add remark-math, rehype-katex, custom rehype plugins for source preservation + mermaid extraction |
-| `server/services/mermaid-renderer.ts` | **New.** Injectable mermaid rendering service |
+| `lib/mermaid-theme.ts` | **New.** Shared mermaid theme config (extracted from `MermaidDiagram.tsx`) |
+| `server/services/markdown-html.ts` | Add remark-math, rehype-katex, custom rehype plugins for source preservation + mermaid extraction; overloaded signatures |
+| `server/services/mermaid-renderer.ts` | **New.** Injectable mermaid rendering service with per-chart error handling |
 | `electron/main.ts` | Register mermaid renderer after app ready |
 | `server/routes/books.ts` | Update EPUB export route to use enhanced pipeline + batch mermaid rendering |
+| `src/components/MermaidDiagram.tsx` | Import theme from `lib/mermaid-theme.ts` instead of inline definition |
 
 ### New dependencies
 
