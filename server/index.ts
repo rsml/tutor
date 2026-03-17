@@ -66,18 +66,27 @@ export async function startServer(port = 3147, host = '127.0.0.1') {
 
   // Mermaid renderer — Electron sets this to a BrowserWindow-based renderer.
   // Falls back to kroki.io API for standalone/dev server mode.
+  // Returns PNG as <img> tags with file:// URLs (epub-gen-memory doesn't support data: URLs).
   fastify.decorate('mermaidRenderer', (async (charts: string[]) => {
+    const { writeFile: writeFileAsync } = await import('node:fs/promises')
+    const { randomUUID } = await import('node:crypto')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const { pathToFileURL } = await import('node:url')
     const results: string[] = []
     for (const chart of charts) {
       try {
-        const res = await fetch('https://kroki.io/mermaid/svg', {
+        const res = await fetch('https://kroki.io/mermaid/png', {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain' },
           body: chart,
           signal: AbortSignal.timeout(30_000),
         })
         if (res.ok) {
-          results.push(await res.text())
+          const buf = Buffer.from(await res.arrayBuffer())
+          const tmpFile = join(tmpdir(), `tutor-mermaid-${randomUUID()}.png`)
+          await writeFileAsync(tmpFile, buf)
+          results.push(`<img src="${pathToFileURL(tmpFile).href}" alt="diagram" style="max-width:100%"/>`)
         } else {
           console.warn(`[mermaid-renderer] kroki.io returned ${res.status}: ${await res.text().catch(() => '')}`)
           results.push('')

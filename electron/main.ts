@@ -217,7 +217,8 @@ app.whenReady().then(async () => {
   })
 
   // Override mermaid renderer with Electron BrowserWindow-based renderer
-  // (faster and works offline, unlike the mermaid.ink API fallback)
+  // (faster and works offline, unlike the kroki.io API fallback).
+  // Renders to PNG <img> tags — SVGs render poorly in most e-readers.
   const { sanitizeMermaidChart } = await import('../src/lib/sanitize-mermaid.js')
   const { mermaidInitConfig } = await import('../lib/mermaid-theme.js')
 
@@ -226,6 +227,8 @@ app.whenReady().then(async () => {
 
     const win = new BrowserWindow({
       show: false,
+      width: 1600,
+      height: 1200,
       webPreferences: { offscreen: true },
     })
 
@@ -234,12 +237,16 @@ app.whenReady().then(async () => {
       const mermaidJs = await readFile(mermaidPath, 'utf-8')
 
       const tmpHtml = path.join(dataDir, 'mermaid-renderer.html')
+      // Safe: mermaidJs is from a trusted local npm package, not user input
       await writeFile(tmpHtml, `<!DOCTYPE html>
-<html><head><meta charset="utf-8"></head><body>
-<script>${mermaidJs}</script>
+<html><head><meta charset="utf-8">
+<style>body { margin: 0; background: white; }</style>
+</head><body>
+<div id="output"></div>
+<script>${mermaidJs}<` + `/script>
 <script>
-  mermaid.initialize(${JSON.stringify(mermaidInitConfig)});
-</script>
+  mermaid.initialize(${JSON.stringify({ ...mermaidInitConfig, theme: 'default' })});
+<` + `/script>
 </body></html>`, 'utf-8')
 
       await win.loadFile(tmpHtml)
@@ -248,18 +255,34 @@ app.whenReady().then(async () => {
       for (let i = 0; i < charts.length; i++) {
         const sanitized = sanitizeMermaidChart(charts[i])
         try {
-          const svg: string = await Promise.race([
+          // Render mermaid SVG, insert into DOM, then capture page as PNG
+          const dimensions: { width: number; height: number } = await Promise.race([
             win.webContents.executeJavaScript(`
               (async () => {
-                const { svg } = await mermaid.render('epub-chart-` + i + `', ${JSON.stringify(sanitized)});
-                return svg;
+                const { svg } = await mermaid.render('epub-chart-${i}', ${JSON.stringify(sanitized)});
+                const output = document.getElementById('output');
+                output.replaceChildren();
+                output.insertAdjacentHTML('afterbegin', svg);
+                const svgEl = output.querySelector('svg');
+                const rect = svgEl.getBoundingClientRect();
+                return { width: Math.ceil(rect.width) + 20, height: Math.ceil(rect.height) + 20 };
               })()
             `),
             new Promise<never>((_, reject) =>
               setTimeout(() => reject(new Error('Mermaid render timeout')), 10_000)
             ),
           ])
-          results.push(svg)
+
+          // Resize to fit diagram and capture as PNG
+          win.setContentSize(Math.max(dimensions.width, 200), Math.max(dimensions.height, 100))
+          await new Promise(r => setTimeout(r, 100))
+          const image = await win.webContents.capturePage()
+          const pngBuffer = image.toPNG()
+          // Save to temp file — epub-gen-memory doesn't support data: URLs
+          const tmpPng = path.join(dataDir, `mermaid-chart-${i}.png`)
+          await writeFile(tmpPng, pngBuffer)
+          const { pathToFileURL } = await import('node:url')
+          results.push(`<img src="${pathToFileURL(tmpPng).href}" alt="diagram" style="max-width:100%"/>`)
         } catch (err) {
           console.warn('[mermaid-renderer] Chart ' + i + ' failed:', err)
           results.push('<pre><code class="language-mermaid">' + sanitized.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code></pre>')
