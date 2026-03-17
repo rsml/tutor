@@ -57,6 +57,7 @@ export const selectChapterQuizResult = (bookId: string, chapterNum: number) =>
 export interface ReadingPosition {
   chapter: number
   section: number
+  lastReadAt: string
 }
 
 export interface ReadingProgressState {
@@ -64,11 +65,18 @@ export interface ReadingProgressState {
   furthest: Record<string, number>
 }
 
-/** Normalize legacy number positions to { chapter, section } */
+/** Normalize legacy number positions to { chapter, section, lastReadAt } */
 function migratePosition(value: unknown): ReadingPosition {
-  if (typeof value === 'number') return { chapter: value, section: 0 }
-  if (value && typeof value === 'object' && 'chapter' in value) return value as ReadingPosition
-  return { chapter: 0, section: 0 }
+  if (typeof value === 'number') return { chapter: value, section: 0, lastReadAt: new Date().toISOString() }
+  if (value && typeof value === 'object' && 'chapter' in value) {
+    const pos = value as Record<string, unknown>
+    return {
+      chapter: pos.chapter as number,
+      section: (pos.section as number) ?? 0,
+      lastReadAt: (pos.lastReadAt as string) ?? new Date().toISOString(),
+    }
+  }
+  return { chapter: 0, section: 0, lastReadAt: new Date().toISOString() }
 }
 
 const readingProgressSlice = createSlice({
@@ -77,7 +85,7 @@ const readingProgressSlice = createSlice({
   reducers: {
     setPosition(state, action: PayloadAction<{ bookId: string; chapter: number; section: number }>) {
       const { bookId, chapter, section } = action.payload
-      state.positions[bookId] = { chapter, section }
+      state.positions[bookId] = { chapter, section, lastReadAt: new Date().toISOString() }
       const prev = state.furthest[bookId] ?? -1
       if (chapter > prev) {
         state.furthest[bookId] = chapter
@@ -105,10 +113,33 @@ export interface FunctionModelOverride {
   model: string
 }
 
+export interface LibrarySort {
+  field: 'date' | 'title' | 'rating' | 'progress' | 'recent' | 'manual'
+  direction: 'asc' | 'desc'
+}
+
+export interface LibraryFilters {
+  status: 'all' | 'in-progress' | 'not-started' | 'finished'
+  tags: string[]
+  ratingMin: number | null
+  datePreset: 'any' | 'week' | 'month' | '3months'
+}
+
+export type LibraryView = 'grid' | 'list'
+
+export const DEFAULT_LIBRARY_FILTERS: LibraryFilters = {
+  status: 'all',
+  tags: [],
+  ratingMin: null,
+  datePreset: 'any',
+}
+
 export interface SettingsState {
   // Legacy fields (ignored after migration)
   apiKey?: string | null
   model?: string
+  /** @deprecated Use libraryFilters.status instead */
+  libraryTab?: 'all' | 'in-progress' | 'not-started' | 'finished'
   // Multi-provider
   activeProvider: ProviderId
   providers: Record<ProviderId, ProviderConfig>
@@ -120,7 +151,9 @@ export interface SettingsState {
   defaultChapterCount: number
   textureEnabled: boolean
   textureOpacity: number
-  libraryTab: 'all' | 'in-progress' | 'not-started' | 'finished'
+  librarySort: LibrarySort
+  libraryView: LibraryView
+  libraryFilters: LibraryFilters
 }
 
 const settingsSlice = createSlice({
@@ -140,7 +173,9 @@ const settingsSlice = createSlice({
     defaultChapterCount: 12,
     textureEnabled: true,
     textureOpacity: 1,
-    libraryTab: 'all' as const,
+    librarySort: { field: 'date', direction: 'desc' } as LibrarySort,
+    libraryView: 'grid' as LibraryView,
+    libraryFilters: { ...DEFAULT_LIBRARY_FILTERS },
   } as SettingsState,
   reducers: {
     setActiveProvider(state, action: PayloadAction<ProviderId>) {
@@ -170,8 +205,17 @@ const settingsSlice = createSlice({
     setTextureOpacity(state, action: PayloadAction<number>) {
       state.textureOpacity = action.payload
     },
-    setLibraryTab(state, action: PayloadAction<SettingsState['libraryTab']>) {
-      state.libraryTab = action.payload
+    setLibrarySort(state, action: PayloadAction<LibrarySort>) {
+      state.librarySort = action.payload
+    },
+    setLibraryView(state, action: PayloadAction<LibraryView>) {
+      state.libraryView = action.payload
+    },
+    setLibraryFilters(state, action: PayloadAction<Partial<LibraryFilters>>) {
+      state.libraryFilters = { ...state.libraryFilters, ...action.payload }
+    },
+    clearLibraryFilters(state) {
+      state.libraryFilters = { ...DEFAULT_LIBRARY_FILTERS }
     },
     setFunctionModel(state, action: PayloadAction<{ group: AiFunctionGroup; override: FunctionModelOverride }>) {
       if (!state.functionModels) state.functionModels = {}
@@ -196,7 +240,10 @@ export const {
   setDefaultChapterCount,
   setTextureEnabled,
   setTextureOpacity,
-  setLibraryTab,
+  setLibrarySort,
+  setLibraryView,
+  setLibraryFilters,
+  clearLibraryFilters,
   setFunctionModel,
   clearFunctionModel,
   setModelAssignmentSeen,
@@ -214,7 +261,9 @@ export const selectQuizLength = (state: RootState) => state.settings.quizLength 
 export const selectDefaultChapterCount = (state: RootState) => state.settings.defaultChapterCount ?? 12
 export const selectTextureEnabled = (state: RootState) => state.settings.textureEnabled
 export const selectTextureOpacity = (state: RootState) => state.settings.textureOpacity
-export const selectLibraryTab = (state: RootState) => state.settings.libraryTab
+export const selectLibrarySort = (state: RootState) => state.settings.librarySort
+export const selectLibraryView = (state: RootState) => state.settings.libraryView
+export const selectLibraryFilters = (state: RootState) => state.settings.libraryFilters
 export const selectModelAssignmentSeen = (state: RootState) => state.settings.modelAssignmentSeen
 export const selectFunctionModel = (group: AiFunctionGroup) => (state: RootState): { provider: ProviderId; model: string } => {
   const override = state.settings.functionModels?.[group]
@@ -365,11 +414,38 @@ const migratePositionsTransform = createTransform(
   { whitelist: ['readingProgress'] },
 )
 
+// Migrate legacy libraryTab to libraryFilters on rehydrate
+const migrateLibraryTabTransform = createTransform(
+  (inbound: SettingsState) => inbound,
+  (outbound: SettingsState) => {
+    // If persisted state has libraryTab but no libraryFilters, migrate
+    if (outbound.libraryTab && !outbound.libraryFilters) {
+      const migrated = { ...outbound }
+      migrated.libraryFilters = {
+        ...DEFAULT_LIBRARY_FILTERS,
+        status: outbound.libraryTab,
+      }
+      migrated.librarySort = migrated.librarySort ?? { field: 'date', direction: 'desc' }
+      migrated.libraryView = migrated.libraryView ?? 'grid'
+      delete migrated.libraryTab
+      return migrated
+    }
+    // Ensure defaults exist even if partially missing
+    return {
+      ...outbound,
+      librarySort: outbound.librarySort ?? { field: 'date', direction: 'desc' },
+      libraryView: outbound.libraryView ?? 'grid',
+      libraryFilters: outbound.libraryFilters ?? { ...DEFAULT_LIBRARY_FILTERS },
+    }
+  },
+  { whitelist: ['settings'] },
+)
+
 const persistConfig = {
   key: 'tutor',
   storage: electronStorage,
   blacklist: ['backgroundTasks'],
-  transforms: [stripApiKeysTransform, migratePositionsTransform],
+  transforms: [stripApiKeysTransform, migratePositionsTransform, migrateLibraryTabTransform],
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

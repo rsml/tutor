@@ -1,0 +1,126 @@
+<h2>Section 1: Toolbar & Search</h2>
+<p class="subtitle">The persistent control bar that replaces the current tab row</p>
+
+<div class="section">
+  <h3>Toolbar Layout</h3>
+  <p>The current status tabs (All / In Progress / Not Started / Finished) get absorbed into a unified toolbar. Three zones, left to right:</p>
+</div>
+
+<!-- Default state -->
+<div class="mockup">
+  <div class="mockup-header">Default State — No filters active</div>
+  <div class="mockup-body" style="padding: 0; font-size: 13px;">
+    <div style="background: rgba(128,128,128,0.04); padding: 10px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid rgba(128,128,128,0.1);">
+      <!-- Search zone -->
+      <div style="display: flex; align-items: center; gap: 6px; background: rgba(128,128,128,0.06); border: 1px solid rgba(128,128,128,0.12); border-radius: 8px; padding: 6px 12px; width: 280px; transition: all 0.2s;">
+        <span style="opacity: 0.35; font-size: 14px;">⌕</span>
+        <span style="opacity: 0.35; font-size: 12px;">Search books...</span>
+        <span style="margin-left: auto; display: flex; align-items: center; gap: 3px; opacity: 0.3; font-size: 10px;">
+          <span style="border: 1px solid rgba(128,128,128,0.3); border-radius: 3px; padding: 0px 4px;">⌘</span>
+          <span style="border: 1px solid rgba(128,128,128,0.3); border-radius: 3px; padding: 0px 4px;">F</span>
+        </span>
+      </div>
+
+      <!-- Spacer -->
+      <div style="flex: 1;"></div>
+
+      <!-- Filter / Sort / View zone -->
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <div style="display: flex; align-items: center; gap: 4px; border: 1px solid rgba(128,128,128,0.12); border-radius: 6px; padding: 5px 10px; font-size: 12px; opacity: 0.6; cursor: pointer;">
+          <span>⧫</span> Filter
+        </div>
+        <div style="display: flex; align-items: center; gap: 4px; border: 1px solid rgba(128,128,128,0.12); border-radius: 6px; padding: 5px 10px; font-size: 12px; opacity: 0.6; cursor: pointer;">
+          <span>⇅</span> Date created
+          <span style="font-size: 10px;">▾</span>
+        </div>
+        <div style="display: flex; border: 1px solid rgba(128,128,128,0.12); border-radius: 6px; overflow: hidden;">
+          <div style="padding: 5px 8px; font-size: 12px; background: rgba(128,128,128,0.08);" title="Grid view">⊞</div>
+          <div style="padding: 5px 8px; font-size: 12px; opacity: 0.4; border-left: 1px solid rgba(128,128,128,0.12);" title="List view">☰</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<br>
+
+<!-- Active search state -->
+<div class="mockup">
+  <div class="mockup-header">Active Search — with "Full search" toggled on</div>
+  <div class="mockup-body" style="padding: 0; font-size: 13px;">
+    <div style="background: rgba(128,128,128,0.04); padding: 10px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid rgba(128,128,128,0.1);">
+      <!-- Active search -->
+      <div style="display: flex; align-items: center; gap: 6px; background: rgba(128,128,128,0.06); border: 1px solid rgba(100,100,255,0.3); border-radius: 8px; padding: 6px 12px; width: 320px; box-shadow: 0 0 0 2px rgba(100,100,255,0.08);">
+        <span style="opacity: 0.5; font-size: 14px;">⌕</span>
+        <span style="font-size: 12px;">distributed trac</span>
+        <span style="font-size: 12px; animation: blink 1s infinite;">|</span>
+        <span style="margin-left: auto; display: flex; align-items: center; gap: 4px;">
+          <span style="font-size: 10px; background: rgba(100,100,255,0.15); border: 1px solid rgba(100,100,255,0.25); border-radius: 4px; padding: 1px 6px; color: rgba(100,100,255,0.9);">✓ Full</span>
+          <span style="opacity: 0.3; font-size: 12px; cursor: pointer;">✕</span>
+        </span>
+      </div>
+      <span style="font-size: 11px; opacity: 0.5;">2 results</span>
+      <div style="flex: 1;"></div>
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <div style="display: flex; align-items: center; gap: 4px; border: 1px solid rgba(128,128,128,0.12); border-radius: 6px; padding: 5px 10px; font-size: 12px; opacity: 0.6;">⧫ Filter</div>
+        <div style="display: flex; align-items: center; gap: 4px; border: 1px solid rgba(128,128,128,0.12); border-radius: 6px; padding: 5px 10px; font-size: 12px; opacity: 0.6;">⇅ Date created ▾</div>
+        <div style="display: flex; border: 1px solid rgba(128,128,128,0.12); border-radius: 6px; overflow: hidden;">
+          <div style="padding: 5px 8px; font-size: 12px; background: rgba(128,128,128,0.08);">⊞</div>
+          <div style="padding: 5px 8px; font-size: 12px; opacity: 0.4; border-left: 1px solid rgba(128,128,128,0.12);">☰</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<br>
+
+<!-- Filters active state -->
+<div class="mockup">
+  <div class="mockup-header">Filters Active — chips appear below toolbar</div>
+  <div class="mockup-body" style="padding: 0; font-size: 13px;">
+    <div style="background: rgba(128,128,128,0.04); padding: 10px 20px; display: flex; align-items: center; gap: 12px; border-bottom: none;">
+      <div style="display: flex; align-items: center; gap: 6px; background: rgba(128,128,128,0.06); border: 1px solid rgba(128,128,128,0.12); border-radius: 8px; padding: 6px 12px; width: 280px;">
+        <span style="opacity: 0.35; font-size: 14px;">⌕</span>
+        <span style="opacity: 0.35; font-size: 12px;">Search books...</span>
+      </div>
+      <div style="flex: 1;"></div>
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <div style="display: flex; align-items: center; gap: 4px; border: 1px solid rgba(100,100,255,0.25); background: rgba(100,100,255,0.06); border-radius: 6px; padding: 5px 10px; font-size: 12px; color: rgba(100,100,255,0.9);">
+          ⧫ Filter
+          <span style="background: rgba(100,100,255,0.2); border-radius: 8px; padding: 0 5px; font-size: 10px; margin-left: 2px;">3</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 4px; border: 1px solid rgba(128,128,128,0.12); border-radius: 6px; padding: 5px 10px; font-size: 12px; opacity: 0.6;">⇅ Rating ▾</div>
+        <div style="display: flex; border: 1px solid rgba(128,128,128,0.12); border-radius: 6px; overflow: hidden;">
+          <div style="padding: 5px 8px; font-size: 12px; background: rgba(128,128,128,0.08);">⊞</div>
+          <div style="padding: 5px 8px; font-size: 12px; opacity: 0.4; border-left: 1px solid rgba(128,128,128,0.12);">☰</div>
+        </div>
+      </div>
+    </div>
+    <!-- Active filter chips row -->
+    <div style="padding: 4px 20px 10px; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid rgba(128,128,128,0.1);">
+      <span style="font-size: 11px; background: rgba(100,100,255,0.08); border: 1px solid rgba(100,100,255,0.15); border-radius: 12px; padding: 2px 10px; display: flex; align-items: center; gap: 4px;">
+        Status: In Progress <span style="opacity: 0.5; cursor: pointer;">✕</span>
+      </span>
+      <span style="font-size: 11px; background: rgba(100,100,255,0.08); border: 1px solid rgba(100,100,255,0.15); border-radius: 12px; padding: 2px 10px; display: flex; align-items: center; gap: 4px;">
+        Tag: distributed-systems <span style="opacity: 0.5; cursor: pointer;">✕</span>
+      </span>
+      <span style="font-size: 11px; background: rgba(100,100,255,0.08); border: 1px solid rgba(100,100,255,0.15); border-radius: 12px; padding: 2px 10px; display: flex; align-items: center; gap: 4px;">
+        Rating: ★4+ <span style="opacity: 0.5; cursor: pointer;">✕</span>
+      </span>
+      <span style="font-size: 11px; opacity: 0.4; cursor: pointer; margin-left: 4px;">Clear all</span>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 16px;">
+  <h3>Key Behaviors</h3>
+  <ul style="font-size: 13px; line-height: 1.6;">
+    <li><strong>Search:</strong> ⌘F focuses the search input. Types instantly to filter by title/subtitle. "Full" checkbox adds chapter content + TOC to search scope.</li>
+    <li><strong>Filter button:</strong> Opens a popover with sections for Status, Tags, Rating, Series, Date range. Each section is a multi-select. Active count shown as badge.</li>
+    <li><strong>Sort dropdown:</strong> Options: Date created, Title (A-Z), Rating, Progress, Recently read. Current sort label shown inline.</li>
+    <li><strong>View toggle:</strong> Grid (current) or List (compact rows with metadata columns).</li>
+    <li><strong>Filter chips:</strong> Only visible when filters are active. Each has ✕ to remove. "Clear all" link at end.</li>
+    <li><strong>Keyboard:</strong> ⌘F = search, Esc = clear search/filters, Tab = move between controls.</li>
+  </ul>
+</div>
