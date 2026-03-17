@@ -92,6 +92,8 @@ export default function App() {
   const [generateAllModal, setGenerateAllModal] = useState<{ taskId: string; book: Book } | null>(null)
   const [editTagsDialog, setEditTagsDialog] = useState<{ book: Book } | null>(null)
   const [setSeriesDialog, setSetSeriesDialog] = useState<{ book: Book } | null>(null)
+  const [seriesContextMenu, setSeriesContextMenu] = useState<{ seriesName: string; books: Book[]; x: number; y: number } | null>(null)
+  const [renameSeriesDialog, setRenameSeriesDialog] = useState<{ seriesName: string; books: Book[]; newName: string } | null>(null)
   const [mutating, setMutating] = useState(false)
   const [serverAvailable, setServerAvailable] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -178,8 +180,8 @@ export default function App() {
 
   // Close context menu on any click or Escape
   useEffect(() => {
-    if (!contextMenu) return
-    const close = () => setContextMenu(null)
+    if (!contextMenu && !seriesContextMenu) return
+    const close = () => { setContextMenu(null); setSeriesContextMenu(null) }
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
     window.addEventListener('click', close)
     window.addEventListener('keydown', handleKey)
@@ -187,7 +189,7 @@ export default function App() {
       window.removeEventListener('click', close)
       window.removeEventListener('keydown', handleKey)
     }
-  }, [contextMenu])
+  }, [contextMenu, seriesContextMenu])
 
   const handleNewBook = () => {
     if (!hasApiKey) {
@@ -417,6 +419,30 @@ export default function App() {
       setMutating(false)
     }
     setRenameDialog(null)
+  }
+
+  const handleRenameSeries = async () => {
+    if (!renameSeriesDialog) return
+    const trimmed = renameSeriesDialog.newName.trim()
+    if (!trimmed) return
+    setMutating(true)
+    try {
+      await Promise.all(
+        renameSeriesDialog.books.map(book =>
+          fetch(apiUrl(`/api/books/${book.id}`), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ series: trimmed }),
+          })
+        )
+      )
+      await fetchBooks()
+    } catch {
+      toast.error('Failed to rename series — server unreachable')
+    } finally {
+      setMutating(false)
+    }
+    setRenameSeriesDialog(null)
   }
 
   const handleDelete = async () => {
@@ -1158,6 +1184,10 @@ export default function App() {
                       setContextMenu({ book, x: e.clientX, y: e.clientY })
                     }
                   }}
+                  onSeriesContextMenu={(seriesName, books, e) => {
+                    e.preventDefault()
+                    setSeriesContextMenu({ seriesName, books, x: e.clientX, y: e.clientY })
+                  }}
                 />
               )
             })()
@@ -1184,13 +1214,9 @@ export default function App() {
                   const itemId = `series-${book.series}`
                   gridItemIds.push(itemId)
 
-                  // Right-click on a series card opens context menu for the first book (e.g., to edit cover)
-                  const seriesContextMenu = (e: React.MouseEvent) => {
+                  const seriesCtxMenu = (e: React.MouseEvent) => {
                     e.preventDefault()
-                    const firstBook = seriesBooks[0]
-                    if (firstBook && apiBookIds.has(firstBook.id)) {
-                      setContextMenu({ book: firstBook, x: e.clientX, y: e.clientY })
-                    }
+                    setSeriesContextMenu({ seriesName: book.series!, books: seriesBooks, x: e.clientX, y: e.clientY })
                   }
 
                   if (isManual) {
@@ -1203,7 +1229,7 @@ export default function App() {
                         chaptersRead={chaptersRead}
                         totalChapters={totalChapters}
                         onClick={() => setView({ type: 'series', seriesName: book.series! })}
-                        onContextMenu={seriesContextMenu}
+                        onContextMenu={seriesCtxMenu}
                       />
                     )
                   } else {
@@ -1215,7 +1241,7 @@ export default function App() {
                         chaptersRead={chaptersRead}
                         totalChapters={totalChapters}
                         onClick={() => setView({ type: 'series', seriesName: book.series! })}
-                        onContextMenu={seriesContextMenu}
+                        onContextMenu={seriesCtxMenu}
                       />
                     )
                   }
@@ -1430,6 +1456,40 @@ export default function App() {
         </div>
       )}
 
+      {/* Series right-click context menu */}
+      {seriesContextMenu && (
+        <div
+          ref={(el) => {
+            if (!el) return
+            const rect = el.getBoundingClientRect()
+            const vw = window.innerWidth
+            const vh = window.innerHeight
+            let x = seriesContextMenu.x
+            let y = seriesContextMenu.y
+            if (x + rect.width > vw - 8) x = seriesContextMenu.x - rect.width
+            if (y + rect.height > vh - 8) y = seriesContextMenu.y - rect.height
+            if (x < 8) x = 8
+            if (y < 8) y = 8
+            el.style.left = `${x}px`
+            el.style.top = `${y}px`
+          }}
+          className="fixed z-50 w-fit rounded-lg border border-border-default/50 bg-surface-base/95 backdrop-blur-md py-1 shadow-lg"
+          style={{ left: -9999, top: -9999 }}
+          onClick={e => e.stopPropagation()}
+        >
+          <button
+            onClick={() => {
+              setRenameSeriesDialog({ seriesName: seriesContextMenu.seriesName, books: seriesContextMenu.books, newName: seriesContextMenu.seriesName })
+              setSeriesContextMenu(null)
+            }}
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
+          >
+            <Pencil className="size-3.5 text-content-muted shrink-0" />
+            Rename Series
+          </button>
+        </div>
+      )}
+
       {/* Rename dialog */}
       <Dialog open={!!renameDialog} onOpenChange={open => { if (!open) setRenameDialog(null) }}>
         <DialogContent className="sm:max-w-sm">
@@ -1461,6 +1521,32 @@ export default function App() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setRenameDialog(null)}>Cancel</Button>
             <Button onClick={handleRename} disabled={!renameDialog?.title.trim() || mutating}>OK</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Series dialog */}
+      <Dialog open={!!renameSeriesDialog} onOpenChange={open => { if (!open) setRenameSeriesDialog(null) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Rename Series</DialogTitle>
+            <DialogDescription>
+              This will update the series name on {renameSeriesDialog?.books.length ?? 0} {(renameSeriesDialog?.books.length ?? 0) === 1 ? 'book' : 'books'}.
+            </DialogDescription>
+          </DialogHeader>
+          <div>
+            <label className="text-xs font-medium text-content-muted mb-1 block">Series Name</label>
+            <input
+              value={renameSeriesDialog?.newName ?? ''}
+              onChange={e => setRenameSeriesDialog(prev => prev ? { ...prev, newName: e.target.value } : null)}
+              onKeyDown={e => e.key === 'Enter' && handleRenameSeries()}
+              className="h-9 w-full rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameSeriesDialog(null)}>Cancel</Button>
+            <Button onClick={handleRenameSeries} disabled={!renameSeriesDialog?.newName.trim() || mutating}>OK</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

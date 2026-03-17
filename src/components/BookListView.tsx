@@ -32,13 +32,14 @@ interface BookListViewProps {
   onBookClick: (book: Book) => void
   onSeriesClick: (seriesName: string) => void
   onContextMenu: (book: Book, e: React.MouseEvent) => void
+  onSeriesContextMenu?: (seriesName: string, books: Book[], e: React.MouseEvent) => void
 }
 
-export function BookListView({ items, onBookClick, onSeriesClick, onContextMenu }: BookListViewProps) {
+export function BookListView({ items, onBookClick, onSeriesClick, onContextMenu, onSeriesContextMenu }: BookListViewProps) {
   return (
     <div className="w-full">
       {/* Column headers — sticky */}
-      <div className="sticky top-0 z-10 flex items-center gap-4 px-4 py-1 border-b border-border-default/30 text-[11px] font-medium uppercase tracking-wider text-content-faint select-none bg-surface-base">
+      <div className="sticky top-0 z-10 flex items-center gap-4 px-4 pt-9 pb-1 -mt-8 border-b border-border-default/30 text-[11px] font-medium uppercase tracking-wider text-content-faint select-none bg-surface-base">
         <div className="flex-[2] min-w-0">Title</div>
         <div className="w-[160px] shrink-0">Tags</div>
         <div className="w-[120px] shrink-0">Progress</div>
@@ -55,6 +56,12 @@ export function BookListView({ items, onBookClick, onSeriesClick, onContextMenu 
               <div
                 className="flex items-center gap-4 px-4 py-2 cursor-pointer bg-surface-raised/30 hover:bg-surface-raised/50 transition-colors border-b border-border-default/20"
                 onClick={() => onSeriesClick(item.seriesName)}
+                onContextMenu={(e) => {
+                  if (onSeriesContextMenu) {
+                    e.preventDefault()
+                    onSeriesContextMenu(item.seriesName, item.books.map(b => b.book), e)
+                  }
+                }}
               >
                 <div className="flex items-center gap-2">
                   <div className="flex -space-x-0.5">
