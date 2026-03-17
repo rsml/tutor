@@ -492,6 +492,14 @@ export async function bookRoutes(fastify: FastifyInstance) {
       if (body.title !== undefined) meta.title = body.title
       if (body.subtitle !== undefined) meta.subtitle = body.subtitle
       if (body.showTitleOnCover !== undefined) (meta as Record<string, unknown>).showTitleOnCover = body.showTitleOnCover
+      if (body.tags !== undefined) {
+        ;(meta as Record<string, unknown>).tags = body.tags
+          .map(t => t.trim().toLowerCase().replace(/\s+/g, '-'))
+          .filter(Boolean)
+      }
+      if (body.series !== undefined) (meta as Record<string, unknown>).series = body.series
+      if (body.seriesOrder !== undefined) (meta as Record<string, unknown>).seriesOrder = body.seriesOrder
+      if (body.sortOrder !== undefined) (meta as Record<string, unknown>).sortOrder = body.sortOrder
       meta.updatedAt = new Date().toISOString()
       await store.saveBook(meta)
       return { ok: true }

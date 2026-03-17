@@ -22,6 +22,10 @@ import { BookOverviewModal } from '@src/components/BookOverviewModal'
 import { CoverGenerationModal } from '@src/components/CoverGenerationModal'
 import { GenerateAllModal } from '@src/components/GenerateAllModal'
 import { BackgroundTasksFooter } from '@src/components/BackgroundTasksFooter'
+import { EditTagsDialog } from '@src/components/EditTagsDialog'
+import { SetSeriesDialog } from '@src/components/SetSeriesDialog'
+import { SeriesStackCard } from '@src/components/SeriesStackCard'
+import { SeriesView } from '@src/components/SeriesView'
 import { ReaderPage } from '@src/pages/ReaderPage'
 import { QuizReviewPage } from '@src/pages/QuizReviewPage'
 import { ReviewProgressPage } from '@src/pages/ReviewProgressPage'
@@ -64,6 +68,7 @@ type View =
   | { type: 'review-progress' }
   | { type: 'skill-detail'; skillName: string }
   | { type: 'profile-update'; bookId: string; bookTitle: string }
+  | { type: 'series'; seriesName: string }
 
 export default function App() {
   const [view, setView] = useState<View>({ type: 'library' })
@@ -78,6 +83,8 @@ export default function App() {
   const [overviewBook, setOverviewBook] = useState<Book | null>(null)
   const [coverModal, setCoverModal] = useState<{ book: Book } | null>(null)
   const [generateAllModal, setGenerateAllModal] = useState<{ taskId: string; book: Book } | null>(null)
+  const [editTagsDialog, setEditTagsDialog] = useState<{ book: Book } | null>(null)
+  const [setSeriesDialog, setSetSeriesDialog] = useState<{ book: Book } | null>(null)
   const [mutating, setMutating] = useState(false)
   const [serverAvailable, setServerAvailable] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -392,6 +399,36 @@ export default function App() {
     setDeleteDialog(null)
   }
 
+  const handleSaveTags = async (bookId: string, tags: string[]) => {
+    try {
+      const res = await fetch(apiUrl(`/api/books/${bookId}`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags }),
+      })
+      if (res.ok) await fetchBooks()
+      else toast.error('Failed to save tags')
+    } catch {
+      toast.error('Failed to save tags -- server unreachable')
+    }
+    setEditTagsDialog(null)
+  }
+
+  const handleSaveSeries = async (bookId: string, series: string | null, seriesOrder: number | null) => {
+    try {
+      const res = await fetch(apiUrl(`/api/books/${bookId}`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ series, seriesOrder }),
+      })
+      if (res.ok) await fetchBooks()
+      else toast.error('Failed to save series')
+    } catch {
+      toast.error('Failed to save series -- server unreachable')
+    }
+    setSetSeriesDialog(null)
+  }
+
   const apiBookIds = new Set(apiBooks.map(b => b.id))
   const allBooks = apiBooks
 
@@ -408,6 +445,15 @@ export default function App() {
       for (const tag of book.tags) tagSet.add(tag)
     }
     return [...tagSet].sort()
+  }, [allBooks])
+
+  // Compute all series names from all books
+  const allSeriesNames = useMemo(() => {
+    const seriesSet = new Set<string>()
+    for (const book of allBooks) {
+      if (book.series) seriesSet.add(book.series)
+    }
+    return [...seriesSet].sort()
   }, [allBooks])
 
   const { filteredBooks, searchResultCount } = useMemo(() => {
@@ -664,6 +710,19 @@ export default function App() {
     )
   }
 
+  if (view.type === 'series') {
+    const seriesBooks = allBooks.filter(b => b.series === view.seriesName)
+    return (
+      <SeriesView
+        seriesName={view.seriesName}
+        books={seriesBooks}
+        furthest={furthest}
+        onBookClick={(book) => setView({ type: 'reading', book })}
+        onBack={() => { fetchBooks(); setView({ type: 'library' }) }}
+      />
+    )
+  }
+
   return (
     <div className="flex h-screen flex-col text-content-primary">
       <NoiseOverlay />
@@ -762,32 +821,64 @@ export default function App() {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 lg:gap-8 xl:grid-cols-5">
-              {filteredBooks.map((book) => {
-                const reduxProgress = furthest[book.id]
-                const chaptersRead = reduxProgress != null
-                  ? reduxProgress + 1
-                  : book.chaptersRead
-                return (
-                  <BookCard
-                    key={book.id}
-                    title={book.title}
-                    subtitle={book.subtitle}
-                    chaptersRead={chaptersRead}
-                    totalChapters={book.totalChapters}
-                    status={book.status}
-                    rating={book.rating}
-                    finalQuizScore={book.finalQuizScore}
-                    finalQuizTotal={book.finalQuizTotal}
-                    coverUrl={book.hasCover ? apiUrl(`/api/books/${book.id}/cover?v=${book.coverUpdatedAt ?? ''}`) : undefined}
-                    showTitleOnCover={book.showTitleOnCover}
-                    onClick={() => setView({ type: 'reading', book })}
-                    onContextMenu={apiBookIds.has(book.id) ? (e) => {
-                      e.preventDefault()
-                      setContextMenu({ book, x: e.clientX, y: e.clientY })
-                    } : undefined}
-                  />
-                )
-              })}
+              {(() => {
+                // Build grid items: collapse series into stack cards, keep non-series as individual cards
+                const renderedSeries = new Set<string>()
+                const items: React.ReactNode[] = []
+
+                for (const book of filteredBooks) {
+                  if (book.series) {
+                    if (renderedSeries.has(book.series)) continue
+                    renderedSeries.add(book.series)
+
+                    // Gather all books in this series from filteredBooks
+                    const seriesBooks = filteredBooks.filter(b => b.series === book.series)
+                    const totalChapters = seriesBooks.reduce((s, b) => s + b.totalChapters, 0)
+                    const chaptersRead = seriesBooks.reduce((s, b) => {
+                      const rp = furthest[b.id]
+                      return s + (rp != null ? rp + 1 : b.chaptersRead)
+                    }, 0)
+
+                    items.push(
+                      <SeriesStackCard
+                        key={`series-${book.series}`}
+                        seriesName={book.series}
+                        books={seriesBooks}
+                        chaptersRead={chaptersRead}
+                        totalChapters={totalChapters}
+                        onClick={() => setView({ type: 'series', seriesName: book.series! })}
+                      />
+                    )
+                  } else {
+                    const reduxProgress = furthest[book.id]
+                    const chaptersRead = reduxProgress != null
+                      ? reduxProgress + 1
+                      : book.chaptersRead
+                    items.push(
+                      <BookCard
+                        key={book.id}
+                        title={book.title}
+                        subtitle={book.subtitle}
+                        chaptersRead={chaptersRead}
+                        totalChapters={book.totalChapters}
+                        status={book.status}
+                        rating={book.rating}
+                        finalQuizScore={book.finalQuizScore}
+                        finalQuizTotal={book.finalQuizTotal}
+                        coverUrl={book.hasCover ? apiUrl(`/api/books/${book.id}/cover?v=${book.coverUpdatedAt ?? ''}`) : undefined}
+                        showTitleOnCover={book.showTitleOnCover}
+                        onClick={() => setView({ type: 'reading', book })}
+                        onContextMenu={apiBookIds.has(book.id) ? (e) => {
+                          e.preventDefault()
+                          setContextMenu({ book, x: e.clientX, y: e.clientY })
+                        } : undefined}
+                      />
+                    )
+                  }
+                }
+
+                return items
+              })()}
             </div>
           )}
         </div>
@@ -817,6 +908,24 @@ export default function App() {
             className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors"
           >
             Rate
+          </button>
+          <button
+            onClick={() => {
+              setEditTagsDialog({ book: contextMenu.book })
+              setContextMenu(null)
+            }}
+            className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors"
+          >
+            Edit Tags
+          </button>
+          <button
+            onClick={() => {
+              setSetSeriesDialog({ book: contextMenu.book })
+              setContextMenu(null)
+            }}
+            className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors"
+          >
+            Set Series
           </button>
           <button
             onClick={() => {
@@ -1006,6 +1115,31 @@ export default function App() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Tags dialog */}
+      {editTagsDialog && (
+        <EditTagsDialog
+          open={true}
+          onOpenChange={(open) => { if (!open) setEditTagsDialog(null) }}
+          bookId={editTagsDialog.book.id}
+          currentTags={editTagsDialog.book.tags}
+          allTags={allTags}
+          onSave={handleSaveTags}
+        />
+      )}
+
+      {/* Set Series dialog */}
+      {setSeriesDialog && (
+        <SetSeriesDialog
+          open={true}
+          onOpenChange={(open) => { if (!open) setSetSeriesDialog(null) }}
+          bookId={setSeriesDialog.book.id}
+          currentSeries={setSeriesDialog.book.series}
+          currentSeriesOrder={setSeriesDialog.book.seriesOrder}
+          allSeriesNames={allSeriesNames}
+          onSave={handleSaveSeries}
+        />
+      )}
 
       {/* Book overview modal */}
       <BookOverviewModal
