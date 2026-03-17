@@ -50,17 +50,15 @@ Give feedback on each chapter. The next one adapts to your quiz results and lear
 
 ## Features
 
+- **GPLv3 open source** — Inspect and modify the source on GitHub
+- **BYOK** — Bring your own API keys (Claude, ChatGPT, Gemini) and choose your preferred models
 - **Evolving chapters** — Every chapter is shaped by your feedback, quiz performance, and learning profile
 - **Inline chat** — Select any text for an AI-powered deeper explanation
-- **Quizzes** — Quick retention checks after each chapter, plus a comprehensive final quiz
-- **Learning profile** — Set your background, preferences, depth, and pace — or let the AI interview you
-- **Skills tracking** — Discrete skills extracted from content, tracked and updated across all your books
 - **Rich content** — Mermaid diagrams, KaTeX math formulas, and syntax-highlighted code
+- **Skills tracking** — Discrete skills extracted from content, tracked and updated across all your books
 - **EPUB import & export** — Export books for any e-reader, or import EPUBs others created
 - **AI covers** — Generate unique cover images for any book
-- **Library organization** — Search, filter, sort, tags, series, and drag-to-reorder
-- **BYOK** — Bring your own API keys (Claude, ChatGPT, Gemini) and choose your preferred models
-- **Desktop app** — Native Electron app with light/dark theme
+- **Light & dark themes** — Native Electron desktop app with system theme support
 
 <p align="center">
   <img src="docs/screenshots/settings.png" alt="Learning profile and settings" width="100%">
