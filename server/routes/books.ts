@@ -717,6 +717,7 @@ Suggest profile updates based on this completed book. Return the complete update
         generatedUpTo: 0,
         createdAt: now,
         updatedAt: now,
+        tags: [],
       })
       send({ type: 'book_created', bookId, title: topic, totalChapters: chapterCount ?? 12 })
 
