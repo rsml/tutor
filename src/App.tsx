@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useDeferredValue, useRef } from 'react'
 import { toast } from 'sonner'
-import { Plus, BookOpen, X } from 'lucide-react'
+import { Plus, BookOpen, X, FileDown } from 'lucide-react'
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
 import { Button } from '@src/components/ui/button'
@@ -27,6 +27,7 @@ import { CoverGenerationModal } from '@src/components/CoverGenerationModal'
 import { GenerateAllModal } from '@src/components/GenerateAllModal'
 import { BackgroundTasksFooter } from '@src/components/BackgroundTasksFooter'
 import { EditTagsDialog } from '@src/components/EditTagsDialog'
+import { ImportPreviewDialog } from '@src/components/ImportPreviewDialog'
 import { SetSeriesDialog } from '@src/components/SetSeriesDialog'
 import { SeriesStackCard } from '@src/components/SeriesStackCard'
 import { BookListView } from '@src/components/BookListView'
@@ -40,6 +41,7 @@ import { useBackgroundTasks } from '@src/hooks/useBackgroundTasks'
 import { store, useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize, selectLibraryFilters, selectLibrarySort, selectLibraryView, clearLibraryFilters, setLibraryFilters, selectFunctionModel, DEFAULT_LIBRARY_FILTERS } from '@src/store'
 import { PROVIDER_IDS } from '@src/lib/providers'
 import { apiUrl } from '@src/lib/api-base'
+import { previewEpub as previewEpubApi, confirmImport, type EpubPreview } from '@src/lib/api'
 
 interface Book {
   id: string
@@ -94,6 +96,13 @@ export default function App() {
   const [serverAvailable, setServerAvailable] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [fullSearch, setFullSearch] = useState(false)
+  const [importPreview, setImportPreview] = useState<EpubPreview | null>(null)
+  const [importFileBase64, setImportFileBase64] = useState('')
+  const [importFilename, setImportFilename] = useState('')
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const dragCounterRef = useRef(0)
   const deferredSearch = useDeferredValue(searchQuery)
   const furthest = useAppSelector(s => s.readingProgress.furthest)
   const readingPositions = useAppSelector(s => s.readingProgress.positions)
@@ -433,6 +442,67 @@ export default function App() {
       toast.error('Failed to save series -- server unreachable')
     }
     setSetSeriesDialog(null)
+  }
+
+  // --- EPUB Import ---
+
+  const readFileAsBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const result = reader.result as string
+        // Strip data URL prefix: "data:application/epub+zip;base64,..."
+        const base64 = result.includes(',') ? result.split(',')[1] : result
+        resolve(base64)
+      }
+      reader.onerror = () => reject(new Error('Failed to read file'))
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const handleImportFile = async (file: File) => {
+    if (!file.name.toLowerCase().endsWith('.epub')) {
+      toast.error('Only .epub files are supported')
+      return
+    }
+    try {
+      const base64 = await readFileAsBase64(file)
+      setImportFileBase64(base64)
+      setImportFilename(file.name)
+
+      const preview = await previewEpubApi(base64, file.name)
+      setImportPreview(preview)
+      setImportDialogOpen(true)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to preview EPUB')
+    }
+  }
+
+  const handleImportConfirm = async (tags: string[], series: string | null, seriesOrder: number | null) => {
+    try {
+      await confirmImport(
+        importFileBase64,
+        importFilename,
+        tags.length > 0 ? tags : undefined,
+        series ?? undefined,
+        seriesOrder ?? undefined,
+      )
+      setImportDialogOpen(false)
+      setImportPreview(null)
+      setImportFileBase64('')
+      setImportFilename('')
+      toast.success('Book imported successfully')
+      await fetchBooks()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to import EPUB')
+    }
+  }
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) handleImportFile(file)
+    // Reset file input so the same file can be selected again
+    e.target.value = ''
   }
 
   // Track the previous sort field to detect transitions to manual mode
@@ -884,6 +954,22 @@ export default function App() {
         <div className="ml-auto flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <Button
             size="sm"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!serverAvailable}
+          >
+            <FileDown data-icon="inline-start" className="size-4" />
+            Import
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".epub"
+            className="hidden"
+            onChange={handleFileInputChange}
+          />
+          <Button
+            size="sm"
             onClick={handleNewBook}
             disabled={!serverAvailable}
             className="bg-[oklch(0.55_0.20_285)] text-white hover:bg-[oklch(0.50_0.22_285)] disabled:opacity-40"
@@ -942,7 +1028,48 @@ export default function App() {
       )}
 
       {/* Library grid */}
-      <main className="flex-1 overflow-y-auto px-8 py-8" style={{ fontSize: `${fontSize}px` }}>
+      <main
+        className="relative flex-1 overflow-y-auto px-8 py-8"
+        style={{ fontSize: `${fontSize}px` }}
+        onDragEnter={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          dragCounterRef.current++
+          if (e.dataTransfer.types.includes('Files')) {
+            setIsDragOver(true)
+          }
+        }}
+        onDragOver={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          dragCounterRef.current--
+          if (dragCounterRef.current <= 0) {
+            dragCounterRef.current = 0
+            setIsDragOver(false)
+          }
+        }}
+        onDrop={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          dragCounterRef.current = 0
+          setIsDragOver(false)
+          const file = e.dataTransfer.files?.[0]
+          if (file) handleImportFile(file)
+        }}
+      >
+        {/* Drop zone overlay */}
+        {isDragOver && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-surface-base/80 backdrop-blur-sm border-2 border-dashed border-border-focus rounded-lg m-2">
+            <div className="flex flex-col items-center gap-2 text-content-primary">
+              <FileDown className="size-10 text-content-muted" />
+              <p className="text-lg font-semibold">Drop EPUB to import</p>
+            </div>
+          </div>
+        )}
         <div className="mx-auto max-w-7xl">
           {hasLoaded && allBooks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-32 text-center">
@@ -1082,6 +1209,7 @@ export default function App() {
                         finalQuizTotal={book.finalQuizTotal}
                         coverUrl={book.hasCover ? apiUrl(`/api/books/${book.id}/cover?v=${book.coverUpdatedAt ?? ''}`) : undefined}
                         showTitleOnCover={book.showTitleOnCover}
+                        imported={book.imported}
                         onClick={() => setView({ type: 'reading', book })}
                         onContextMenu={apiBookIds.has(book.id) ? (e) => {
                           e.preventDefault()
@@ -1103,6 +1231,7 @@ export default function App() {
                         finalQuizTotal={book.finalQuizTotal}
                         coverUrl={book.hasCover ? apiUrl(`/api/books/${book.id}/cover?v=${book.coverUpdatedAt ?? ''}`) : undefined}
                         showTitleOnCover={book.showTitleOnCover}
+                        imported={book.imported}
                         onClick={() => setView({ type: 'reading', book })}
                         onContextMenu={apiBookIds.has(book.id) ? (e) => {
                           e.preventDefault()
@@ -1429,6 +1558,25 @@ export default function App() {
           totalChapters={generateAllModal.book.totalChapters}
         />
       )}
+
+      {/* Import EPUB dialog */}
+      <ImportPreviewDialog
+        open={importDialogOpen}
+        onOpenChange={(open) => {
+          setImportDialogOpen(open)
+          if (!open) {
+            setImportPreview(null)
+            setImportFileBase64('')
+            setImportFilename('')
+          }
+        }}
+        preview={importPreview}
+        fileBase64={importFileBase64}
+        filename={importFilename}
+        allTags={allTags}
+        allSeriesNames={allSeriesNames}
+        onConfirm={handleImportConfirm}
+      />
 
       {/* Background tasks footer */}
       <BackgroundTasksFooter />

@@ -15,6 +15,7 @@ interface SortableBookCardProps {
   finalQuizTotal?: number
   coverUrl?: string
   showTitleOnCover?: boolean
+  imported?: boolean
   onClick?: () => void
   onContextMenu?: (e: React.MouseEvent) => void
 }
