@@ -911,6 +911,392 @@ export default function App() {
     return chips
   }, [libraryFilters, dispatch])
 
+  // --- Shared render helpers for context menu & dialogs ---
+  const renderContextMenu = () => contextMenu && (
+    <div
+      ref={(el) => {
+        if (!el) return
+        const rect = el.getBoundingClientRect()
+        const vw = window.innerWidth
+        const vh = window.innerHeight
+        let x = contextMenu.x
+        let y = contextMenu.y
+        if (x + rect.width > vw - 8) x = contextMenu.x - rect.width
+        if (y + rect.height > vh - 8) y = contextMenu.y - rect.height
+        if (x < 8) x = 8
+        if (y < 8) y = 8
+        el.style.left = `${x}px`
+        el.style.top = `${y}px`
+      }}
+      className="fixed z-50 w-fit rounded-lg border border-border-default/50 bg-surface-base/95 backdrop-blur-md py-1 shadow-lg"
+      style={{ left: -9999, top: -9999 }}
+      onClick={e => e.stopPropagation()}
+    >
+      {/* Edit group */}
+      <button
+        onClick={() => {
+          setRenameDialog({ book: contextMenu.book, title: contextMenu.book.title, subtitle: contextMenu.book.subtitle ?? '' })
+          setContextMenu(null)
+        }}
+        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
+      >
+        <Pencil className="size-3.5 text-content-muted shrink-0" />
+        Rename
+      </button>
+      <button
+        onClick={() => {
+          setRateDialog({ book: contextMenu.book, rating: contextMenu.book.rating ?? 0 })
+          setContextMenu(null)
+        }}
+        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
+      >
+        <Star className="size-3.5 text-content-muted shrink-0" />
+        Rate
+      </button>
+      <button
+        onClick={() => {
+          setEditTagsDialog({ book: contextMenu.book })
+          setContextMenu(null)
+        }}
+        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
+      >
+        <Tags className="size-3.5 text-content-muted shrink-0" />
+        Edit Tags
+      </button>
+      <button
+        onClick={() => {
+          setSetSeriesDialog({ book: contextMenu.book })
+          setContextMenu(null)
+        }}
+        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
+      >
+        <Library className="size-3.5 text-content-muted shrink-0" />
+        Set Series
+      </button>
+      <div className="my-1 h-px bg-border-default/50" />
+      {/* View group */}
+      <button
+        onClick={() => {
+          setOverviewBook(contextMenu.book)
+          setContextMenu(null)
+        }}
+        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
+      >
+        <Eye className="size-3.5 text-content-muted shrink-0" />
+        Book Overview
+      </button>
+      <button
+        onClick={() => {
+          setView({ type: 'quiz-review', book: contextMenu.book })
+          setContextMenu(null)
+        }}
+        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
+      >
+        <ClipboardCheck className="size-3.5 text-content-muted shrink-0" />
+        Quiz Review
+      </button>
+      <div className="my-1 h-px bg-border-default/50" />
+      {/* Actions group */}
+      <button
+        onClick={() => {
+          setCoverModal({ book: contextMenu.book })
+          setContextMenu(null)
+        }}
+        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
+      >
+        <Image className="size-3.5 text-content-muted shrink-0" />
+        Edit Cover
+      </button>
+      <button
+        onClick={() => {
+          handleGenerateAll(contextMenu.book)
+          setContextMenu(null)
+        }}
+        disabled={contextMenu.book.generatedUpTo >= contextMenu.book.totalChapters}
+        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+      >
+        <Zap className="size-3.5 text-content-muted shrink-0" />
+        Generate All
+      </button>
+      <button
+        onClick={() => {
+          handleExportEpub(contextMenu.book)
+          setContextMenu(null)
+        }}
+        disabled={contextMenu.book.generatedUpTo < contextMenu.book.totalChapters}
+        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+      >
+        <Download className="size-3.5 text-content-muted shrink-0" />
+        Export EPUB
+      </button>
+      <div className="my-1 h-px bg-border-default/50" />
+      {/* Danger group */}
+      <button
+        onClick={() => {
+          setDeleteDialog({ book: contextMenu.book, input: '' })
+          setContextMenu(null)
+        }}
+        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-status-error hover:bg-surface-muted transition-colors whitespace-nowrap"
+      >
+        <Trash2 className="size-3.5 shrink-0" />
+        Delete
+      </button>
+    </div>
+  )
+
+  const renderSeriesContextMenu = () => seriesContextMenu && (
+    <div
+      ref={(el) => {
+        if (!el) return
+        const rect = el.getBoundingClientRect()
+        const vw = window.innerWidth
+        const vh = window.innerHeight
+        let x = seriesContextMenu.x
+        let y = seriesContextMenu.y
+        if (x + rect.width > vw - 8) x = seriesContextMenu.x - rect.width
+        if (y + rect.height > vh - 8) y = seriesContextMenu.y - rect.height
+        if (x < 8) x = 8
+        if (y < 8) y = 8
+        el.style.left = `${x}px`
+        el.style.top = `${y}px`
+      }}
+      className="fixed z-50 w-fit rounded-lg border border-border-default/50 bg-surface-base/95 backdrop-blur-md py-1 shadow-lg"
+      style={{ left: -9999, top: -9999 }}
+      onClick={e => e.stopPropagation()}
+    >
+      <button
+        onClick={() => {
+          setRenameSeriesDialog({ seriesName: seriesContextMenu.seriesName, books: seriesContextMenu.books, newName: seriesContextMenu.seriesName })
+          setSeriesContextMenu(null)
+        }}
+        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
+      >
+        <Pencil className="size-3.5 text-content-muted shrink-0" />
+        Rename Series
+      </button>
+    </div>
+  )
+
+  const renderDialogs = () => (
+    <>
+      {/* Rename dialog */}
+      <Dialog open={!!renameDialog} onOpenChange={open => { if (!open) setRenameDialog(null) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Rename Book</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-medium text-content-muted mb-1 block">Title</label>
+              <input
+                value={renameDialog?.title ?? ''}
+                onChange={e => setRenameDialog(prev => prev ? { ...prev, title: e.target.value } : null)}
+                onKeyDown={e => e.key === 'Enter' && handleRename()}
+                className="h-9 w-full rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-content-muted mb-1 block">Subtitle</label>
+              <input
+                value={renameDialog?.subtitle ?? ''}
+                onChange={e => setRenameDialog(prev => prev ? { ...prev, subtitle: e.target.value } : null)}
+                onKeyDown={e => e.key === 'Enter' && handleRename()}
+                placeholder="Optional subtitle"
+                className="h-9 w-full rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameDialog(null)}>Cancel</Button>
+            <Button onClick={handleRename} disabled={!renameDialog?.title.trim() || mutating}>OK</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Series dialog */}
+      <Dialog open={!!renameSeriesDialog} onOpenChange={open => { if (!open) setRenameSeriesDialog(null) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Rename Series</DialogTitle>
+            <DialogDescription>
+              This will update the series name on {renameSeriesDialog?.books.length ?? 0} {(renameSeriesDialog?.books.length ?? 0) === 1 ? 'book' : 'books'}.
+            </DialogDescription>
+          </DialogHeader>
+          <div>
+            <label className="text-xs font-medium text-content-muted mb-1 block">Series Name</label>
+            <input
+              value={renameSeriesDialog?.newName ?? ''}
+              onChange={e => setRenameSeriesDialog(prev => prev ? { ...prev, newName: e.target.value } : null)}
+              onKeyDown={e => e.key === 'Enter' && handleRenameSeries()}
+              className="h-9 w-full rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameSeriesDialog(null)}>Cancel</Button>
+            <Button onClick={handleRenameSeries} disabled={!renameSeriesDialog?.newName.trim() || mutating}>OK</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deleteDialog} onOpenChange={open => { if (!open) setDeleteDialog(null) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Book</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete &ldquo;{deleteDialog?.book.title}&rdquo;? Type <strong>delete</strong> to confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <input
+            value={deleteDialog?.input ?? ''}
+            onChange={e => setDeleteDialog(prev => prev ? { ...prev, input: e.target.value } : null)}
+            onKeyDown={e => e.key === 'Enter' && deleteDialog?.input === 'delete' && handleDelete()}
+            placeholder="delete"
+            className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialog(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleteDialog?.input !== 'delete' || mutating}>OK</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rate dialog */}
+      <Dialog open={!!rateDialog} onOpenChange={open => { if (!open) setRateDialog(null) }}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Rate Book</DialogTitle>
+            <DialogDescription>{rateDialog?.book.title}</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-2 py-4">
+            <StarRating
+              value={rateDialog?.rating ?? 0}
+              onChange={val => setRateDialog(prev => prev ? { ...prev, rating: val } : null)}
+              size="lg"
+            />
+            {rateDialog && rateDialog.book.rating != null && rateDialog.book.rating > 0 && (
+              <button
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                onClick={async () => {
+                  if (!rateDialog) return
+                  setMutating(true)
+                  try {
+                    const res = await fetch(apiUrl(`/api/books/${rateDialog.book.id}/rating`), {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ rating: 0 }),
+                    })
+                    if (res.ok) await fetchBooks()
+                    else toast.error('Failed to clear rating')
+                  } catch {
+                    toast.error('Failed to clear rating — server unreachable')
+                  } finally {
+                    setMutating(false)
+                  }
+                  setRateDialog(null)
+                }}
+                disabled={mutating}
+              >
+                Clear rating
+              </button>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRateDialog(null)}>Cancel</Button>
+            <Button
+              onClick={async () => {
+                if (!rateDialog) return
+                setMutating(true)
+                try {
+                  const res = await fetch(apiUrl(`/api/books/${rateDialog.book.id}/rating`), {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rating: rateDialog.rating }),
+                  })
+                  if (res.ok) await fetchBooks()
+                  else toast.error('Failed to save rating')
+                } catch {
+                  toast.error('Failed to save rating — server unreachable')
+                } finally {
+                  setMutating(false)
+                }
+                setRateDialog(null)
+              }}
+              disabled={!rateDialog?.rating || mutating}
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Tags dialog */}
+      {editTagsDialog && (
+        <EditTagsDialog
+          open={true}
+          onOpenChange={(open) => { if (!open) setEditTagsDialog(null) }}
+          bookId={editTagsDialog.book.id}
+          currentTags={editTagsDialog.book.tags}
+          allTags={allTags}
+          onSave={handleSaveTags}
+        />
+      )}
+
+      {/* Set Series dialog */}
+      {setSeriesDialog && (
+        <SetSeriesDialog
+          open={true}
+          onOpenChange={(open) => { if (!open) setSetSeriesDialog(null) }}
+          bookId={setSeriesDialog.book.id}
+          currentSeries={setSeriesDialog.book.series}
+          currentSeriesOrder={setSeriesDialog.book.seriesOrder}
+          allSeriesNames={allSeriesNames}
+          onSave={handleSaveSeries}
+        />
+      )}
+
+      {/* Book overview modal */}
+      <BookOverviewModal
+        open={!!overviewBook}
+        onOpenChange={(open) => { if (!open) setOverviewBook(null) }}
+        book={overviewBook ?? { id: '', title: '', totalChapters: 0 }}
+      />
+
+      {/* Cover generation modal */}
+      {coverModal && (
+        <CoverGenerationModal
+          open={true}
+          onOpenChange={(open) => { if (!open) setCoverModal(null) }}
+          bookId={coverModal.book.id}
+          bookTitle={coverModal.book.title}
+          bookTopic={coverModal.book.prompt ?? coverModal.book.title}
+          hasCover={coverModal.book.hasCover}
+          showTitleOnCover={coverModal.book.showTitleOnCover}
+          onCoverChanged={fetchBooks}
+        />
+      )}
+
+      {/* Generate all modal */}
+      {generateAllModal && (
+        <GenerateAllModal
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) {
+              setGenerateAllModal(null)
+              fetchBooks()
+            }
+          }}
+          taskId={generateAllModal.taskId}
+          bookTitle={generateAllModal.book.title}
+          totalChapters={generateAllModal.book.totalChapters}
+        />
+      )}
+    </>
+  )
+
   if (view.type === 'creating') {
     return (
       <CreationView
@@ -976,13 +1362,23 @@ export default function App() {
   if (view.type === 'series') {
     const seriesBooks = allBooks.filter(b => b.series === view.seriesName)
     return (
-      <SeriesView
-        seriesName={view.seriesName}
-        books={seriesBooks}
-        furthest={furthest}
-        onBookClick={(book) => setView({ type: 'reading', book })}
-        onBack={() => { fetchBooks(); setView({ type: 'library' }) }}
-      />
+      <>
+        <SeriesView
+          seriesName={view.seriesName}
+          books={seriesBooks}
+          furthest={furthest}
+          onBookClick={(book) => setView({ type: 'reading', book })}
+          onBack={() => { fetchBooks(); setView({ type: 'library' }) }}
+          onContextMenu={(book, e) => {
+            if (apiBookIds.has(book.id)) {
+              e.preventDefault()
+              setContextMenu({ book, x: e.clientX, y: e.clientY })
+            }
+          }}
+        />
+        {renderContextMenu()}
+        {renderDialogs()}
+      </>
     )
   }
 
@@ -1323,388 +1719,9 @@ export default function App() {
         </div>
       </main>
 
-      {/* Right-click context menu */}
-      {contextMenu && (
-        <div
-          ref={(el) => {
-            if (!el) return
-            const rect = el.getBoundingClientRect()
-            const vw = window.innerWidth
-            const vh = window.innerHeight
-            let x = contextMenu.x
-            let y = contextMenu.y
-            if (x + rect.width > vw - 8) x = contextMenu.x - rect.width
-            if (y + rect.height > vh - 8) y = contextMenu.y - rect.height
-            if (x < 8) x = 8
-            if (y < 8) y = 8
-            el.style.left = `${x}px`
-            el.style.top = `${y}px`
-          }}
-          className="fixed z-50 w-fit rounded-lg border border-border-default/50 bg-surface-base/95 backdrop-blur-md py-1 shadow-lg"
-          style={{ left: -9999, top: -9999 }}
-          onClick={e => e.stopPropagation()}
-        >
-          {/* Edit group */}
-          <button
-            onClick={() => {
-              setRenameDialog({ book: contextMenu.book, title: contextMenu.book.title, subtitle: contextMenu.book.subtitle ?? '' })
-              setContextMenu(null)
-            }}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
-          >
-            <Pencil className="size-3.5 text-content-muted shrink-0" />
-            Rename
-          </button>
-          <button
-            onClick={() => {
-              setRateDialog({ book: contextMenu.book, rating: contextMenu.book.rating ?? 0 })
-              setContextMenu(null)
-            }}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
-          >
-            <Star className="size-3.5 text-content-muted shrink-0" />
-            Rate
-          </button>
-          <button
-            onClick={() => {
-              setEditTagsDialog({ book: contextMenu.book })
-              setContextMenu(null)
-            }}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
-          >
-            <Tags className="size-3.5 text-content-muted shrink-0" />
-            Edit Tags
-          </button>
-          <button
-            onClick={() => {
-              setSetSeriesDialog({ book: contextMenu.book })
-              setContextMenu(null)
-            }}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
-          >
-            <Library className="size-3.5 text-content-muted shrink-0" />
-            Set Series
-          </button>
-          <div className="my-1 h-px bg-border-default/50" />
-          {/* View group */}
-          <button
-            onClick={() => {
-              setOverviewBook(contextMenu.book)
-              setContextMenu(null)
-            }}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
-          >
-            <Eye className="size-3.5 text-content-muted shrink-0" />
-            Book Overview
-          </button>
-          <button
-            onClick={() => {
-              setView({ type: 'quiz-review', book: contextMenu.book })
-              setContextMenu(null)
-            }}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
-          >
-            <ClipboardCheck className="size-3.5 text-content-muted shrink-0" />
-            Quiz Review
-          </button>
-          <div className="my-1 h-px bg-border-default/50" />
-          {/* Actions group */}
-          <button
-            onClick={() => {
-              setCoverModal({ book: contextMenu.book })
-              setContextMenu(null)
-            }}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
-          >
-            <Image className="size-3.5 text-content-muted shrink-0" />
-            Edit Cover
-          </button>
-          <button
-            onClick={() => {
-              handleGenerateAll(contextMenu.book)
-              setContextMenu(null)
-            }}
-            disabled={contextMenu.book.generatedUpTo >= contextMenu.book.totalChapters}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-          >
-            <Zap className="size-3.5 text-content-muted shrink-0" />
-            Generate All
-          </button>
-          <button
-            onClick={() => {
-              handleExportEpub(contextMenu.book)
-              setContextMenu(null)
-            }}
-            disabled={contextMenu.book.generatedUpTo < contextMenu.book.totalChapters}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-          >
-            <Download className="size-3.5 text-content-muted shrink-0" />
-            Export EPUB
-          </button>
-          <div className="my-1 h-px bg-border-default/50" />
-          {/* Danger group */}
-          <button
-            onClick={() => {
-              setDeleteDialog({ book: contextMenu.book, input: '' })
-              setContextMenu(null)
-            }}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-status-error hover:bg-surface-muted transition-colors whitespace-nowrap"
-          >
-            <Trash2 className="size-3.5 shrink-0" />
-            Delete
-          </button>
-        </div>
-      )}
-
-      {/* Series right-click context menu */}
-      {seriesContextMenu && (
-        <div
-          ref={(el) => {
-            if (!el) return
-            const rect = el.getBoundingClientRect()
-            const vw = window.innerWidth
-            const vh = window.innerHeight
-            let x = seriesContextMenu.x
-            let y = seriesContextMenu.y
-            if (x + rect.width > vw - 8) x = seriesContextMenu.x - rect.width
-            if (y + rect.height > vh - 8) y = seriesContextMenu.y - rect.height
-            if (x < 8) x = 8
-            if (y < 8) y = 8
-            el.style.left = `${x}px`
-            el.style.top = `${y}px`
-          }}
-          className="fixed z-50 w-fit rounded-lg border border-border-default/50 bg-surface-base/95 backdrop-blur-md py-1 shadow-lg"
-          style={{ left: -9999, top: -9999 }}
-          onClick={e => e.stopPropagation()}
-        >
-          <button
-            onClick={() => {
-              setRenameSeriesDialog({ seriesName: seriesContextMenu.seriesName, books: seriesContextMenu.books, newName: seriesContextMenu.seriesName })
-              setSeriesContextMenu(null)
-            }}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
-          >
-            <Pencil className="size-3.5 text-content-muted shrink-0" />
-            Rename Series
-          </button>
-        </div>
-      )}
-
-      {/* Rename dialog */}
-      <Dialog open={!!renameDialog} onOpenChange={open => { if (!open) setRenameDialog(null) }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Rename Book</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs font-medium text-content-muted mb-1 block">Title</label>
-              <input
-                value={renameDialog?.title ?? ''}
-                onChange={e => setRenameDialog(prev => prev ? { ...prev, title: e.target.value } : null)}
-                onKeyDown={e => e.key === 'Enter' && handleRename()}
-                className="h-9 w-full rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-content-muted mb-1 block">Subtitle</label>
-              <input
-                value={renameDialog?.subtitle ?? ''}
-                onChange={e => setRenameDialog(prev => prev ? { ...prev, subtitle: e.target.value } : null)}
-                onKeyDown={e => e.key === 'Enter' && handleRename()}
-                placeholder="Optional subtitle"
-                className="h-9 w-full rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRenameDialog(null)}>Cancel</Button>
-            <Button onClick={handleRename} disabled={!renameDialog?.title.trim() || mutating}>OK</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Rename Series dialog */}
-      <Dialog open={!!renameSeriesDialog} onOpenChange={open => { if (!open) setRenameSeriesDialog(null) }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Rename Series</DialogTitle>
-            <DialogDescription>
-              This will update the series name on {renameSeriesDialog?.books.length ?? 0} {(renameSeriesDialog?.books.length ?? 0) === 1 ? 'book' : 'books'}.
-            </DialogDescription>
-          </DialogHeader>
-          <div>
-            <label className="text-xs font-medium text-content-muted mb-1 block">Series Name</label>
-            <input
-              value={renameSeriesDialog?.newName ?? ''}
-              onChange={e => setRenameSeriesDialog(prev => prev ? { ...prev, newName: e.target.value } : null)}
-              onKeyDown={e => e.key === 'Enter' && handleRenameSeries()}
-              className="h-9 w-full rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
-              autoFocus
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRenameSeriesDialog(null)}>Cancel</Button>
-            <Button onClick={handleRenameSeries} disabled={!renameSeriesDialog?.newName.trim() || mutating}>OK</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete confirmation dialog */}
-      <Dialog open={!!deleteDialog} onOpenChange={open => { if (!open) setDeleteDialog(null) }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Delete Book</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete &ldquo;{deleteDialog?.book.title}&rdquo;? Type <strong>delete</strong> to confirm.
-            </DialogDescription>
-          </DialogHeader>
-          <input
-            value={deleteDialog?.input ?? ''}
-            onChange={e => setDeleteDialog(prev => prev ? { ...prev, input: e.target.value } : null)}
-            onKeyDown={e => e.key === 'Enter' && deleteDialog?.input === 'delete' && handleDelete()}
-            placeholder="delete"
-            className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
-            autoFocus
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialog(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleteDialog?.input !== 'delete' || mutating}>OK</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Rate dialog */}
-      <Dialog open={!!rateDialog} onOpenChange={open => { if (!open) setRateDialog(null) }}>
-        <DialogContent className="sm:max-w-xs">
-          <DialogHeader>
-            <DialogTitle>Rate Book</DialogTitle>
-            <DialogDescription>{rateDialog?.book.title}</DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col items-center gap-2 py-4">
-            <StarRating
-              value={rateDialog?.rating ?? 0}
-              onChange={val => setRateDialog(prev => prev ? { ...prev, rating: val } : null)}
-              size="lg"
-            />
-            {rateDialog && rateDialog.book.rating != null && rateDialog.book.rating > 0 && (
-              <button
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                onClick={async () => {
-                  if (!rateDialog) return
-                  setMutating(true)
-                  try {
-                    const res = await fetch(apiUrl(`/api/books/${rateDialog.book.id}/rating`), {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ rating: 0 }),
-                    })
-                    if (res.ok) await fetchBooks()
-                    else toast.error('Failed to clear rating')
-                  } catch {
-                    toast.error('Failed to clear rating — server unreachable')
-                  } finally {
-                    setMutating(false)
-                  }
-                  setRateDialog(null)
-                }}
-                disabled={mutating}
-              >
-                Clear rating
-              </button>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRateDialog(null)}>Cancel</Button>
-            <Button
-              onClick={async () => {
-                if (!rateDialog) return
-                setMutating(true)
-                try {
-                  const res = await fetch(apiUrl(`/api/books/${rateDialog.book.id}/rating`), {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rating: rateDialog.rating }),
-                  })
-                  if (res.ok) await fetchBooks()
-                  else toast.error('Failed to save rating')
-                } catch {
-                  toast.error('Failed to save rating — server unreachable')
-                } finally {
-                  setMutating(false)
-                }
-                setRateDialog(null)
-              }}
-              disabled={!rateDialog?.rating || mutating}
-            >
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Tags dialog */}
-      {editTagsDialog && (
-        <EditTagsDialog
-          open={true}
-          onOpenChange={(open) => { if (!open) setEditTagsDialog(null) }}
-          bookId={editTagsDialog.book.id}
-          currentTags={editTagsDialog.book.tags}
-          allTags={allTags}
-          onSave={handleSaveTags}
-        />
-      )}
-
-      {/* Set Series dialog */}
-      {setSeriesDialog && (
-        <SetSeriesDialog
-          open={true}
-          onOpenChange={(open) => { if (!open) setSetSeriesDialog(null) }}
-          bookId={setSeriesDialog.book.id}
-          currentSeries={setSeriesDialog.book.series}
-          currentSeriesOrder={setSeriesDialog.book.seriesOrder}
-          allSeriesNames={allSeriesNames}
-          onSave={handleSaveSeries}
-        />
-      )}
-
-      {/* Book overview modal */}
-      <BookOverviewModal
-        open={!!overviewBook}
-        onOpenChange={(open) => { if (!open) setOverviewBook(null) }}
-        book={overviewBook ?? { id: '', title: '', totalChapters: 0 }}
-      />
-
-      {/* Cover generation modal */}
-      {coverModal && (
-        <CoverGenerationModal
-          open={true}
-          onOpenChange={(open) => { if (!open) setCoverModal(null) }}
-          bookId={coverModal.book.id}
-          bookTitle={coverModal.book.title}
-          bookTopic={coverModal.book.prompt ?? coverModal.book.title}
-          hasCover={coverModal.book.hasCover}
-          showTitleOnCover={coverModal.book.showTitleOnCover}
-          onCoverChanged={fetchBooks}
-        />
-      )}
-
-      {/* Generate all modal */}
-      {generateAllModal && (
-        <GenerateAllModal
-          open={true}
-          onOpenChange={(open) => {
-            if (!open) {
-              setGenerateAllModal(null)
-              fetchBooks()
-            }
-          }}
-          taskId={generateAllModal.taskId}
-          bookTitle={generateAllModal.book.title}
-          totalChapters={generateAllModal.book.totalChapters}
-        />
-      )}
+      {renderContextMenu()}
+      {renderSeriesContextMenu()}
+      {renderDialogs()}
 
       {/* Import EPUB dialog */}
       <ImportPreviewDialog

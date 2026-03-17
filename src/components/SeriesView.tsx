@@ -29,9 +29,10 @@ interface SeriesViewProps {
   furthest: Record<string, number>
   onBookClick: (book: Book) => void
   onBack: () => void
+  onContextMenu?: (book: Book, e: React.MouseEvent) => void
 }
 
-export function SeriesView({ seriesName, books, furthest, onBookClick, onBack }: SeriesViewProps) {
+export function SeriesView({ seriesName, books, furthest, onBookClick, onBack, onContextMenu }: SeriesViewProps) {
   const sortedBooks = [...books].sort((a, b) => (a.seriesOrder ?? 0) - (b.seriesOrder ?? 0))
 
   const totalChapters = sortedBooks.reduce((sum, b) => sum + b.totalChapters, 0)
@@ -96,6 +97,10 @@ export function SeriesView({ seriesName, books, furthest, onBookClick, onBack }:
                   coverUrl={book.hasCover ? apiUrl(`/api/books/${book.id}/cover?v=${book.coverUpdatedAt ?? ''}`) : undefined}
                   showTitleOnCover={book.showTitleOnCover}
                   onClick={() => onBookClick(book)}
+                  onContextMenu={onContextMenu ? (e) => {
+                    e.preventDefault()
+                    onContextMenu(book, e)
+                  } : undefined}
                 />
               )
             })}
