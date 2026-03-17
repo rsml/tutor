@@ -26,11 +26,6 @@ interface SeriesStackCardProps {
 export function SeriesStackCard({ seriesName, books, chaptersRead, totalChapters, onClick }: SeriesStackCardProps) {
   const hue = stringToHue(seriesName)
   const progress = totalChapters > 0 ? chaptersRead / totalChapters : 0
-  const booksRead = books.filter((_, i) => {
-    // count a "book" as read if progress >= 1 for it — but we only have aggregate stats
-    return false // we use chaptersRead / totalChapters instead
-  }).length
-  void booksRead
 
   return (
     <div className="group cursor-pointer" onClick={onClick}>
