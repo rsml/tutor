@@ -1,61 +1,69 @@
 # Tutor
 
-**AI-generated books that write themselves based on how you learn.**
-
-Pick any topic. Tutor generates a book for you chapter by chapter — then adapts each new chapter based on your feedback and quiz performance. The books literally write itself around how you learn.
+**AI-generated books that adapt chapter by chapter to your feedback, quiz results, and learning style.**
 
 <p align="center">
-  <img src="docs/screenshots/library.png" alt="Library" width="49%">
-  <img src="docs/screenshots/new-book.png" alt="New Book" width="49%">
+  <img src="docs/screenshots/library.png" alt="Tutor library showing AI-generated books with custom covers" width="100%">
 </p>
 
 ## How It Works
 
-### 1. Create
+### 01 — Personalize
 
-Enter a topic and a prompt describing what you want to learn. Tutor generates a table of contents and a first chapter to start.
-
-### 2. Read
-
-Short, focused chapters (~1,500 words, 5-10 min each). Select any text to open an inline AI chat panel for deeper explanation — then pick up right where you left off.
+Share a brief profile about how you learn, your preferences, and your prior skills. Or just have the AI interview you and it will fill those out by itself.
 
 <p align="center">
-  <img src="docs/screenshots/reader.png" alt="Reader" width="49%">
-  <img src="docs/screenshots/inline-chat.png" alt="Inline chat" width="49%">
+  <img src="docs/screenshots/personalize.png" alt="Personalization interview screen" width="100%">
 </p>
 
-### 3. Feedback + Quiz
+### 02 — Create
 
-After each chapter, take a quick quiz to reinforce retention. Then tell Tutor what worked and what didn't.
+Enter any topic and a learning prompt, or let the AI suggest your next book based on your learning profile, preferences, and skills. Tutor generates a table of contents and your first chapter.
 
 <p align="center">
-  <img src="docs/screenshots/quiz.png" alt="Quiz" width="49%">
-  <img src="docs/screenshots/feedback.png" alt="Feedback form" width="49%">
+  <img src="docs/screenshots/new-book.png" alt="New book creation dialog" width="100%">
 </p>
 
-### 4. Adapt
+### 03 — Read
 
-The next chapter generates on-demand, incorporating your written feedback, quiz results, and your accumulated "Learning Profile". Each chapter is shaped by everything that came before it. You can also right-click any book to generate the entire book at once.
+~1,500-word chapters, 5-10 min each. Select any text to open an inline AI chat for deeper explanation.
+
+<p align="center">
+  <img src="docs/screenshots/inline-chat.png" alt="Inline chat panel alongside chapter text" width="100%">
+</p>
+
+### 04 — Quiz
+
+Post-chapter quizzes reinforce retention. A longer quiz at the end of the book synthesizes everything across all chapters.
+
+<p align="center">
+  <img src="docs/screenshots/quiz.png" alt="Multiple choice quiz interface" width="100%">
+</p>
+
+### 05 — Adapt
+
+Give feedback on each chapter. The next one adapts to your quiz results and learning profile. After you finish a book, the AI recommends updates to your skills, preferences, and profile based on your progress.
+
+<p align="center">
+  <img src="docs/screenshots/feedback.png" alt="Feedback form for chapter content" width="100%">
+</p>
 
 ## Features
 
-- **Adaptive generation** — Every chapter is shaped by your feedback, quiz performance and "Learning Profile"
-- **Inline chat** — Select any text for an AI-powered deeper explanation or to chat about it
-- **Quizzes** — Quick retention checks after each chapter that you can always review later
-- **Learning Profile** — Set your background, preferences, depth, and pace. Tutor will interview you to make this easy to capture.
-- **Update Learning Profile** — After you finish a book Tutor will automatically recommend updates to your Learning Profile based on the skills in that book and your quiz performances.
-- **Skills tracking** — Discrete skills extracted from content, tracked across all your books
-- **Mermaid and KATEX** — Books can show Mermaid diagrams, math forumulas (via KATEX), and code samples
-- **Desktop app** — Native Electron app with dark/light theme, and lots of customizability on appearance
-- **Download EPUB** — Right click on a book to download it as an EPUB
-- **Generate book covers** — Right click on a book to generate a cover image for it
-- **BYOK (Bring Your Own Key)** — Choose what AI models you want to use for text generation and book cover generation
-
-
+- **Evolving chapters** — Every chapter is shaped by your feedback, quiz performance, and learning profile
+- **Inline chat** — Select any text for an AI-powered deeper explanation
+- **Quizzes** — Quick retention checks after each chapter, plus a comprehensive final quiz
+- **Learning profile** — Set your background, preferences, depth, and pace — or let the AI interview you
+- **Skills tracking** — Discrete skills extracted from content, tracked and updated across all your books
+- **Rich content** — Mermaid diagrams, KaTeX math formulas, and syntax-highlighted code
+- **EPUB import & export** — Export books for any e-reader, or import EPUBs others created
+- **AI covers** — Generate unique cover images for any book
+- **Library organization** — Search, filter, sort, tags, series, and drag-to-reorder
+- **BYOK** — Bring your own API keys (Claude, ChatGPT, Gemini) and choose your preferred models
+- **Desktop app** — Native Electron app with light/dark theme
 
 <p align="center">
-  <img src="docs/screenshots/settings.png" alt="Learning profile" width="49%">
-  <img src="docs/screenshots/progress.png" alt="Skills progress" width="49%">
+  <img src="docs/screenshots/settings.png" alt="Learning profile and settings" width="100%">
 </p>
 
 ## Build Standalone DMG
@@ -89,13 +97,6 @@ Set your Claude, ChatGPT or Gemini API key in Settings (gear icon) on first laun
 | Storage | Filesystem (Markdown + YAML) |
 | Desktop | Electron (via vite-plugin-electron) |
 | Testing | Vitest |
-
-## Architecture
-
-- **Filesystem storage** — Chapters are Markdown files, metadata is YAML. No database.
-- **Fastify backend** — REST API with an in-memory generation queue for background chapter generation
-- **React frontend** — Redux state, react-markdown rendering
-- **Electron shell** — Custom window chrome, system dark mode, native packaging (DMG)
 
 ## License
 
