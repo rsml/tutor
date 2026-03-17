@@ -1,12 +1,14 @@
 import { app, BrowserWindow, Menu, ipcMain, safeStorage, nativeImage, nativeTheme, session, dialog } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
 import { readFile, writeFile, mkdir, rm } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { getDataDir } from '../lib/data-dir.js'
 import { startServer } from '../server/index.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const esmRequire = createRequire(import.meta.url)
 
 process.env.APP_ROOT = path.join(__dirname, '..')
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
@@ -212,6 +214,67 @@ app.whenReady().then(async () => {
     if (canceled || !filePath) return false
     await writeFile(filePath, Buffer.from(base64Data, 'base64'))
     return true
+  })
+
+  // Register mermaid renderer for EPUB export
+  const { setMermaidRenderer } = await import('../server/services/mermaid-renderer.js')
+  const { sanitizeMermaidChart } = await import('../src/lib/sanitize-mermaid.js')
+  const { mermaidInitConfig } = await import('../lib/mermaid-theme.js')
+
+  setMermaidRenderer(async (charts: string[]) => {
+    if (charts.length === 0) return []
+
+    const win = new BrowserWindow({
+      show: false,
+      webPreferences: { offscreen: true },
+    })
+
+    try {
+      // Write a temp HTML file that loads mermaid — safer than data URLs for large bundles
+      const mermaidPath = esmRequire.resolve('mermaid/dist/mermaid.min.js')
+      const mermaidJs = await readFile(mermaidPath, 'utf-8')
+
+      const tmpHtml = path.join(dataDir, 'mermaid-renderer.html')
+      await writeFile(tmpHtml, `<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head><body>
+<script>${mermaidJs}</script>
+<script>
+  mermaid.initialize(${JSON.stringify(mermaidInitConfig)});
+</script>
+</body></html>`, 'utf-8')
+
+      await win.loadFile(tmpHtml)
+
+      const results: string[] = []
+      for (let i = 0; i < charts.length; i++) {
+        const sanitized = sanitizeMermaidChart(charts[i])
+        try {
+          const svg: string = await Promise.race([
+            win.webContents.executeJavaScript(`
+              (async () => {
+                const { svg } = await mermaid.render('epub-chart-` + i + `', ${JSON.stringify(sanitized)});
+                return svg;
+              })()
+            `),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('Mermaid render timeout')), 10_000)
+            ),
+          ])
+          results.push(svg)
+        } catch (err) {
+          console.warn('[mermaid-renderer] Chart ' + i + ' failed:', err)
+          // Fallback: raw code block
+          results.push('<pre><code class="language-mermaid">' + sanitized.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code></pre>')
+        }
+      }
+
+      // Clean up temp file
+      await rm(tmpHtml).catch(() => {})
+
+      return results
+    } finally {
+      win.destroy()
+    }
   })
 
   // POST all saved API keys to the server's key store

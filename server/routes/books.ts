@@ -1113,21 +1113,76 @@ ${skillProgressContext || 'No skill mastery data yet.'}
       ;(async () => {
         try {
           const { markdownToHtml } = await import('../services/markdown-html.js')
+          const { renderMermaidCharts } = await import('../services/mermaid-renderer.js')
           const epub = (await import('epub-gen-memory')).default
+          const { readFile: readFileAsync2 } = await import('node:fs/promises')
+          const { createRequire } = await import('node:module')
 
           const toc = await store.getToc(bookId)
-          const chapters: Array<{ title: string; content: string }> = []
+
+          // Phase 1: Convert all chapters (KaTeX renders inline, mermaid blocks become placeholders)
+          const chapterResults: Array<{
+            title: string
+            html: string
+            mermaidBlocks: Array<{ placeholder: string; source: string }>
+          }> = []
 
           for (let i = 1; i <= meta.totalChapters; i++) {
             if (task.abortController.signal.aborted) return
             taskManager.updateProgress(task.id, i, `Converting chapter ${i} of ${meta.totalChapters}`)
             const md = await store.getChapter(bookId, i)
-            const html = await markdownToHtml(md)
-            chapters.push({
+            const result = await markdownToHtml(md, { preserveSources: true })
+            chapterResults.push({
               title: toc.chapters[i - 1]?.title ?? `Chapter ${i}`,
-              content: html,
+              ...result,
             })
           }
+
+          if (task.abortController.signal.aborted) return
+
+          // Phase 2: Batch render all mermaid diagrams
+          const allMermaidSources = chapterResults.flatMap(ch =>
+            ch.mermaidBlocks.map(b => b.source)
+          )
+
+          let allMermaidSvgs: string[] = []
+          if (allMermaidSources.length > 0) {
+            taskManager.updateProgress(task.id, meta.totalChapters, `Rendering ${allMermaidSources.length} diagram(s)...`)
+            allMermaidSvgs = await renderMermaidCharts(allMermaidSources)
+          }
+
+          if (task.abortController.signal.aborted) return
+
+          // Phase 3: Substitute mermaid SVGs into chapter HTML
+          let svgIndex = 0
+          const chapters: Array<{ title: string; content: string }> = chapterResults.map(ch => {
+            let html = ch.html
+            for (const block of ch.mermaidBlocks) {
+              const svg = allMermaidSvgs[svgIndex]
+
+              let renderedHtml: string
+              if (svg && !svg.startsWith('<pre>')) {
+                // Successfully rendered — wrap in container + hidden source
+                renderedHtml =
+                  `<div class="tutor-mermaid-rendered">${svg}</div>` +
+                  `<div class="tutor-mermaid-source" style="display:none" data-tutor-type="mermaid">${block.source}</div>`
+              } else {
+                // Fallback (no renderer or render failed) — keep code block + hidden source
+                const escaped = block.source.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                renderedHtml =
+                  `<pre><code class="language-mermaid">${escaped}</code></pre>` +
+                  `<div class="tutor-mermaid-source" style="display:none" data-tutor-type="mermaid">${block.source}</div>`
+              }
+
+              // Replace the placeholder div with the rendered content
+              html = html.replace(
+                new RegExp(`<div[^>]*>${block.placeholder}</div>`),
+                renderedHtml
+              )
+              svgIndex++
+            }
+            return { title: ch.title, content: html }
+          })
 
           if (task.abortController.signal.aborted) return
 
@@ -1138,9 +1193,22 @@ ${skillProgressContext || 'No skill mastery data yet.'}
             title: string
             author: string
             cover?: string
+            css?: string
           } = {
             title: meta.title + (meta.subtitle ? `: ${meta.subtitle}` : ''),
             author: 'Tutor',
+          }
+
+          // Inline KaTeX CSS if any chapter has math
+          const hasMath = chapterResults.some(ch => ch.html.includes('class="katex"'))
+          if (hasMath) {
+            try {
+              const esmRequire = createRequire(import.meta.url)
+              const katexCssPath = esmRequire.resolve('katex/dist/katex.min.css')
+              epubOptions.css = await readFileAsync2(katexCssPath, 'utf-8')
+            } catch {
+              console.warn('[epub-export] Could not load KaTeX CSS')
+            }
           }
 
           // Add cover if exists
