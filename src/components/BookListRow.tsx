@@ -29,6 +29,7 @@ interface BookListRowProps {
   chaptersRead: number
   onClick: () => void
   onContextMenu?: (e: React.MouseEvent) => void
+  nested?: boolean
 }
 
 function formatRelativeDate(dateStr: string): string {
@@ -51,7 +52,7 @@ function formatRelativeDate(dateStr: string): string {
   return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`
 }
 
-export function BookListRow({ book, chaptersRead, onClick, onContextMenu }: BookListRowProps) {
+export function BookListRow({ book, chaptersRead, onClick, onContextMenu, nested }: BookListRowProps) {
   const progress = book.totalChapters > 0 ? chaptersRead / book.totalChapters : 0
   const isGenerating = book.status === 'generating_toc' || book.status === 'generating'
   const maxVisibleTags = 3

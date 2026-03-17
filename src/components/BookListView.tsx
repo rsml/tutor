@@ -37,8 +37,8 @@ interface BookListViewProps {
 export function BookListView({ items, onBookClick, onSeriesClick, onContextMenu }: BookListViewProps) {
   return (
     <div className="w-full">
-      {/* Column headers */}
-      <div className="flex items-center gap-4 px-4 py-2 border-b border-border-default/30 text-[11px] font-medium uppercase tracking-wider text-content-faint select-none">
+      {/* Column headers — sticky */}
+      <div className="sticky top-0 z-10 flex items-center gap-4 px-4 py-1 border-b border-border-default/30 text-[11px] font-medium uppercase tracking-wider text-content-faint select-none bg-surface-base">
         <div className="flex-[2] min-w-0">Title</div>
         <div className="w-[160px] shrink-0">Tags</div>
         <div className="w-[120px] shrink-0">Progress</div>
@@ -74,19 +74,36 @@ export function BookListView({ items, onBookClick, onSeriesClick, onContextMenu 
                 </div>
               </div>
 
-              {/* Series books */}
-              {item.books.map(({ book, chaptersRead }) => (
-                <BookListRow
-                  key={book.id}
-                  book={book}
-                  chaptersRead={chaptersRead}
-                  onClick={() => onBookClick(book)}
-                  onContextMenu={(e) => {
-                    e.preventDefault()
-                    onContextMenu(book, e)
-                  }}
-                />
-              ))}
+              {/* Series books — nested with connector lines */}
+              <div className="relative ml-2">
+                {item.books.map(({ book, chaptersRead }, idx) => (
+                  <div key={book.id} className="relative">
+                    {/* Vertical line: full height for non-last, half for last */}
+                    <div
+                      className="absolute left-4 top-0 w-px bg-border-default/50"
+                      style={{ height: idx === item.books.length - 1 ? '50%' : '100%' }}
+                    />
+                    {/* Vertical line above for non-first items (connects to previous) */}
+                    {idx === 0 && (
+                      <div className="absolute left-4 top-0 w-px h-1/2 bg-border-default/50" />
+                    )}
+                    {/* Horizontal connector to row */}
+                    <div className="absolute left-4 top-1/2 -translate-y-px h-px w-3.5 bg-border-default/50" />
+                    <div className="pl-8">
+                      <BookListRow
+                        book={book}
+                        chaptersRead={chaptersRead}
+                        onClick={() => onBookClick(book)}
+                        onContextMenu={(e) => {
+                          e.preventDefault()
+                          onContextMenu(book, e)
+                        }}
+                        nested
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )
         }

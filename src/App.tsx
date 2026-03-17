@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useDeferredValue, useRef } from 'react'
 import { toast } from 'sonner'
-import { Plus, BookOpen, X, FileDown } from 'lucide-react'
+import { Plus, BookOpen, X, FileDown, Pencil, Star, Tags, Library, ClipboardCheck, Eye, Image, Zap, Download, Trash2 } from 'lucide-react'
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
 import { Button } from '@src/components/ui/button'
@@ -256,7 +256,8 @@ export default function App() {
         const res = await fetch(apiUrl(`/api/books/search?q=${encodeURIComponent(deferredSearch.trim())}&full=true`))
         if (res.ok && !cancelled) {
           const data = await res.json()
-          setContentSearchResults(new Set(data.map((r: { bookId: string }) => r.bookId)))
+          const results = data.results ?? data
+          setContentSearchResults(new Set(results.map((r: { bookId: string }) => r.bookId)))
         }
       } catch { /* ignore */ }
     }
@@ -1313,17 +1314,19 @@ export default function App() {
             el.style.left = `${x}px`
             el.style.top = `${y}px`
           }}
-          className="fixed z-50 rounded-lg border border-border-default/50 bg-surface-base/95 backdrop-blur-md py-1 shadow-lg"
+          className="fixed z-50 w-fit rounded-lg border border-border-default/50 bg-surface-base/95 backdrop-blur-md py-1 shadow-lg"
           style={{ left: -9999, top: -9999 }}
           onClick={e => e.stopPropagation()}
         >
+          {/* Edit group */}
           <button
             onClick={() => {
               setRenameDialog({ book: contextMenu.book, title: contextMenu.book.title, subtitle: contextMenu.book.subtitle ?? '' })
               setContextMenu(null)
             }}
-            className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors"
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
           >
+            <Pencil className="size-3.5 text-content-muted shrink-0" />
             Rename
           </button>
           <button
@@ -1331,8 +1334,9 @@ export default function App() {
               setRateDialog({ book: contextMenu.book, rating: contextMenu.book.rating ?? 0 })
               setContextMenu(null)
             }}
-            className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors"
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
           >
+            <Star className="size-3.5 text-content-muted shrink-0" />
             Rate
           </button>
           <button
@@ -1340,8 +1344,9 @@ export default function App() {
               setEditTagsDialog({ book: contextMenu.book })
               setContextMenu(null)
             }}
-            className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors"
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
           >
+            <Tags className="size-3.5 text-content-muted shrink-0" />
             Edit Tags
           </button>
           <button
@@ -1349,36 +1354,43 @@ export default function App() {
               setSetSeriesDialog({ book: contextMenu.book })
               setContextMenu(null)
             }}
-            className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors"
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
           >
+            <Library className="size-3.5 text-content-muted shrink-0" />
             Set Series
+          </button>
+          <div className="my-1 h-px bg-border-default/50" />
+          {/* View group */}
+          <button
+            onClick={() => {
+              setOverviewBook(contextMenu.book)
+              setContextMenu(null)
+            }}
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
+          >
+            <Eye className="size-3.5 text-content-muted shrink-0" />
+            Book Overview
           </button>
           <button
             onClick={() => {
               setView({ type: 'quiz-review', book: contextMenu.book })
               setContextMenu(null)
             }}
-            className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors"
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
           >
+            <ClipboardCheck className="size-3.5 text-content-muted shrink-0" />
             Quiz Review
           </button>
-          <button
-            onClick={() => {
-              setOverviewBook(contextMenu.book)
-              setContextMenu(null)
-            }}
-            className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors"
-          >
-            Book Overview
-          </button>
           <div className="my-1 h-px bg-border-default/50" />
+          {/* Actions group */}
           <button
             onClick={() => {
               setCoverModal({ book: contextMenu.book })
               setContextMenu(null)
             }}
-            className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors"
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
           >
+            <Image className="size-3.5 text-content-muted shrink-0" />
             Edit Cover
           </button>
           <button
@@ -1387,9 +1399,10 @@ export default function App() {
               setContextMenu(null)
             }}
             disabled={contextMenu.book.generatedUpTo >= contextMenu.book.totalChapters}
-            className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
           >
-            Generate Entire Book
+            <Zap className="size-3.5 text-content-muted shrink-0" />
+            Generate All
           </button>
           <button
             onClick={() => {
@@ -1397,18 +1410,21 @@ export default function App() {
               setContextMenu(null)
             }}
             disabled={contextMenu.book.generatedUpTo < contextMenu.book.totalChapters}
-            className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
           >
+            <Download className="size-3.5 text-content-muted shrink-0" />
             Export EPUB
           </button>
           <div className="my-1 h-px bg-border-default/50" />
+          {/* Danger group */}
           <button
             onClick={() => {
               setDeleteDialog({ book: contextMenu.book, input: '' })
               setContextMenu(null)
             }}
-            className="w-full px-3 py-1.5 text-left text-sm text-status-error hover:bg-surface-muted transition-colors"
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-status-error hover:bg-surface-muted transition-colors whitespace-nowrap"
           >
+            <Trash2 className="size-3.5 shrink-0" />
             Delete
           </button>
         </div>
