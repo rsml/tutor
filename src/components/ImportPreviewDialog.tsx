@@ -125,7 +125,7 @@ export function ImportPreviewDialog({
           <DialogDescription>Review the book details before importing.</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           {/* Book preview */}
           <div className="flex gap-4">
             {/* Cover thumbnail */}

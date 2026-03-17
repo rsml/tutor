@@ -1506,7 +1506,7 @@ export default function App() {
       >
         {/* Drop zone overlay */}
         {isDragOver && (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-surface-base/80 backdrop-blur-sm border-2 border-dashed border-border-focus rounded-lg m-2">
+          <div className="fixed inset-0 z-40 flex items-center justify-center bg-surface-base/80 backdrop-blur-sm border-2 border-dashed border-border-focus rounded-lg m-2">
             <div className="flex flex-col items-center gap-2 text-content-primary">
               <FileDown className="size-10 text-content-muted" />
               <p className="text-lg font-semibold">Drop EPUB to import</p>

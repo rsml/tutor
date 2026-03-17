@@ -2,7 +2,9 @@ import { randomUUID } from 'node:crypto'
 import { writeFile, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import EPub from 'epub2'
+import EPub_ from 'epub2'
+// epub2's default export is the module namespace; the actual class is on .default
+const EPub = (EPub_ as unknown as { default: typeof EPub_ }).default ?? EPub_
 import TurndownService from 'turndown'
 import type { BookMeta } from '../schemas.js'
 import { saveBook, saveToc, saveChapter, saveCover } from './book-store.js'
