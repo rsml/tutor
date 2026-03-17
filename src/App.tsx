@@ -715,48 +715,37 @@ export default function App() {
     const { active, over } = event
     if (!over || active.id === over.id) return
 
-    // Build the grid items list (same structure as the rendered grid)
+    // Build the current grid items list (same structure as rendered)
     const renderedSeries = new Set<string>()
-    const gridItemIds: string[] = []
-    const gridItemSortOrders: number[] = []
+    const items: Array<{ id: string; sortOrder: number }> = []
 
     for (const book of filteredBooks) {
       if (book.series) {
         if (renderedSeries.has(book.series)) continue
         renderedSeries.add(book.series)
-        const itemId = `series-${book.series}`
-        gridItemIds.push(itemId)
-        gridItemSortOrders.push(book.sortOrder ?? 0)
+        items.push({ id: `series-${book.series}`, sortOrder: book.sortOrder ?? 0 })
       } else {
-        gridItemIds.push(book.id)
-        gridItemSortOrders.push(book.sortOrder ?? 0)
+        items.push({ id: book.id, sortOrder: book.sortOrder ?? 0 })
       }
     }
 
-    const oldIndex = gridItemIds.indexOf(String(active.id))
-    const newIndex = gridItemIds.indexOf(String(over.id))
+    const oldIndex = items.findIndex(it => it.id === String(active.id))
+    const newIndex = items.findIndex(it => it.id === String(over.id))
     if (oldIndex === -1 || newIndex === -1) return
 
-    // Build the reordered array by removing the dragged item and re-inserting
-    // Use the same logic as arrayMove: remove at oldIndex, insert at newIndex
-    const reorderedIds = [...gridItemIds]
-    const reorderedOrders = [...gridItemSortOrders]
-    const [movedId] = reorderedIds.splice(oldIndex, 1)
-    const [_movedOrder] = reorderedOrders.splice(oldIndex, 1)
-    // Adjust insert position: after removing, if oldIndex < newIndex the target shifted left
-    const insertAt = oldIndex < newIndex ? newIndex - 1 : newIndex
-    reorderedIds.splice(insertAt, 0, movedId)
-
-    // Calculate new sortOrder using midpoint strategy based on neighbors in the reordered array
+    // Calculate the new sortOrder based on the target position's neighbors
+    // We want to place the dragged item at newIndex position
     let newSortOrder: number
-    if (insertAt === 0) {
-      newSortOrder = reorderedOrders.length > 0 ? reorderedOrders[0] - 1 : 0
-    } else if (insertAt >= reorderedOrders.length) {
-      newSortOrder = reorderedOrders[reorderedOrders.length - 1] + 1
+    if (oldIndex < newIndex) {
+      // Moving forward: place after the item at newIndex
+      const after = items[newIndex].sortOrder
+      const next = newIndex + 1 < items.length ? items[newIndex + 1].sortOrder : after + 2
+      newSortOrder = (after + next) / 2
     } else {
-      const prevOrder = reorderedOrders[insertAt - 1]
-      const nextOrder = reorderedOrders[insertAt]
-      newSortOrder = (prevOrder + nextOrder) / 2
+      // Moving backward: place before the item at newIndex
+      const before = items[newIndex].sortOrder
+      const prev = newIndex - 1 >= 0 ? items[newIndex - 1].sortOrder : before - 2
+      newSortOrder = (prev + before) / 2
     }
 
     // Determine which book(s) to PATCH
@@ -764,9 +753,9 @@ export default function App() {
     const bookIdsToPatch: string[] = []
 
     if (draggedItemId.startsWith('series-')) {
-      const seriesName = draggedItemId.slice(7)
-      const seriesBooks = apiBooks.filter(b => b.series === seriesName)
-      bookIdsToPatch.push(...seriesBooks.map(b => b.id))
+      const sName = draggedItemId.slice(7)
+      const sBooks = apiBooks.filter(b => b.series === sName)
+      bookIdsToPatch.push(...sBooks.map(b => b.id))
     } else {
       bookIdsToPatch.push(draggedItemId)
     }
@@ -780,20 +769,21 @@ export default function App() {
         })
       ))
 
-      // Check if rebalancing is needed
-      reorderedOrders.splice(insertAt, 0, newSortOrder)
+      // Check if rebalancing is needed — update the item in the items array
+      const updatedItems = items.map(it => it.id === draggedItemId ? { ...it, sortOrder: newSortOrder } : it)
+      updatedItems.sort((a, b) => a.sortOrder - b.sortOrder)
       let needsRebalance = false
-      for (let i = 1; i < reorderedOrders.length; i++) {
-        if (Math.abs(reorderedOrders[i] - reorderedOrders[i - 1]) < 1e-10) {
+      for (let i = 1; i < updatedItems.length; i++) {
+        if (Math.abs(updatedItems[i].sortOrder - updatedItems[i - 1].sortOrder) < 1e-10) {
           needsRebalance = true
           break
         }
       }
 
       if (needsRebalance) {
-        const rebalancePatches = reorderedIds.map((itemId, index) => {
-          if (itemId.startsWith('series-')) {
-            const sName = itemId.slice(7)
+        const rebalancePatches = updatedItems.map((item, index) => {
+          if (item.id.startsWith('series-')) {
+            const sName = item.id.slice(7)
             const sBooks = apiBooks.filter(b => b.series === sName)
             return sBooks.map(b =>
               fetch(apiUrl(`/api/books/${b.id}`), {
@@ -803,7 +793,7 @@ export default function App() {
               })
             )
           } else {
-            return [fetch(apiUrl(`/api/books/${itemId}`), {
+            return [fetch(apiUrl(`/api/books/${item.id}`), {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ sortOrder: index }),
@@ -1163,6 +1153,15 @@ export default function App() {
                   const itemId = `series-${book.series}`
                   gridItemIds.push(itemId)
 
+                  // Right-click on a series card opens context menu for the first book (e.g., to edit cover)
+                  const seriesContextMenu = (e: React.MouseEvent) => {
+                    e.preventDefault()
+                    const firstBook = seriesBooks[0]
+                    if (firstBook && apiBookIds.has(firstBook.id)) {
+                      setContextMenu({ book: firstBook, x: e.clientX, y: e.clientY })
+                    }
+                  }
+
                   if (isManual) {
                     gridElements.push(
                       <SortableSeriesCard
@@ -1173,6 +1172,7 @@ export default function App() {
                         chaptersRead={chaptersRead}
                         totalChapters={totalChapters}
                         onClick={() => setView({ type: 'series', seriesName: book.series! })}
+                        onContextMenu={seriesContextMenu}
                       />
                     )
                   } else {
@@ -1184,6 +1184,7 @@ export default function App() {
                         chaptersRead={chaptersRead}
                         totalChapters={totalChapters}
                         onClick={() => setView({ type: 'series', seriesName: book.series! })}
+                        onContextMenu={seriesContextMenu}
                       />
                     )
                   }
@@ -1268,8 +1269,22 @@ export default function App() {
       {/* Right-click context menu */}
       {contextMenu && (
         <div
+          ref={(el) => {
+            if (!el) return
+            const rect = el.getBoundingClientRect()
+            const vw = window.innerWidth
+            const vh = window.innerHeight
+            let x = contextMenu.x
+            let y = contextMenu.y
+            if (x + rect.width > vw - 8) x = contextMenu.x - rect.width
+            if (y + rect.height > vh - 8) y = contextMenu.y - rect.height
+            if (x < 8) x = 8
+            if (y < 8) y = 8
+            el.style.left = `${x}px`
+            el.style.top = `${y}px`
+          }}
           className="fixed z-50 rounded-lg border border-border-default/50 bg-surface-base/95 backdrop-blur-md py-1 shadow-lg"
-          style={{ left: contextMenu.x, top: contextMenu.y, width: 'fit-content' }}
+          style={{ left: -9999, top: -9999 }}
           onClick={e => e.stopPropagation()}
         >
           <button

@@ -63,7 +63,7 @@ export function SeriesView({ seriesName, books, furthest, onBookClick, onBack }:
           <ArrowLeft className="size-5" />
         </button>
 
-        <div className="mx-auto max-w-7xl">
+        <div className="mx-auto max-w-7xl pt-8">
           {/* Summary stats */}
           <div className="mb-6 flex items-center gap-4 text-sm text-content-muted">
             <span>{sortedBooks.length} {sortedBooks.length === 1 ? 'book' : 'books'}</span>
