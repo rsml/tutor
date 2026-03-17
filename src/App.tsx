@@ -413,7 +413,7 @@ export default function App() {
     for (const cls of bookClasses.values()) counts[cls]++
 
     return { sortedBooks: sorted, filteredBooks: filtered, tabCounts: counts }
-  }, [allBooks, libraryTab, libraryFilters, classifyBook])
+  }, [allBooks, libraryTab, classifyBook])
 
   if (view.type === 'creating') {
     return (
