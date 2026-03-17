@@ -57,11 +57,12 @@ function rehypePreserveKatexSources() {
       if (!texSource) return
 
       const tutorType = isDisplayMath ? 'katex-display' : 'katex-inline'
+      const tag = isDisplayMath ? 'div' : 'span'
 
-      // Insert a hidden div after the katex node with the raw source
+      // Insert a hidden element after the katex node with the raw source
       const sourceNode: RootContent = {
         type: 'element',
-        tagName: 'div',
+        tagName: tag,
         properties: {
           'data-tutor-type': tutorType,
           style: 'display:none',
@@ -115,7 +116,7 @@ function rehypeExtractMermaid() {
         properties: {
           'data-mermaid-placeholder': placeholderKey,
         },
-        children: [],
+        children: [{ type: 'text', value: placeholderKey }],
       }
 
       const parentNode = parent as ParentNode

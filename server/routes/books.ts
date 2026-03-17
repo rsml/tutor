@@ -1159,19 +1159,19 @@ ${skillProgressContext || 'No skill mastery data yet.'}
             let html = ch.html
             for (const block of ch.mermaidBlocks) {
               const svg = allMermaidSvgs[svgIndex]
+              const escapedSource = block.source.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
               let renderedHtml: string
               if (svg && !svg.startsWith('<pre>')) {
                 // Successfully rendered — wrap in container + hidden source
                 renderedHtml =
                   `<div class="tutor-mermaid-rendered">${svg}</div>` +
-                  `<div class="tutor-mermaid-source" style="display:none" data-tutor-type="mermaid">${block.source}</div>`
+                  `<div class="tutor-mermaid-source" style="display:none" data-tutor-type="mermaid">${escapedSource}</div>`
               } else {
                 // Fallback (no renderer or render failed) — keep code block + hidden source
-                const escaped = block.source.replace(/</g, '&lt;').replace(/>/g, '&gt;')
                 renderedHtml =
-                  `<pre><code class="language-mermaid">${escaped}</code></pre>` +
-                  `<div class="tutor-mermaid-source" style="display:none" data-tutor-type="mermaid">${block.source}</div>`
+                  `<pre><code class="language-mermaid">${escapedSource}</code></pre>` +
+                  `<div class="tutor-mermaid-source" style="display:none" data-tutor-type="mermaid">${escapedSource}</div>`
               }
 
               // Replace the placeholder div with the rendered content
