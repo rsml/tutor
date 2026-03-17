@@ -46,6 +46,12 @@ interface Book {
   hasCover?: boolean
   showTitleOnCover?: boolean
   coverUpdatedAt?: string | null
+  createdAt: string
+  tags: string[]
+  series?: string
+  seriesOrder?: number
+  sortOrder?: number
+  imported?: boolean
 }
 
 
@@ -170,7 +176,7 @@ export default function App() {
         setApiBooks(prev => {
           // Preserve optimistic generating books not yet on server
           const generatingBooks = prev.filter(b => (b.status === 'generating' || b.status === 'generating_toc') && !books.some((sb: { id: string }) => sb.id === b.id))
-          const serverBooks = books.map((b: { id: string; title: string; subtitle?: string; prompt?: string; totalChapters: number; generatedUpTo: number; status?: string; rating?: number; finalQuizScore?: number; finalQuizTotal?: number; hasCover?: boolean; showTitleOnCover?: boolean; coverUpdatedAt?: string | null }) => ({
+          const serverBooks = books.map((b: { id: string; title: string; subtitle?: string; prompt?: string; totalChapters: number; generatedUpTo: number; status?: string; rating?: number; finalQuizScore?: number; finalQuizTotal?: number; hasCover?: boolean; showTitleOnCover?: boolean; coverUpdatedAt?: string | null; createdAt: string; tags: string[]; series?: string; seriesOrder?: number; sortOrder?: number; imported?: boolean }) => ({
             id: b.id,
             title: b.title,
             subtitle: b.subtitle,
@@ -185,6 +191,12 @@ export default function App() {
             hasCover: b.hasCover,
             showTitleOnCover: b.showTitleOnCover,
             coverUpdatedAt: b.coverUpdatedAt,
+            createdAt: b.createdAt,
+            tags: b.tags,
+            series: b.series,
+            seriesOrder: b.seriesOrder,
+            sortOrder: b.sortOrder,
+            imported: b.imported,
           }))
           return [...serverBooks, ...generatingBooks]
         })
@@ -263,6 +275,8 @@ export default function App() {
         totalChapters: totalChapters ?? 0,
         generatedUpTo: 0,
         status: 'generating_toc',
+        createdAt: new Date().toISOString(),
+        tags: [],
       }]
     })
   }, [])
