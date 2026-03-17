@@ -1472,7 +1472,7 @@ export default function App() {
 
       {/* Library grid */}
       <main
-        className="relative flex-1 overflow-y-auto px-8 py-8"
+        className="relative flex-1 overflow-y-auto px-8"
         style={{ fontSize: `${fontSize}px` }}
         onDragEnter={(e) => {
           e.preventDefault()
@@ -1513,7 +1513,7 @@ export default function App() {
             </div>
           </div>
         )}
-        <div className="mx-auto max-w-7xl">
+        <div className="mx-auto max-w-7xl py-8">
           {hasLoaded && allBooks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-32 text-center">
               <BookOpen className="size-12 text-content-faint" />
