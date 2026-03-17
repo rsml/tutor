@@ -124,15 +124,14 @@ Returns matching book IDs with match context (which chapter/section matched). Re
 
 ### 3. Filter Popover
 
-Opens from the Filter button. Five sections:
+Opens from the Filter button. Four sections:
 
 1. **Status:** All / In Progress / Not Started / Finished (toggle buttons, replaces current tabs)
 2. **Tags:** All known tags as toggleable chips (multi-select, OR logic — show books matching *any* selected tag)
-3. **Series:** All known series names with book counts (single-select — filter to one series)
-4. **Rating:** Any / ★3+ / ★4+ / ★5 (toggle buttons)
-5. **Created:** Any time / Last week / Last month / Last 3 months (toggle buttons)
+3. **Rating:** Any / ★3+ / ★4+ / ★5 (toggle buttons)
+4. **Created:** Any time / Last week / Last month / Last 3 months (toggle buttons)
 
-Filters apply immediately (no "Apply" button). Cross-section logic is AND (e.g., "In Progress" AND "tag:react" AND "★4+").
+No series filter — series are navigated via stacked cards, not filtered. Filters apply immediately (no "Apply" button). Cross-section logic is AND (e.g., "In Progress" AND "tag:react" AND "★4+").
 
 **Tag and series lists** are derived client-side from the `GET /api/books` response — `Array.from(new Set(allBooks.flatMap(b => b.tags)))` for tags, similar grouping for series. No dedicated API endpoints needed.
 
@@ -141,7 +140,6 @@ Filters apply immediately (no "Apply" button). Cross-section logic is AND (e.g.,
 libraryFilters: {
   status: 'all' | 'in-progress' | 'not-started' | 'finished',
   tags: string[],
-  series: string | null,
   ratingMin: number | null,     // null = any, 3, 4, or 5
   datePreset: 'any' | 'week' | 'month' | '3months',
 }
@@ -219,20 +217,22 @@ librarySort: {
 
 **Setting series:** Via context menu → "Set Series" dialog. Input with autocomplete for existing series names, plus a number input for order.
 
-**Visual treatment — Stacked Card:**
-- Books sharing the same `series` value are collapsed into a single card in the grid
+**Visual treatment — Stacked Card + Folder Navigation:**
+- Books sharing the same `series` value are collapsed into a single stacked card in the grid
 - The card shows the series name, book count, and overall progress ("2 of 3 read")
 - Visual: Shadow layers behind the card suggesting a stack of books
-- Click to expand: Inline expansion showing individual BookCards in `seriesOrder`, with a "collapse" affordance
-- When expanded, cards within the series can be reordered (when in Manual sort mode)
+- **Click to navigate:** Clicking the stacked card navigates to a **series detail view** — a dedicated page showing the series' books in `seriesOrder` with a back button to return to the library grid. This is like opening a folder in Finder/Dropbox.
+- The series detail view uses the same grid/list layout as the library, with the series name as the page title
+- Back button follows the existing pattern: `absolute left-6 top-3 z-20` (see `ReaderPage.tsx:339-344`)
+- Within the series view, books can be reordered (when in Manual sort mode)
 
 **New files:**
-- `src/components/SeriesStackCard.tsx` — Collapsed series card
-- `src/components/SeriesExpanded.tsx` — Expanded series inline view
+- `src/components/SeriesStackCard.tsx` — Collapsed stacked card in library grid
+- `src/components/SeriesView.tsx` — Series detail page (navigated to on click)
 - `src/components/SetSeriesDialog.tsx` — Dialog for setting series + order
 
 **Files to modify:**
-- `src/App.tsx` — Group books by series before rendering, render `SeriesStackCard` for grouped books
+- `src/App.tsx` — Group books by series before rendering; render `SeriesStackCard` for grouped books; add `{ type: 'series', seriesName: string }` to the view union type; render `SeriesView` when active
 - `server/schemas.ts` — Add `series`, `seriesOrder` to `BookMetaSchema` and `PatchBookBodySchema`
 
 ### 8. Drag-and-Drop Reordering
@@ -259,7 +259,13 @@ librarySort: {
 
 ### 9. EPUB Import
 
-**Flow:** User selects .epub file → server parses and converts → book appears in library immediately → toast notification.
+**Flow:** User selects .epub file → server parses metadata → preview dialog shows title, chapter count, cover → user confirms → server converts to native format → book appears in library → toast notification.
+
+**Preview dialog:** Shows extracted title, subtitle (if any), chapter count, format version, cover thumbnail (if present). Optional fields: tags input (with autocomplete) and series name + order. "Import" button confirms, "Cancel" aborts. This is a lightweight dialog — the server only parses metadata at this stage, not the full content.
+
+**Two-phase server processing:**
+- Phase 1 (`POST /api/books/import/preview`): Parse EPUB metadata only → return title, subtitle, chapterCount, hasCover, coverBase64 (thumbnail)
+- Phase 2 (`POST /api/books/import/confirm`): Full conversion — chapters to Markdown, cover saved, book directory created
 
 **Entry points:**
 1. "Import" button in the header (next to "New Book")
@@ -328,9 +334,10 @@ export const ImportEpubResponseSchema = z.object({
 | `src/components/EditTagsDialog.tsx` | Tag editing dialog |
 | `src/components/SetSeriesDialog.tsx` | Series assignment dialog |
 | `src/components/SeriesStackCard.tsx` | Collapsed series stack card |
-| `src/components/SeriesExpanded.tsx` | Expanded series inline view |
+| `src/components/SeriesView.tsx` | Series detail page (folder navigation) |
+| `src/components/ImportPreviewDialog.tsx` | EPUB import preview dialog with metadata + optional tags/series |
 | `server/services/epub-importer.ts` | EPUB parse + convert to native format |
-| `server/routes/import.ts` | EPUB import API route |
+| `server/routes/import.ts` | EPUB import API routes (preview + confirm) |
 
 ### Modified Files
 | File | Changes |
@@ -375,7 +382,6 @@ libraryView: 'grid' as 'grid' | 'list',
 libraryFilters: {
   status: 'all' as 'all' | 'in-progress' | 'not-started' | 'finished',
   tags: [] as string[],
-  series: null as string | null,
   ratingMin: null as number | null,
   datePreset: 'any' as 'any' | 'week' | 'month' | '3months',
 },
