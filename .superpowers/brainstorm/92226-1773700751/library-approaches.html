@@ -1,0 +1,160 @@
+<h2>Library Organization: Three Approaches</h2>
+<p class="subtitle">Pick the layout model for search, filter, sort, tags, series, and drag-to-reorder</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Toolbar-Driven (Recommended)</h3>
+      <p>Persistent toolbar row below header: search, filter chips, sort dropdown, view toggle. Series groups render inline in the grid with headers. Drag-and-drop within grid. No sidebar.</p>
+      <div class="mockup" style="margin-top: 12px; font-size: 13px;">
+        <div class="mockup-header">Layout Preview</div>
+        <div class="mockup-body" style="padding: 0;">
+          <!-- Header -->
+          <div style="background: rgba(128,128,128,0.08); padding: 8px 16px; text-align: center; font-weight: 600; font-size: 14px; border-bottom: 1px solid rgba(128,128,128,0.15);">
+            My Library
+          </div>
+          <!-- Toolbar -->
+          <div style="display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid rgba(128,128,128,0.1); flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 4px; background: rgba(128,128,128,0.06); border: 1px solid rgba(128,128,128,0.15); border-radius: 6px; padding: 4px 10px; flex: 1; max-width: 260px;">
+              <span style="opacity: 0.4;">🔍</span>
+              <span style="opacity: 0.4; font-size: 12px;">Search books...</span>
+              <span style="margin-left: auto; opacity: 0.3; font-size: 10px; border: 1px solid rgba(128,128,128,0.2); border-radius: 3px; padding: 0 4px;">☐ Full</span>
+            </div>
+            <div style="display: flex; gap: 4px;">
+              <span style="font-size: 11px; background: rgba(100,100,255,0.1); border: 1px solid rgba(100,100,255,0.2); border-radius: 12px; padding: 2px 8px;">All</span>
+              <span style="font-size: 11px; background: rgba(128,128,128,0.06); border: 1px solid rgba(128,128,128,0.15); border-radius: 12px; padding: 2px 8px;">In Progress</span>
+              <span style="font-size: 11px; background: rgba(128,128,128,0.06); border: 1px solid rgba(128,128,128,0.15); border-radius: 12px; padding: 2px 8px;">Finished</span>
+            </div>
+            <div style="display: flex; gap: 4px; margin-left: auto;">
+              <span style="font-size: 11px; background: rgba(128,128,128,0.06); border: 1px solid rgba(128,128,128,0.15); border-radius: 4px; padding: 2px 8px;">⇅ Date</span>
+              <span style="font-size: 11px; background: rgba(128,128,128,0.06); border: 1px solid rgba(128,128,128,0.15); border-radius: 4px; padding: 2px 8px;">▦ Filter</span>
+              <span style="font-size: 11px; background: rgba(128,128,128,0.06); border: 1px solid rgba(128,128,128,0.15); border-radius: 4px; padding: 2px 8px;">⊞</span>
+            </div>
+          </div>
+          <!-- Active filter chips -->
+          <div style="display: flex; gap: 4px; padding: 6px 16px; font-size: 11px;">
+            <span style="background: rgba(100,100,255,0.08); border: 1px solid rgba(100,100,255,0.15); border-radius: 10px; padding: 1px 8px;">distributed-systems ✕</span>
+            <span style="background: rgba(100,100,255,0.08); border: 1px solid rgba(100,100,255,0.15); border-radius: 10px; padding: 1px 8px;">★ 4+ ✕</span>
+          </div>
+          <!-- Series group -->
+          <div style="padding: 8px 16px 4px;">
+            <div style="font-size: 11px; font-weight: 600; opacity: 0.5; text-transform: uppercase; letter-spacing: 0.5px;">Architecture Series · 3 books</div>
+          </div>
+          <!-- Grid -->
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 4px 16px 12px;">
+            <div style="background: linear-gradient(135deg, rgba(180,120,255,0.15), rgba(180,120,255,0.05)); border-radius: 6px; padding: 20px 8px; text-align: center; font-size: 11px; border: 1px solid rgba(180,120,255,0.1);">Book 1</div>
+            <div style="background: linear-gradient(135deg, rgba(120,180,255,0.15), rgba(120,180,255,0.05)); border-radius: 6px; padding: 20px 8px; text-align: center; font-size: 11px; border: 1px solid rgba(120,180,255,0.1);">Book 2</div>
+            <div style="background: linear-gradient(135deg, rgba(255,160,120,0.15), rgba(255,160,120,0.05)); border-radius: 6px; padding: 20px 8px; text-align: center; font-size: 11px; border: 1px solid rgba(255,160,120,0.1);">Book 3</div>
+            <div style="background: rgba(128,128,128,0.04); border-radius: 6px; padding: 20px 8px; text-align: center; font-size: 11px; border: 1px dashed rgba(128,128,128,0.15); opacity: 0.5;">+ more</div>
+          </div>
+          <!-- Ungrouped -->
+          <div style="padding: 4px 16px 4px;">
+            <div style="font-size: 11px; font-weight: 600; opacity: 0.5; text-transform: uppercase; letter-spacing: 0.5px;">Other Books</div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 4px 16px 16px;">
+            <div style="background: linear-gradient(135deg, rgba(120,220,180,0.15), rgba(120,220,180,0.05)); border-radius: 6px; padding: 20px 8px; text-align: center; font-size: 11px; border: 1px solid rgba(120,220,180,0.1);">React Deep Dive</div>
+            <div style="background: linear-gradient(135deg, rgba(255,200,100,0.15), rgba(255,200,100,0.05)); border-radius: 6px; padding: 20px 8px; text-align: center; font-size: 11px; border: 1px solid rgba(255,200,100,0.1);">ML Basics</div>
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top: 8px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Minimal layout disruption</li><li>Familiar Dropbox pattern</li><li>Toolbar always visible</li><li>Series groups inline</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Toolbar gets crowded with many filters</li><li>No persistent tag navigation</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Sidebar + Grid</h3>
+      <p>Left sidebar (~240px) with search, tags, series, and filters. Main area is the grid. Click any tag/series in sidebar to filter instantly. Audible's navigation model.</p>
+      <div class="mockup" style="margin-top: 12px; font-size: 13px;">
+        <div class="mockup-header">Layout Preview</div>
+        <div class="mockup-body" style="padding: 0;">
+          <!-- Header -->
+          <div style="background: rgba(128,128,128,0.08); padding: 8px 16px; text-align: center; font-weight: 600; font-size: 14px; border-bottom: 1px solid rgba(128,128,128,0.15);">
+            My Library
+          </div>
+          <div style="display: flex;">
+            <!-- Sidebar -->
+            <div style="width: 180px; border-right: 1px solid rgba(128,128,128,0.12); padding: 10px; flex-shrink: 0;">
+              <div style="background: rgba(128,128,128,0.06); border: 1px solid rgba(128,128,128,0.15); border-radius: 5px; padding: 4px 8px; font-size: 11px; opacity: 0.4; margin-bottom: 10px;">🔍 Search...</div>
+              <div style="font-size: 10px; font-weight: 600; opacity: 0.4; text-transform: uppercase; margin-bottom: 4px;">Status</div>
+              <div style="font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(100,100,255,0.1); margin-bottom: 2px;">All (12)</div>
+              <div style="font-size: 11px; padding: 2px 6px; margin-bottom: 2px; opacity: 0.7;">In Progress (4)</div>
+              <div style="font-size: 11px; padding: 2px 6px; margin-bottom: 8px; opacity: 0.7;">Finished (6)</div>
+              <div style="font-size: 10px; font-weight: 600; opacity: 0.4; text-transform: uppercase; margin-bottom: 4px;">Tags</div>
+              <div style="font-size: 11px; padding: 2px 6px; margin-bottom: 2px; opacity: 0.7;">distributed-systems</div>
+              <div style="font-size: 11px; padding: 2px 6px; margin-bottom: 2px; opacity: 0.7;">react</div>
+              <div style="font-size: 11px; padding: 2px 6px; margin-bottom: 8px; opacity: 0.7;">ml-basics</div>
+              <div style="font-size: 10px; font-weight: 600; opacity: 0.4; text-transform: uppercase; margin-bottom: 4px;">Series</div>
+              <div style="font-size: 11px; padding: 2px 6px; margin-bottom: 2px; opacity: 0.7;">Architecture (3)</div>
+              <div style="font-size: 11px; padding: 2px 6px; opacity: 0.7;">Frontend (2)</div>
+            </div>
+            <!-- Grid -->
+            <div style="flex: 1; padding: 10px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-size: 11px; opacity: 0.5;">12 books</span>
+                <span style="font-size: 11px; opacity: 0.4;">⇅ Date ▾</span>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+                <div style="background: linear-gradient(135deg, rgba(180,120,255,0.15), rgba(180,120,255,0.05)); border-radius: 6px; padding: 20px 8px; text-align: center; font-size: 11px;">Book 1</div>
+                <div style="background: linear-gradient(135deg, rgba(120,180,255,0.15), rgba(120,180,255,0.05)); border-radius: 6px; padding: 20px 8px; text-align: center; font-size: 11px;">Book 2</div>
+                <div style="background: linear-gradient(135deg, rgba(255,160,120,0.15), rgba(255,160,120,0.05)); border-radius: 6px; padding: 20px 8px; text-align: center; font-size: 11px;">Book 3</div>
+                <div style="background: linear-gradient(135deg, rgba(120,220,180,0.15), rgba(120,220,180,0.05)); border-radius: 6px; padding: 20px 8px; text-align: center; font-size: 11px;">Book 4</div>
+                <div style="background: linear-gradient(135deg, rgba(255,200,100,0.15), rgba(255,200,100,0.05)); border-radius: 6px; padding: 20px 8px; text-align: center; font-size: 11px;">Book 5</div>
+                <div style="background: linear-gradient(135deg, rgba(200,120,180,0.15), rgba(200,120,180,0.05)); border-radius: 6px; padding: 20px 8px; text-align: center; font-size: 11px;">Book 6</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top: 8px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Scales to huge libraries</li><li>Tags/series always visible</li><li>Audible-like browsing</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Reduces grid width</li><li>Bigger layout change</li><li>Heavy feel for small libraries</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Command Palette + Minimal Chrome</h3>
+      <p>Keep grid clean. Only a search bar and sort dropdown visible. All advanced filtering via Cmd+K palette: "filter:tag distributed-systems", "show:series Architecture".</p>
+      <div class="mockup" style="margin-top: 12px; font-size: 13px;">
+        <div class="mockup-header">Layout Preview</div>
+        <div class="mockup-body" style="padding: 0;">
+          <!-- Header -->
+          <div style="background: rgba(128,128,128,0.08); padding: 8px 16px; text-align: center; font-weight: 600; font-size: 14px; border-bottom: 1px solid rgba(128,128,128,0.15);">
+            My Library
+          </div>
+          <!-- Minimal bar -->
+          <div style="display: flex; align-items: center; gap: 8px; padding: 10px 16px;">
+            <div style="display: flex; align-items: center; gap: 4px; background: rgba(128,128,128,0.06); border: 1px solid rgba(128,128,128,0.15); border-radius: 6px; padding: 4px 10px; flex: 1; max-width: 300px;">
+              <span style="opacity: 0.4;">🔍</span>
+              <span style="opacity: 0.4; font-size: 12px;">Search or ⌘K for filters...</span>
+            </div>
+            <span style="font-size: 11px; opacity: 0.4; margin-left: auto;">⇅ Date ▾</span>
+          </div>
+          <!-- Clean grid -->
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 4px 16px 16px;">
+            <div style="background: linear-gradient(135deg, rgba(180,120,255,0.15), rgba(180,120,255,0.05)); border-radius: 6px; padding: 28px 8px; text-align: center; font-size: 11px;">Book 1</div>
+            <div style="background: linear-gradient(135deg, rgba(120,180,255,0.15), rgba(120,180,255,0.05)); border-radius: 6px; padding: 28px 8px; text-align: center; font-size: 11px;">Book 2</div>
+            <div style="background: linear-gradient(135deg, rgba(255,160,120,0.15), rgba(255,160,120,0.05)); border-radius: 6px; padding: 28px 8px; text-align: center; font-size: 11px;">Book 3</div>
+            <div style="background: linear-gradient(135deg, rgba(120,220,180,0.15), rgba(120,220,180,0.05)); border-radius: 6px; padding: 28px 8px; text-align: center; font-size: 11px;">Book 4</div>
+            <div style="background: linear-gradient(135deg, rgba(255,200,100,0.15), rgba(255,200,100,0.05)); border-radius: 6px; padding: 28px 8px; text-align: center; font-size: 11px;">Book 5</div>
+            <div style="background: linear-gradient(135deg, rgba(200,120,180,0.15), rgba(200,120,180,0.05)); border-radius: 6px; padding: 28px 8px; text-align: center; font-size: 11px;">Book 6</div>
+            <div style="background: linear-gradient(135deg, rgba(160,200,120,0.15), rgba(160,200,120,0.05)); border-radius: 6px; padding: 28px 8px; text-align: center; font-size: 11px;">Book 7</div>
+            <div style="background: linear-gradient(135deg, rgba(120,160,200,0.15), rgba(120,160,200,0.05)); border-radius: 6px; padding: 28px 8px; text-align: center; font-size: 11px;">Book 8</div>
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top: 8px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Cleanest visual design</li><li>Keyboard-first (fits app aesthetic)</li><li>Maximum grid space</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Poor discoverability</li><li>Tags/series hidden</li><li>Not self-documenting</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

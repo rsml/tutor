@@ -27,6 +27,7 @@ describe('book-store', () => {
     generatedUpTo: 2,
     createdAt: '2026-03-06T10:00:00Z',
     updatedAt: '2026-03-06T14:30:00Z',
+    tags: [],
   }
 
   const testToc: Toc = {

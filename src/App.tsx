@@ -1,7 +1,10 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useDeferredValue, useRef } from 'react'
 import { toast } from 'sonner'
-import { Plus, BookOpen } from 'lucide-react'
+import { Plus, BookOpen, X, FileDown } from 'lucide-react'
+import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
 import { Button } from '@src/components/ui/button'
+import { Badge } from '@src/components/ui/badge'
 import {
   Dialog,
   DialogContent,
@@ -11,6 +14,9 @@ import {
   DialogFooter,
 } from '@src/components/ui/dialog'
 import { BookCard } from '@src/components/BookCard'
+import { SortableBookCard } from '@src/components/SortableBookCard'
+import { SortableSeriesCard } from '@src/components/SortableSeriesCard'
+import { LibraryToolbar } from '@src/components/LibraryToolbar'
 import { StarRating } from '@src/components/StarRating'
 import { NoiseOverlay } from '@src/components/NoiseOverlay'
 import { SettingsMenu } from '@src/components/SettingsMenu'
@@ -20,16 +26,22 @@ import { BookOverviewModal } from '@src/components/BookOverviewModal'
 import { CoverGenerationModal } from '@src/components/CoverGenerationModal'
 import { GenerateAllModal } from '@src/components/GenerateAllModal'
 import { BackgroundTasksFooter } from '@src/components/BackgroundTasksFooter'
+import { EditTagsDialog } from '@src/components/EditTagsDialog'
+import { ImportPreviewDialog } from '@src/components/ImportPreviewDialog'
+import { SetSeriesDialog } from '@src/components/SetSeriesDialog'
+import { SeriesStackCard } from '@src/components/SeriesStackCard'
+import { BookListView } from '@src/components/BookListView'
+import { SeriesView } from '@src/components/SeriesView'
 import { ReaderPage } from '@src/pages/ReaderPage'
 import { QuizReviewPage } from '@src/pages/QuizReviewPage'
 import { ReviewProgressPage } from '@src/pages/ReviewProgressPage'
 import { SkillDetailPage } from '@src/pages/SkillDetailPage'
 import { ProfileUpdatePage } from '@src/pages/ProfileUpdatePage'
 import { useBackgroundTasks } from '@src/hooks/useBackgroundTasks'
-import { store, useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize, selectLibraryTab, setLibraryTab, selectFunctionModel } from '@src/store'
-import { cn } from '@src/lib/utils'
+import { store, useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize, selectLibraryFilters, selectLibrarySort, selectLibraryView, clearLibraryFilters, setLibraryFilters, selectFunctionModel, DEFAULT_LIBRARY_FILTERS } from '@src/store'
 import { PROVIDER_IDS } from '@src/lib/providers'
 import { apiUrl } from '@src/lib/api-base'
+import { previewEpub as previewEpubApi, confirmImport, type EpubPreview } from '@src/lib/api'
 
 interface Book {
   id: string
@@ -46,6 +58,12 @@ interface Book {
   hasCover?: boolean
   showTitleOnCover?: boolean
   coverUpdatedAt?: string | null
+  createdAt: string
+  tags: string[]
+  series?: string
+  seriesOrder?: number
+  sortOrder?: number
+  imported?: boolean
 }
 
 
@@ -57,6 +75,7 @@ type View =
   | { type: 'review-progress' }
   | { type: 'skill-detail'; skillName: string }
   | { type: 'profile-update'; bookId: string; bookTitle: string }
+  | { type: 'series'; seriesName: string }
 
 export default function App() {
   const [view, setView] = useState<View>({ type: 'library' })
@@ -71,13 +90,28 @@ export default function App() {
   const [overviewBook, setOverviewBook] = useState<Book | null>(null)
   const [coverModal, setCoverModal] = useState<{ book: Book } | null>(null)
   const [generateAllModal, setGenerateAllModal] = useState<{ taskId: string; book: Book } | null>(null)
+  const [editTagsDialog, setEditTagsDialog] = useState<{ book: Book } | null>(null)
+  const [setSeriesDialog, setSetSeriesDialog] = useState<{ book: Book } | null>(null)
   const [mutating, setMutating] = useState(false)
   const [serverAvailable, setServerAvailable] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [fullSearch, setFullSearch] = useState(false)
+  const [importPreview, setImportPreview] = useState<EpubPreview | null>(null)
+  const [importFileBase64, setImportFileBase64] = useState('')
+  const [importFilename, setImportFilename] = useState('')
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const dragCounterRef = useRef(0)
+  const deferredSearch = useDeferredValue(searchQuery)
   const furthest = useAppSelector(s => s.readingProgress.furthest)
+  const readingPositions = useAppSelector(s => s.readingProgress.positions)
   const dispatch = useAppDispatch()
   const hasApiKey = useAppSelector(selectHasApiKey)
   const fontSize = useAppSelector(selectFontSize)
-  const libraryTab = useAppSelector(selectLibraryTab)
+  const libraryFilters = useAppSelector(selectLibraryFilters)
+  const librarySort = useAppSelector(selectLibrarySort)
+  const libraryView = useAppSelector(selectLibraryView)
   const { provider: genProvider, model: genModel } = useAppSelector(selectFunctionModel('generation'))
   const { provider: quizProvider, model: quizModel } = useAppSelector(selectFunctionModel('quiz'))
 
@@ -170,7 +204,7 @@ export default function App() {
         setApiBooks(prev => {
           // Preserve optimistic generating books not yet on server
           const generatingBooks = prev.filter(b => (b.status === 'generating' || b.status === 'generating_toc') && !books.some((sb: { id: string }) => sb.id === b.id))
-          const serverBooks = books.map((b: { id: string; title: string; subtitle?: string; prompt?: string; totalChapters: number; generatedUpTo: number; status?: string; rating?: number; finalQuizScore?: number; finalQuizTotal?: number; hasCover?: boolean; showTitleOnCover?: boolean; coverUpdatedAt?: string | null }) => ({
+          const serverBooks = books.map((b: { id: string; title: string; subtitle?: string; prompt?: string; totalChapters: number; generatedUpTo: number; status?: string; rating?: number; finalQuizScore?: number; finalQuizTotal?: number; hasCover?: boolean; showTitleOnCover?: boolean; coverUpdatedAt?: string | null; createdAt: string; tags: string[]; series?: string; seriesOrder?: number; sortOrder?: number; imported?: boolean }) => ({
             id: b.id,
             title: b.title,
             subtitle: b.subtitle,
@@ -185,6 +219,12 @@ export default function App() {
             hasCover: b.hasCover,
             showTitleOnCover: b.showTitleOnCover,
             coverUpdatedAt: b.coverUpdatedAt,
+            createdAt: b.createdAt,
+            tags: b.tags,
+            series: b.series,
+            seriesOrder: b.seriesOrder,
+            sortOrder: b.sortOrder,
+            imported: b.imported,
           }))
           return [...serverBooks, ...generatingBooks]
         })
@@ -263,6 +303,8 @@ export default function App() {
         totalChapters: totalChapters ?? 0,
         generatedUpTo: 0,
         status: 'generating_toc',
+        createdAt: new Date().toISOString(),
+        tags: [],
       }]
     })
   }, [])
@@ -372,6 +414,127 @@ export default function App() {
     setDeleteDialog(null)
   }
 
+  const handleSaveTags = async (bookId: string, tags: string[]) => {
+    try {
+      const res = await fetch(apiUrl(`/api/books/${bookId}`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags }),
+      })
+      if (res.ok) await fetchBooks()
+      else toast.error('Failed to save tags')
+    } catch {
+      toast.error('Failed to save tags -- server unreachable')
+    }
+    setEditTagsDialog(null)
+  }
+
+  const handleSaveSeries = async (bookId: string, series: string | null, seriesOrder: number | null) => {
+    try {
+      const res = await fetch(apiUrl(`/api/books/${bookId}`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ series, seriesOrder }),
+      })
+      if (res.ok) await fetchBooks()
+      else toast.error('Failed to save series')
+    } catch {
+      toast.error('Failed to save series -- server unreachable')
+    }
+    setSetSeriesDialog(null)
+  }
+
+  // --- EPUB Import ---
+
+  const readFileAsBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const result = reader.result as string
+        // Strip data URL prefix: "data:application/epub+zip;base64,..."
+        const base64 = result.includes(',') ? result.split(',')[1] : result
+        resolve(base64)
+      }
+      reader.onerror = () => reject(new Error('Failed to read file'))
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const handleImportFile = async (file: File) => {
+    if (!file.name.toLowerCase().endsWith('.epub')) {
+      toast.error('Only .epub files are supported')
+      return
+    }
+    try {
+      const base64 = await readFileAsBase64(file)
+      setImportFileBase64(base64)
+      setImportFilename(file.name)
+
+      const preview = await previewEpubApi(base64, file.name)
+      setImportPreview(preview)
+      setImportDialogOpen(true)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to preview EPUB')
+    }
+  }
+
+  const handleImportConfirm = async (tags: string[], series: string | null, seriesOrder: number | null) => {
+    try {
+      await confirmImport(
+        importFileBase64,
+        importFilename,
+        tags.length > 0 ? tags : undefined,
+        series ?? undefined,
+        seriesOrder ?? undefined,
+      )
+      setImportDialogOpen(false)
+      setImportPreview(null)
+      setImportFileBase64('')
+      setImportFilename('')
+      toast.success('Book imported successfully')
+      await fetchBooks()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to import EPUB')
+    }
+  }
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) handleImportFile(file)
+    // Reset file input so the same file can be selected again
+    e.target.value = ''
+  }
+
+  // Track the previous sort field to detect transitions to manual mode
+  const prevSortFieldRef = useRef(librarySort.field)
+
+  // Initialize sortOrder on first switch to manual mode
+  useEffect(() => {
+    const wasManual = prevSortFieldRef.current === 'manual'
+    prevSortFieldRef.current = librarySort.field
+
+    if (librarySort.field !== 'manual' || wasManual) return
+    // Switching to manual — assign integer sortOrders if books don't have them yet
+    const needsInit = apiBooks.some(b => b.sortOrder == null)
+    if (!needsInit) return
+
+    // Use the current display order (filteredBooks would be ideal, but apiBooks is fine as a base)
+    const booksToInit = [...apiBooks]
+    // They're in whatever order they were before — assign integers
+    const patches = booksToInit.map((book, index) => {
+      if (book.sortOrder != null) return null
+      return fetch(apiUrl(`/api/books/${book.id}`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sortOrder: index }),
+      })
+    }).filter(Boolean)
+
+    if (patches.length > 0) {
+      Promise.all(patches).then(() => fetchBooks()).catch(() => {})
+    }
+  }, [librarySort.field, apiBooks, fetchBooks])
+
   const apiBookIds = new Set(apiBooks.map(b => b.id))
   const allBooks = apiBooks
 
@@ -381,24 +544,325 @@ export default function App() {
     return 'not-started'
   }, [furthest])
 
-  const { sortedBooks, filteredBooks, tabCounts } = useMemo(() => {
-    const classOrder = { 'in-progress': 0, 'not-started': 1, 'finished': 2 } as const
+  // Compute allTags from all books
+  const allTags = useMemo(() => {
+    const tagSet = new Set<string>()
+    for (const book of allBooks) {
+      for (const tag of book.tags) tagSet.add(tag)
+    }
+    return [...tagSet].sort()
+  }, [allBooks])
+
+  // Compute all series names from all books
+  const allSeriesNames = useMemo(() => {
+    const seriesSet = new Set<string>()
+    for (const book of allBooks) {
+      if (book.series) seriesSet.add(book.series)
+    }
+    return [...seriesSet].sort()
+  }, [allBooks])
+
+  const { filteredBooks, searchResultCount } = useMemo(() => {
     const bookClasses = new Map(allBooks.map(b => [b.id, classifyBook(b)]))
 
-    // Sort: in-progress first, then not-started, then finished
-    const sorted = [...allBooks].sort((a, b) => {
-      return classOrder[bookClasses.get(a.id)!] - classOrder[bookClasses.get(b.id)!]
-    })
+    // --- Filter logic ---
+    let filtered = [...allBooks]
 
-    const filtered = libraryTab === 'all'
-      ? sorted
-      : sorted.filter(b => bookClasses.get(b.id) === libraryTab)
+    // Status filter
+    if (libraryFilters.status !== 'all') {
+      filtered = filtered.filter(b => bookClasses.get(b.id) === libraryFilters.status)
+    }
 
-    const counts = { all: allBooks.length, 'in-progress': 0, 'not-started': 0, finished: 0 }
-    for (const cls of bookClasses.values()) counts[cls]++
+    // Tags filter (OR logic)
+    if (libraryFilters.tags.length > 0) {
+      filtered = filtered.filter(b =>
+        b.tags.some(tag => libraryFilters.tags.includes(tag))
+      )
+    }
 
-    return { sortedBooks: sorted, filteredBooks: filtered, tabCounts: counts }
-  }, [allBooks, libraryTab, classifyBook])
+    // Rating filter
+    if (libraryFilters.ratingMin != null) {
+      filtered = filtered.filter(b =>
+        (b.rating ?? 0) >= libraryFilters.ratingMin!
+      )
+    }
+
+    // Date preset filter
+    if (libraryFilters.datePreset !== 'any') {
+      const now = Date.now()
+      const days = libraryFilters.datePreset === 'week' ? 7
+        : libraryFilters.datePreset === 'month' ? 30
+        : 90 // 3months
+      const cutoff = now - days * 24 * 60 * 60 * 1000
+      filtered = filtered.filter(b => new Date(b.createdAt).getTime() >= cutoff)
+    }
+
+    // Client-side search filtering (title + subtitle)
+    const query = deferredSearch.trim().toLowerCase()
+    if (query) {
+      filtered = filtered.filter(b =>
+        b.title.toLowerCase().includes(query) ||
+        (b.subtitle?.toLowerCase().includes(query) ?? false)
+      )
+    }
+
+    // --- Sort logic ---
+    const dir = librarySort.direction === 'asc' ? 1 : -1
+
+    const compareFn = (a: Book, b: Book): number => {
+      switch (librarySort.field) {
+        case 'date':
+          return dir * (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0)
+        case 'title':
+          return dir * a.title.localeCompare(b.title)
+        case 'rating': {
+          const ra = a.rating ?? -1
+          const rb = b.rating ?? -1
+          // Unrated goes last regardless of direction
+          if (ra < 0 && rb >= 0) return 1
+          if (rb < 0 && ra >= 0) return -1
+          return dir * (ra - rb)
+        }
+        case 'progress': {
+          const pa = a.totalChapters > 0
+            ? ((furthest[a.id] != null ? furthest[a.id] + 1 : a.chaptersRead) / a.totalChapters)
+            : 0
+          const pb = b.totalChapters > 0
+            ? ((furthest[b.id] != null ? furthest[b.id] + 1 : b.chaptersRead) / b.totalChapters)
+            : 0
+          return dir * (pa - pb)
+        }
+        case 'recent': {
+          const la = readingPositions[a.id]?.lastReadAt ?? ''
+          const lb = readingPositions[b.id]?.lastReadAt ?? ''
+          // Never-read goes last regardless of direction
+          if (!la && lb) return 1
+          if (!lb && la) return -1
+          return dir * (la < lb ? -1 : la > lb ? 1 : 0)
+        }
+        case 'manual': {
+          const sa = a.sortOrder ?? Number.MAX_SAFE_INTEGER
+          const sb = b.sortOrder ?? Number.MAX_SAFE_INTEGER
+          // Undefined sortOrder goes last regardless of direction
+          if (sa === Number.MAX_SAFE_INTEGER && sb !== Number.MAX_SAFE_INTEGER) return 1
+          if (sb === Number.MAX_SAFE_INTEGER && sa !== Number.MAX_SAFE_INTEGER) return -1
+          return dir * (sa - sb)
+        }
+        default:
+          return 0
+      }
+    }
+
+    // Group series books together: find lead book position, then insert series members adjacent
+    const seriesGroups = new Map<string, Book[]>()
+    const nonSeries: Book[] = []
+    for (const book of filtered) {
+      if (book.series) {
+        const group = seriesGroups.get(book.series) ?? []
+        group.push(book)
+        seriesGroups.set(book.series, group)
+      } else {
+        nonSeries.push(book)
+      }
+    }
+
+    // Sort non-series books
+    nonSeries.sort(compareFn)
+
+    // Sort within each series group by seriesOrder
+    for (const group of seriesGroups.values()) {
+      group.sort((a, b) => (a.seriesOrder ?? 0) - (b.seriesOrder ?? 0))
+    }
+
+    if (seriesGroups.size === 0) {
+      // No series — just return sorted
+      return {
+        filteredBooks: nonSeries,
+        searchResultCount: query ? nonSeries.length : undefined,
+      }
+    }
+
+    // Merge: for each series, find where its lead book would rank among nonSeries+leads
+    // Create a combined list of non-series books + lead books (first in series by seriesOrder)
+    const leads = new Map<string, Book>()
+    for (const [series, group] of seriesGroups) {
+      leads.set(series, group[0])
+    }
+
+    const allLeadsAndNonSeries = [...nonSeries, ...leads.values()]
+    allLeadsAndNonSeries.sort(compareFn)
+
+    // Now expand: replace each lead with the full series group
+    const sorted: Book[] = []
+    const insertedSeries = new Set<string>()
+    for (const book of allLeadsAndNonSeries) {
+      if (book.series && !insertedSeries.has(book.series)) {
+        insertedSeries.add(book.series)
+        sorted.push(...(seriesGroups.get(book.series) ?? [book]))
+      } else if (!book.series) {
+        sorted.push(book)
+      }
+    }
+
+    return {
+      filteredBooks: sorted,
+      searchResultCount: query ? sorted.length : undefined,
+    }
+  }, [allBooks, libraryFilters, librarySort, classifyBook, deferredSearch, furthest, readingPositions])
+
+  // Drag-and-drop handler for manual sort mode
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    // Build the grid items list (same structure as the rendered grid)
+    const renderedSeries = new Set<string>()
+    const gridItemIds: string[] = []
+    const gridItemSortOrders: number[] = []
+
+    for (const book of filteredBooks) {
+      if (book.series) {
+        if (renderedSeries.has(book.series)) continue
+        renderedSeries.add(book.series)
+        const itemId = `series-${book.series}`
+        gridItemIds.push(itemId)
+        gridItemSortOrders.push(book.sortOrder ?? 0)
+      } else {
+        gridItemIds.push(book.id)
+        gridItemSortOrders.push(book.sortOrder ?? 0)
+      }
+    }
+
+    const oldIndex = gridItemIds.indexOf(String(active.id))
+    const newIndex = gridItemIds.indexOf(String(over.id))
+    if (oldIndex === -1 || newIndex === -1) return
+
+    // Build the reordered array by removing the dragged item and re-inserting
+    // Use the same logic as arrayMove: remove at oldIndex, insert at newIndex
+    const reorderedIds = [...gridItemIds]
+    const reorderedOrders = [...gridItemSortOrders]
+    const [movedId] = reorderedIds.splice(oldIndex, 1)
+    const [_movedOrder] = reorderedOrders.splice(oldIndex, 1)
+    // Adjust insert position: after removing, if oldIndex < newIndex the target shifted left
+    const insertAt = oldIndex < newIndex ? newIndex - 1 : newIndex
+    reorderedIds.splice(insertAt, 0, movedId)
+
+    // Calculate new sortOrder using midpoint strategy based on neighbors in the reordered array
+    let newSortOrder: number
+    if (insertAt === 0) {
+      newSortOrder = reorderedOrders.length > 0 ? reorderedOrders[0] - 1 : 0
+    } else if (insertAt >= reorderedOrders.length) {
+      newSortOrder = reorderedOrders[reorderedOrders.length - 1] + 1
+    } else {
+      const prevOrder = reorderedOrders[insertAt - 1]
+      const nextOrder = reorderedOrders[insertAt]
+      newSortOrder = (prevOrder + nextOrder) / 2
+    }
+
+    // Determine which book(s) to PATCH
+    const draggedItemId = String(active.id)
+    const bookIdsToPatch: string[] = []
+
+    if (draggedItemId.startsWith('series-')) {
+      const seriesName = draggedItemId.slice(7)
+      const seriesBooks = apiBooks.filter(b => b.series === seriesName)
+      bookIdsToPatch.push(...seriesBooks.map(b => b.id))
+    } else {
+      bookIdsToPatch.push(draggedItemId)
+    }
+
+    try {
+      await Promise.all(bookIdsToPatch.map(bookId =>
+        fetch(apiUrl(`/api/books/${bookId}`), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sortOrder: newSortOrder }),
+        })
+      ))
+
+      // Check if rebalancing is needed
+      reorderedOrders.splice(insertAt, 0, newSortOrder)
+      let needsRebalance = false
+      for (let i = 1; i < reorderedOrders.length; i++) {
+        if (Math.abs(reorderedOrders[i] - reorderedOrders[i - 1]) < 1e-10) {
+          needsRebalance = true
+          break
+        }
+      }
+
+      if (needsRebalance) {
+        const rebalancePatches = reorderedIds.map((itemId, index) => {
+          if (itemId.startsWith('series-')) {
+            const sName = itemId.slice(7)
+            const sBooks = apiBooks.filter(b => b.series === sName)
+            return sBooks.map(b =>
+              fetch(apiUrl(`/api/books/${b.id}`), {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sortOrder: index }),
+              })
+            )
+          } else {
+            return [fetch(apiUrl(`/api/books/${itemId}`), {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sortOrder: index }),
+            })]
+          }
+        }).flat()
+
+        await Promise.all(rebalancePatches)
+      }
+
+      await fetchBooks()
+    } catch {
+      toast.error('Failed to reorder — server unreachable')
+    }
+  }, [filteredBooks, apiBooks, fetchBooks])
+
+  // Compute active filter chips for display
+  const activeFilterChips = useMemo(() => {
+    const chips: Array<{ key: string; label: string; onRemove: () => void }> = []
+    if (libraryFilters.status !== DEFAULT_LIBRARY_FILTERS.status) {
+      const labels: Record<string, string> = {
+        'in-progress': 'In Progress',
+        'not-started': 'Not Started',
+        'finished': 'Finished',
+      }
+      chips.push({
+        key: 'status',
+        label: `Status: ${labels[libraryFilters.status] ?? libraryFilters.status}`,
+        onRemove: () => dispatch(setLibraryFilters({ status: DEFAULT_LIBRARY_FILTERS.status })),
+      })
+    }
+    for (const tag of libraryFilters.tags) {
+      chips.push({
+        key: `tag-${tag}`,
+        label: `Tag: ${tag}`,
+        onRemove: () => dispatch(setLibraryFilters({ tags: libraryFilters.tags.filter(t => t !== tag) })),
+      })
+    }
+    if (libraryFilters.ratingMin != null) {
+      chips.push({
+        key: 'rating',
+        label: `Rating: ${'★'.repeat(libraryFilters.ratingMin)}${libraryFilters.ratingMin < 5 ? '+' : ''}`,
+        onRemove: () => dispatch(setLibraryFilters({ ratingMin: DEFAULT_LIBRARY_FILTERS.ratingMin })),
+      })
+    }
+    if (libraryFilters.datePreset !== DEFAULT_LIBRARY_FILTERS.datePreset) {
+      const labels: Record<string, string> = {
+        week: 'Last week',
+        month: 'Last month',
+        '3months': 'Last 3 months',
+      }
+      chips.push({
+        key: 'date',
+        label: `Created: ${labels[libraryFilters.datePreset] ?? libraryFilters.datePreset}`,
+        onRemove: () => dispatch(setLibraryFilters({ datePreset: DEFAULT_LIBRARY_FILTERS.datePreset })),
+      })
+    }
+    return chips
+  }, [libraryFilters, dispatch])
 
   if (view.type === 'creating') {
     return (
@@ -462,6 +926,19 @@ export default function App() {
     )
   }
 
+  if (view.type === 'series') {
+    const seriesBooks = allBooks.filter(b => b.series === view.seriesName)
+    return (
+      <SeriesView
+        seriesName={view.seriesName}
+        books={seriesBooks}
+        furthest={furthest}
+        onBookClick={(book) => setView({ type: 'reading', book })}
+        onBack={() => { fetchBooks(); setView({ type: 'library' }) }}
+      />
+    )
+  }
+
   return (
     <div className="flex h-screen flex-col text-content-primary">
       <NoiseOverlay />
@@ -475,6 +952,22 @@ export default function App() {
         </span>
 
         <div className="ml-auto flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!serverAvailable}
+          >
+            <FileDown data-icon="inline-start" className="size-4" />
+            Import
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".epub"
+            className="hidden"
+            onChange={handleFileInputChange}
+          />
           <Button
             size="sm"
             onClick={handleNewBook}
@@ -497,48 +990,86 @@ export default function App() {
         </div>
       </header>
 
-      {/* Filter tabs */}
+      {/* Library toolbar */}
       {allBooks.length > 0 && (
-        <div className="border-b border-border-default/50 bg-surface-base/90 backdrop-blur-sm px-8">
-          <div className="mx-auto max-w-7xl">
-            <nav className="flex gap-6">
-              {([
-                ['all', 'All'],
-                ['in-progress', 'In Progress'],
-                ['not-started', 'Not Started'],
-                ['finished', 'Finished'],
-              ] as const).map(([key, label]) => (
+        <LibraryToolbar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          fullSearch={fullSearch}
+          onFullSearchChange={setFullSearch}
+          resultCount={searchResultCount}
+          allTags={allTags}
+        />
+      )}
+
+      {/* Filter chips row */}
+      {activeFilterChips.length > 0 && (
+        <div className="border-b border-border-default/50 bg-surface-base/90 px-8">
+          <div className="mx-auto max-w-7xl flex items-center gap-2 py-2 flex-wrap">
+            {activeFilterChips.map(chip => (
+              <Badge key={chip.key} variant="secondary" className="gap-1 pr-1">
+                <span className="text-xs">{chip.label}</span>
                 <button
-                  key={key}
-                  onClick={() => dispatch(setLibraryTab(key))}
-                  className={cn(
-                    'relative py-2.5 text-sm font-medium transition-colors',
-                    libraryTab === key
-                      ? 'text-content-primary'
-                      : 'text-content-muted hover:text-content-primary',
-                  )}
+                  onClick={chip.onRemove}
+                  className="ml-0.5 rounded-full p-0.5 hover:bg-foreground/10 transition-colors"
                 >
-                  {label}
-                  {tabCounts[key] > 0 && (
-                    <span className={cn(
-                      'ml-1.5 text-xs',
-                      libraryTab === key ? 'text-content-muted' : 'text-content-faint',
-                    )}>
-                      {tabCounts[key]}
-                    </span>
-                  )}
-                  {libraryTab === key && (
-                    <span className="absolute inset-x-0 -bottom-px h-0.5 bg-content-primary rounded-full" />
-                  )}
+                  <X className="size-3" />
                 </button>
-              ))}
-            </nav>
+              </Badge>
+            ))}
+            <button
+              onClick={() => dispatch(clearLibraryFilters())}
+              className="text-xs text-content-muted hover:text-content-primary transition-colors ml-1"
+            >
+              Clear all
+            </button>
           </div>
         </div>
       )}
 
       {/* Library grid */}
-      <main className="flex-1 overflow-y-auto px-8 py-8" style={{ fontSize: `${fontSize}px` }}>
+      <main
+        className="relative flex-1 overflow-y-auto px-8 py-8"
+        style={{ fontSize: `${fontSize}px` }}
+        onDragEnter={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          dragCounterRef.current++
+          if (e.dataTransfer.types.includes('Files')) {
+            setIsDragOver(true)
+          }
+        }}
+        onDragOver={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          dragCounterRef.current--
+          if (dragCounterRef.current <= 0) {
+            dragCounterRef.current = 0
+            setIsDragOver(false)
+          }
+        }}
+        onDrop={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          dragCounterRef.current = 0
+          setIsDragOver(false)
+          const file = e.dataTransfer.files?.[0]
+          if (file) handleImportFile(file)
+        }}
+      >
+        {/* Drop zone overlay */}
+        {isDragOver && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-surface-base/80 backdrop-blur-sm border-2 border-dashed border-border-focus rounded-lg m-2">
+            <div className="flex flex-col items-center gap-2 text-content-primary">
+              <FileDown className="size-10 text-content-muted" />
+              <p className="text-lg font-semibold">Drop EPUB to import</p>
+            </div>
+          </div>
+        )}
         <div className="mx-auto max-w-7xl">
           {hasLoaded && allBooks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-32 text-center">
@@ -557,37 +1088,179 @@ export default function App() {
           ) : filteredBooks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-32 text-center">
               <BookOpen className="size-12 text-content-faint" />
-              <p className="mt-4 text-sm text-content-muted">No books match this filter.</p>
+              <p className="mt-4 text-sm text-content-muted">
+                {deferredSearch ? 'No books match your search.' : 'No books match this filter.'}
+              </p>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 lg:gap-8 xl:grid-cols-5">
-              {filteredBooks.map((book) => {
-                const reduxProgress = furthest[book.id]
-                const chaptersRead = reduxProgress != null
-                  ? reduxProgress + 1
-                  : book.chaptersRead
-                return (
-                  <BookCard
-                    key={book.id}
-                    title={book.title}
-                    subtitle={book.subtitle}
-                    chaptersRead={chaptersRead}
-                    totalChapters={book.totalChapters}
-                    status={book.status}
-                    rating={book.rating}
-                    finalQuizScore={book.finalQuizScore}
-                    finalQuizTotal={book.finalQuizTotal}
-                    coverUrl={book.hasCover ? apiUrl(`/api/books/${book.id}/cover?v=${book.coverUpdatedAt ?? ''}`) : undefined}
-                    showTitleOnCover={book.showTitleOnCover}
-                    onClick={() => setView({ type: 'reading', book })}
-                    onContextMenu={apiBookIds.has(book.id) ? (e) => {
+          ) : libraryView === 'list' ? (
+            (() => {
+              // Build list items: group series, keep non-series as individual rows
+              const renderedSeries = new Set<string>()
+              const listItems: Array<
+                | { type: 'book'; book: Book; chaptersRead: number }
+                | { type: 'series'; seriesName: string; bookCount: number; books: Array<{ book: Book; chaptersRead: number }> }
+              > = []
+
+              for (const book of filteredBooks) {
+                if (book.series) {
+                  if (renderedSeries.has(book.series)) continue
+                  renderedSeries.add(book.series)
+
+                  const seriesBooks = filteredBooks.filter(b => b.series === book.series)
+                  listItems.push({
+                    type: 'series',
+                    seriesName: book.series,
+                    bookCount: seriesBooks.length,
+                    books: seriesBooks.map(b => {
+                      const rp = furthest[b.id]
+                      return { book: b, chaptersRead: rp != null ? rp + 1 : b.chaptersRead }
+                    }),
+                  })
+                } else {
+                  const rp = furthest[book.id]
+                  listItems.push({
+                    type: 'book',
+                    book,
+                    chaptersRead: rp != null ? rp + 1 : book.chaptersRead,
+                  })
+                }
+              }
+
+              return (
+                <BookListView
+                  items={listItems}
+                  onBookClick={(book) => setView({ type: 'reading', book })}
+                  onSeriesClick={(seriesName) => setView({ type: 'series', seriesName })}
+                  onContextMenu={(book, e) => {
+                    if (apiBookIds.has(book.id)) {
                       e.preventDefault()
                       setContextMenu({ book, x: e.clientX, y: e.clientY })
-                    } : undefined}
-                  />
+                    }
+                  }}
+                />
+              )
+            })()
+          ) : (
+            (() => {
+              // Build grid items: collapse series into stack cards, keep non-series as individual cards
+              const renderedSeries = new Set<string>()
+              const gridItemIds: string[] = []
+              const gridElements: React.ReactNode[] = []
+              const isManual = librarySort.field === 'manual'
+
+              for (const book of filteredBooks) {
+                if (book.series) {
+                  if (renderedSeries.has(book.series)) continue
+                  renderedSeries.add(book.series)
+
+                  const seriesBooks = filteredBooks.filter(b => b.series === book.series)
+                  const totalChapters = seriesBooks.reduce((s, b) => s + b.totalChapters, 0)
+                  const chaptersRead = seriesBooks.reduce((s, b) => {
+                    const rp = furthest[b.id]
+                    return s + (rp != null ? rp + 1 : b.chaptersRead)
+                  }, 0)
+
+                  const itemId = `series-${book.series}`
+                  gridItemIds.push(itemId)
+
+                  if (isManual) {
+                    gridElements.push(
+                      <SortableSeriesCard
+                        key={itemId}
+                        id={itemId}
+                        seriesName={book.series}
+                        books={seriesBooks}
+                        chaptersRead={chaptersRead}
+                        totalChapters={totalChapters}
+                        onClick={() => setView({ type: 'series', seriesName: book.series! })}
+                      />
+                    )
+                  } else {
+                    gridElements.push(
+                      <SeriesStackCard
+                        key={itemId}
+                        seriesName={book.series}
+                        books={seriesBooks}
+                        chaptersRead={chaptersRead}
+                        totalChapters={totalChapters}
+                        onClick={() => setView({ type: 'series', seriesName: book.series! })}
+                      />
+                    )
+                  }
+                } else {
+                  const reduxProgress = furthest[book.id]
+                  const chaptersRead = reduxProgress != null
+                    ? reduxProgress + 1
+                    : book.chaptersRead
+                  gridItemIds.push(book.id)
+
+                  if (isManual) {
+                    gridElements.push(
+                      <SortableBookCard
+                        key={book.id}
+                        id={book.id}
+                        title={book.title}
+                        subtitle={book.subtitle}
+                        chaptersRead={chaptersRead}
+                        totalChapters={book.totalChapters}
+                        status={book.status}
+                        rating={book.rating}
+                        finalQuizScore={book.finalQuizScore}
+                        finalQuizTotal={book.finalQuizTotal}
+                        coverUrl={book.hasCover ? apiUrl(`/api/books/${book.id}/cover?v=${book.coverUpdatedAt ?? ''}`) : undefined}
+                        showTitleOnCover={book.showTitleOnCover}
+                        imported={book.imported}
+                        onClick={() => setView({ type: 'reading', book })}
+                        onContextMenu={apiBookIds.has(book.id) ? (e) => {
+                          e.preventDefault()
+                          setContextMenu({ book, x: e.clientX, y: e.clientY })
+                        } : undefined}
+                      />
+                    )
+                  } else {
+                    gridElements.push(
+                      <BookCard
+                        key={book.id}
+                        title={book.title}
+                        subtitle={book.subtitle}
+                        chaptersRead={chaptersRead}
+                        totalChapters={book.totalChapters}
+                        status={book.status}
+                        rating={book.rating}
+                        finalQuizScore={book.finalQuizScore}
+                        finalQuizTotal={book.finalQuizTotal}
+                        coverUrl={book.hasCover ? apiUrl(`/api/books/${book.id}/cover?v=${book.coverUpdatedAt ?? ''}`) : undefined}
+                        showTitleOnCover={book.showTitleOnCover}
+                        imported={book.imported}
+                        onClick={() => setView({ type: 'reading', book })}
+                        onContextMenu={apiBookIds.has(book.id) ? (e) => {
+                          e.preventDefault()
+                          setContextMenu({ book, x: e.clientX, y: e.clientY })
+                        } : undefined}
+                      />
+                    )
+                  }
+                }
+              }
+
+              const gridDiv = (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 lg:gap-8 xl:grid-cols-5">
+                  {gridElements}
+                </div>
+              )
+
+              if (isManual) {
+                return (
+                  <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={gridItemIds} strategy={rectSortingStrategy}>
+                      {gridDiv}
+                    </SortableContext>
+                  </DndContext>
                 )
-              })}
-            </div>
+              }
+
+              return gridDiv
+            })()
           )}
         </div>
       </main>
@@ -616,6 +1289,24 @@ export default function App() {
             className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors"
           >
             Rate
+          </button>
+          <button
+            onClick={() => {
+              setEditTagsDialog({ book: contextMenu.book })
+              setContextMenu(null)
+            }}
+            className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors"
+          >
+            Edit Tags
+          </button>
+          <button
+            onClick={() => {
+              setSetSeriesDialog({ book: contextMenu.book })
+              setContextMenu(null)
+            }}
+            className="w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors"
+          >
+            Set Series
           </button>
           <button
             onClick={() => {
@@ -806,6 +1497,31 @@ export default function App() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Tags dialog */}
+      {editTagsDialog && (
+        <EditTagsDialog
+          open={true}
+          onOpenChange={(open) => { if (!open) setEditTagsDialog(null) }}
+          bookId={editTagsDialog.book.id}
+          currentTags={editTagsDialog.book.tags}
+          allTags={allTags}
+          onSave={handleSaveTags}
+        />
+      )}
+
+      {/* Set Series dialog */}
+      {setSeriesDialog && (
+        <SetSeriesDialog
+          open={true}
+          onOpenChange={(open) => { if (!open) setSetSeriesDialog(null) }}
+          bookId={setSeriesDialog.book.id}
+          currentSeries={setSeriesDialog.book.series}
+          currentSeriesOrder={setSeriesDialog.book.seriesOrder}
+          allSeriesNames={allSeriesNames}
+          onSave={handleSaveSeries}
+        />
+      )}
+
       {/* Book overview modal */}
       <BookOverviewModal
         open={!!overviewBook}
@@ -842,6 +1558,25 @@ export default function App() {
           totalChapters={generateAllModal.book.totalChapters}
         />
       )}
+
+      {/* Import EPUB dialog */}
+      <ImportPreviewDialog
+        open={importDialogOpen}
+        onOpenChange={(open) => {
+          setImportDialogOpen(open)
+          if (!open) {
+            setImportPreview(null)
+            setImportFileBase64('')
+            setImportFilename('')
+          }
+        }}
+        preview={importPreview}
+        fileBase64={importFileBase64}
+        filename={importFilename}
+        allTags={allTags}
+        allSeriesNames={allSeriesNames}
+        onConfirm={handleImportConfirm}
+      />
 
       {/* Background tasks footer */}
       <BackgroundTasksFooter />

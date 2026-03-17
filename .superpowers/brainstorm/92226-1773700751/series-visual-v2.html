@@ -1,0 +1,111 @@
+<h2>Series Visual Treatment Options</h2>
+<p class="subtitle">How should series cards look connected? Pick the one that feels right.</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Contained Strip</h3>
+      <p>Series cards sit inside a subtle background container with rounded corners, shared border, and a label. Like a shelf within the shelf.</p>
+      <div class="mockup" style="margin-top: 10px;">
+        <div class="mockup-body" style="padding: 16px;">
+          <!-- Series container -->
+          <div style="background: rgba(160,130,255,0.04); border: 1px solid rgba(160,130,255,0.12); border-radius: 12px; padding: 12px 14px 14px;">
+            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 10px;">
+              <div style="width: 3px; height: 14px; background: rgba(160,130,255,0.4); border-radius: 2px;"></div>
+              <span style="font-size: 11px; font-weight: 600; opacity: 0.6;">Architecture Fundamentals</span>
+              <span style="font-size: 10px; opacity: 0.3;">3 books</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+              <div style="background: linear-gradient(135deg, rgba(180,120,255,0.2), rgba(180,120,255,0.06)); border-radius: 8px; padding: 28px 8px 8px; text-align: center; border: 1px solid rgba(180,120,255,0.12);">
+                <div style="font-size: 11px; font-weight: 600;">Design Patterns</div>
+                <div style="font-size: 10px; opacity: 0.4; margin-top: 2px;">Book 1 · ✓ Complete</div>
+              </div>
+              <div style="background: linear-gradient(135deg, rgba(160,130,255,0.2), rgba(160,130,255,0.06)); border-radius: 8px; padding: 28px 8px 8px; text-align: center; border: 1px solid rgba(160,130,255,0.12);">
+                <div style="font-size: 11px; font-weight: 600;">Distributed Tracing</div>
+                <div style="font-size: 10px; opacity: 0.4; margin-top: 2px;">Book 2 · Reading</div>
+              </div>
+              <div style="background: linear-gradient(135deg, rgba(140,140,255,0.2), rgba(140,140,255,0.06)); border-radius: 8px; padding: 28px 8px 8px; text-align: center; border: 1px solid rgba(140,140,255,0.12);">
+                <div style="font-size: 11px; font-weight: 600;">Event Sourcing</div>
+                <div style="font-size: 10px; opacity: 0.4; margin-top: 2px;">Book 3 · Not started</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ungrouped for contrast -->
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px;">
+            <div style="background: linear-gradient(135deg, rgba(120,220,180,0.15), rgba(120,220,180,0.05)); border-radius: 8px; padding: 28px 8px 8px; text-align: center; font-size: 11px; font-weight: 600; border: 1px solid rgba(120,220,180,0.1);">React Deep Dive</div>
+            <div style="background: linear-gradient(135deg, rgba(255,200,100,0.15), rgba(255,200,100,0.05)); border-radius: 8px; padding: 28px 8px 8px; text-align: center; font-size: 11px; font-weight: 600; border: 1px solid rgba(255,200,100,0.1);">ML Fundamentals</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Color Family + Spine</h3>
+      <p>Series cards share a color hue (derived from series name) and have a colored left-edge "spine" connecting them visually. No outer container.</p>
+      <div class="mockup" style="margin-top: 10px;">
+        <div class="mockup-body" style="padding: 16px;">
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+            <span style="font-size: 11px; font-weight: 600; opacity: 0.5;">Architecture Fundamentals</span>
+            <span style="font-size: 10px; opacity: 0.3;">3 books</span>
+            <div style="flex: 1; height: 1px; background: rgba(128,128,128,0.1);"></div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+            <div style="background: linear-gradient(135deg, rgba(160,120,255,0.15), rgba(160,120,255,0.05)); border-radius: 8px; padding: 28px 8px 8px; text-align: center; border: 1px solid rgba(160,120,255,0.1); border-left: 3px solid rgba(160,120,255,0.5);">
+              <div style="font-size: 11px; font-weight: 600;">Design Patterns</div>
+              <div style="font-size: 10px; opacity: 0.4; margin-top: 2px;">Book 1</div>
+            </div>
+            <div style="background: linear-gradient(135deg, rgba(160,120,255,0.15), rgba(160,120,255,0.05)); border-radius: 8px; padding: 28px 8px 8px; text-align: center; border: 1px solid rgba(160,120,255,0.1); border-left: 3px solid rgba(160,120,255,0.5);">
+              <div style="font-size: 11px; font-weight: 600;">Distributed Tracing</div>
+              <div style="font-size: 10px; opacity: 0.4; margin-top: 2px;">Book 2</div>
+            </div>
+            <div style="background: linear-gradient(135deg, rgba(160,120,255,0.15), rgba(160,120,255,0.05)); border-radius: 8px; padding: 28px 8px 8px; text-align: center; border: 1px solid rgba(160,120,255,0.1); border-left: 3px solid rgba(160,120,255,0.5);">
+              <div style="font-size: 11px; font-weight: 600;">Event Sourcing</div>
+              <div style="font-size: 10px; opacity: 0.4; margin-top: 2px;">Book 3</div>
+            </div>
+          </div>
+
+          <!-- Ungrouped for contrast -->
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px;">
+            <div style="background: linear-gradient(135deg, rgba(120,220,180,0.15), rgba(120,220,180,0.05)); border-radius: 8px; padding: 28px 8px 8px; text-align: center; font-size: 11px; font-weight: 600; border: 1px solid rgba(120,220,180,0.1);">React Deep Dive</div>
+            <div style="background: linear-gradient(135deg, rgba(255,200,100,0.15), rgba(255,200,100,0.05)); border-radius: 8px; padding: 28px 8px 8px; text-align: center; font-size: 11px; font-weight: 600; border: 1px solid rgba(255,200,100,0.1);">ML Fundamentals</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Stacked Book Effect</h3>
+      <p>Series renders as a single "stack" card that expands on hover/click. Shows the series name and count. Click to expand and see individual books. Compact when browsing.</p>
+      <div class="mockup" style="margin-top: 10px;">
+        <div class="mockup-body" style="padding: 16px;">
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+            <!-- Stacked series card -->
+            <div style="position: relative;">
+              <!-- Stack shadows -->
+              <div style="position: absolute; top: 4px; left: 4px; right: -4px; bottom: -4px; background: rgba(160,120,255,0.08); border-radius: 8px; border: 1px solid rgba(160,120,255,0.08);"></div>
+              <div style="position: absolute; top: 2px; left: 2px; right: -2px; bottom: -2px; background: rgba(160,120,255,0.1); border-radius: 8px; border: 1px solid rgba(160,120,255,0.1);"></div>
+              <!-- Front card -->
+              <div style="position: relative; background: linear-gradient(135deg, rgba(160,120,255,0.2), rgba(160,120,255,0.06)); border-radius: 8px; padding: 24px 8px 8px; text-align: center; border: 1px solid rgba(160,120,255,0.15);">
+                <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.4; margin-bottom: 4px;">Series</div>
+                <div style="font-size: 11px; font-weight: 600;">Architecture Fundamentals</div>
+                <div style="font-size: 10px; opacity: 0.4; margin-top: 4px;">3 books · 1 of 3 read</div>
+              </div>
+            </div>
+            <!-- Regular cards -->
+            <div style="background: linear-gradient(135deg, rgba(120,220,180,0.15), rgba(120,220,180,0.05)); border-radius: 8px; padding: 28px 8px 8px; text-align: center; font-size: 11px; font-weight: 600; border: 1px solid rgba(120,220,180,0.1);">React Deep Dive</div>
+            <div style="background: linear-gradient(135deg, rgba(255,200,100,0.15), rgba(255,200,100,0.05)); border-radius: 8px; padding: 28px 8px 8px; text-align: center; font-size: 11px; font-weight: 600; border: 1px solid rgba(255,200,100,0.1);">ML Fundamentals</div>
+            <div style="background: linear-gradient(135deg, rgba(255,140,140,0.15), rgba(255,140,140,0.05)); border-radius: 8px; padding: 28px 8px 8px; text-align: center; font-size: 11px; font-weight: 600; border: 1px solid rgba(255,140,140,0.1);">TypeScript</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

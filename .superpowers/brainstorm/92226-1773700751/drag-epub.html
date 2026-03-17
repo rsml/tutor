@@ -1,0 +1,162 @@
+<h2>Section 4: Drag-and-Drop & EPUB Import</h2>
+<p class="subtitle">Manual reordering and importing books created by others</p>
+
+<div class="section">
+  <h3>Drag-and-Drop Reordering</h3>
+</div>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Sort: Manual — drag handle visible</div>
+    <div class="mockup-body" style="padding: 16px; font-size: 12px;">
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+        <div style="background: linear-gradient(135deg, rgba(180,120,255,0.15), rgba(180,120,255,0.05)); border-radius: 8px; padding: 8px; border: 1px solid rgba(180,120,255,0.1); position: relative;">
+          <div style="position: absolute; top: 6px; left: 8px; opacity: 0.25; font-size: 10px; cursor: grab;">⠿</div>
+          <div style="padding-top: 20px; text-align: center;">
+            <div style="font-size: 11px; font-weight: 600;">Design Patterns</div>
+          </div>
+        </div>
+        <!-- Dragging card -->
+        <div style="background: linear-gradient(135deg, rgba(120,180,255,0.2), rgba(120,180,255,0.08)); border-radius: 8px; padding: 8px; border: 2px solid rgba(100,100,255,0.3); position: relative; transform: scale(1.03); box-shadow: 0 8px 24px rgba(0,0,0,0.15); z-index: 1;">
+          <div style="position: absolute; top: 6px; left: 8px; opacity: 0.5; font-size: 10px; cursor: grabbing;">⠿</div>
+          <div style="padding-top: 20px; text-align: center;">
+            <div style="font-size: 11px; font-weight: 600;">React Deep Dive</div>
+            <div style="font-size: 9px; opacity: 0.5; margin-top: 2px;">↕ Drag to reorder</div>
+          </div>
+        </div>
+        <!-- Drop target -->
+        <div style="border: 2px dashed rgba(100,100,255,0.2); border-radius: 8px; padding: 28px 8px; text-align: center; background: rgba(100,100,255,0.02);">
+          <div style="font-size: 10px; opacity: 0.3;">Drop here</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Sort Dropdown Options</div>
+    <div class="mockup-body" style="padding: 0; font-size: 12px;">
+      <div style="border: 1px solid rgba(128,128,128,0.15); border-radius: 8px; overflow: hidden; margin: 16px; background: rgba(128,128,128,0.02);">
+        <div style="padding: 8px 12px; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid rgba(128,128,128,0.08); background: rgba(100,100,255,0.06);">
+          <span>⇅</span> <span style="font-weight: 500;">Date created</span> <span style="margin-left: auto; opacity: 0.4;">↓ Newest</span>
+        </div>
+        <div style="padding: 8px 12px; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid rgba(128,128,128,0.08);">
+          <span>⇅</span> Title (A→Z)
+        </div>
+        <div style="padding: 8px 12px; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid rgba(128,128,128,0.08);">
+          <span>★</span> Rating
+        </div>
+        <div style="padding: 8px 12px; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid rgba(128,128,128,0.08);">
+          <span>◔</span> Progress
+        </div>
+        <div style="padding: 8px 12px; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid rgba(128,128,128,0.08);">
+          <span>◷</span> Recently read
+        </div>
+        <div style="padding: 8px 12px; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid rgba(128,128,128,0.08); border-top: 1px solid rgba(128,128,128,0.12);">
+          <span>✋</span> <span style="font-weight: 500;">Manual</span>
+          <span style="font-size: 10px; opacity: 0.4; margin-left: auto;">enables drag</span>
+        </div>
+      </div>
+      <div style="padding: 0 16px 16px; font-size: 11px; opacity: 0.5; line-height: 1.5;">
+        Drag-and-drop only enabled when sort is "Manual". Other sort modes use computed ordering. Manual positions persist via <code>sortOrder</code> in meta.yml.
+      </div>
+    </div>
+  </div>
+</div>
+
+<br>
+
+<div class="section">
+  <h3>EPUB Import</h3>
+  <p>Import books created by another Tutor user. Imported books appear in the library like any other book, fully readable with the same reader.</p>
+</div>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Import Flow — 3 steps</div>
+    <div class="mockup-body" style="padding: 16px; font-size: 12px;">
+      <!-- Step 1 -->
+      <div style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 16px;">
+        <div style="width: 24px; height: 24px; border-radius: 12px; background: rgba(100,100,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; color: rgba(100,100,255,0.8);">1</div>
+        <div>
+          <div style="font-weight: 600; margin-bottom: 3px;">Select EPUB file</div>
+          <div style="opacity: 0.5; font-size: 11px;">Electron native file picker (or drag onto library grid). Accepts <code>.epub</code> files only.</div>
+        </div>
+      </div>
+      <!-- Step 2 -->
+      <div style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 16px;">
+        <div style="width: 24px; height: 24px; border-radius: 12px; background: rgba(100,100,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; color: rgba(100,100,255,0.8);">2</div>
+        <div>
+          <div style="font-weight: 600; margin-bottom: 3px;">Parse & preview</div>
+          <div style="opacity: 0.5; font-size: 11px;">Server extracts EPUB → shows title, chapter count, cover (if any). User confirms import.</div>
+        </div>
+      </div>
+      <!-- Step 3 -->
+      <div style="display: flex; align-items: flex-start; gap: 10px;">
+        <div style="width: 24px; height: 24px; border-radius: 12px; background: rgba(100,100,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; color: rgba(100,100,255,0.8);">3</div>
+        <div>
+          <div style="font-weight: 600; margin-bottom: 3px;">Convert to native format</div>
+          <div style="opacity: 0.5; font-size: 11px; line-height: 1.5;">
+            EPUB chapters → Markdown files in <code>books/{id}/chapters/</code><br>
+            EPUB metadata → <code>meta.yml</code> with <code>status: reading</code><br>
+            EPUB TOC → <code>toc.yml</code><br>
+            Cover image → <code>cover.png</code><br>
+            Book is immediately readable — no AI generation needed.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Import Preview Dialog</div>
+    <div class="mockup-body" style="padding: 0; font-size: 12px;">
+      <div style="padding: 20px;">
+        <div style="text-align: center; margin-bottom: 16px;">
+          <div style="display: inline-block; background: linear-gradient(135deg, rgba(100,180,255,0.2), rgba(100,180,255,0.06)); border-radius: 8px; padding: 24px 20px; border: 1px solid rgba(100,180,255,0.15);">
+            <div style="font-size: 24px; margin-bottom: 4px;">📖</div>
+            <div style="font-size: 13px; font-weight: 600;">Kubernetes Patterns</div>
+            <div style="font-size: 11px; opacity: 0.5;">Reusable Elements for K8s Apps</div>
+          </div>
+        </div>
+
+        <div style="background: rgba(128,128,128,0.04); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+          <div style="display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 11px;">
+            <span style="opacity: 0.4;">Chapters</span> <span>12</span>
+            <span style="opacity: 0.4;">Format</span> <span>EPUB 3.0</span>
+            <span style="opacity: 0.4;">Source</span> <span>Tutor Export</span>
+            <span style="opacity: 0.4;">Has Cover</span> <span>Yes</span>
+          </div>
+        </div>
+
+        <!-- Optional metadata -->
+        <div style="margin-bottom: 12px;">
+          <label style="font-size: 11px; opacity: 0.5; display: block; margin-bottom: 4px;">Tags (optional)</label>
+          <div style="background: rgba(128,128,128,0.04); border: 1px solid rgba(128,128,128,0.12); border-radius: 6px; padding: 4px 8px; font-size: 11px; opacity: 0.4;">kubernetes, devops...</div>
+        </div>
+        <div style="margin-bottom: 16px;">
+          <label style="font-size: 11px; opacity: 0.5; display: block; margin-bottom: 4px;">Series (optional)</label>
+          <div style="display: flex; gap: 8px;">
+            <div style="flex: 1; background: rgba(128,128,128,0.04); border: 1px solid rgba(128,128,128,0.12); border-radius: 6px; padding: 4px 8px; font-size: 11px; opacity: 0.4;">DevOps Trilogy</div>
+            <div style="width: 50px; background: rgba(128,128,128,0.04); border: 1px solid rgba(128,128,128,0.12); border-radius: 6px; padding: 4px 8px; font-size: 11px; opacity: 0.4; text-align: center;">#2</div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+          <button style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid rgba(128,128,128,0.15); background: transparent; font-size: 12px; cursor: pointer; opacity: 0.6;">Cancel</button>
+          <button style="flex: 1; padding: 8px; border-radius: 6px; border: none; background: rgba(100,100,255,0.8); color: white; font-size: 12px; cursor: pointer; font-weight: 500;">Import Book</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 16px;">
+  <h3>Key Details</h3>
+  <ul style="font-size: 13px; line-height: 1.7;">
+    <li><strong>Drag-and-drop:</strong> Only enabled when sort mode is "Manual". Uses <code>sortOrder</code> (float) in meta.yml. Insertions use midpoint between neighbors. Drag handles (⠿) appear on cards. Active card gets elevated shadow + slight scale.</li>
+    <li><strong>EPUB import entry points:</strong> (1) "Import" button in toolbar/header, (2) Drag .epub file onto the library grid, (3) Context menu in Electron (File → Import EPUB).</li>
+    <li><strong>EPUB parsing:</strong> Server-side using <code>epub2</code> npm package. Extracts XHTML chapters → converts to Markdown via a lightweight HTML-to-MD transform. Preserves headings, lists, code blocks, images (saved to chapter dir).</li>
+    <li><strong>Imported book flag:</strong> <code>imported: true</code> in meta.yml. Imported books skip the generation flow (no AI needed). They're read-only in terms of content regeneration, but all other features (feedback, quiz, chat, rating, tags) still work.</li>
+    <li><strong>Drag onto expanded series:</strong> When a series stack is expanded, you can drag books into/out of the series to change membership and order.</li>
+  </ul>
+</div>

@@ -97,6 +97,11 @@ export const BookMetaSchema = z.object({
   rating: z.number().min(0).max(5).multipleOf(0.5).optional(),
   finalQuizScore: z.number().int().min(0).optional(),
   finalQuizTotal: z.number().int().min(0).optional(),
+  tags: z.array(z.string().min(1).max(50)).max(20).default([]),
+  series: z.string().min(1).max(100).optional(),
+  seriesOrder: z.number().int().min(1).optional(),
+  sortOrder: z.number().optional(),
+  imported: z.boolean().optional(),
 })
 
 export type BookMeta = z.infer<typeof BookMetaSchema>
@@ -198,6 +203,31 @@ export const PatchBookBodySchema = z.object({
   title: z.string().min(1).max(100).optional(),
   subtitle: z.string().max(150).optional(),
   showTitleOnCover: z.boolean().optional(),
+  tags: z.array(z.string().min(1).max(50)).max(20).optional(),
+  series: z.string().min(1).max(100).nullable().optional(),   // null to remove
+  seriesOrder: z.number().int().min(1).nullable().optional(),  // null to remove
+  sortOrder: z.number().nullable().optional(),                  // null to remove
+})
+
+export const ImportEpubBodySchema = z.object({
+  base64: z.string().max(15_000_000), // ~10MB encoded
+  filename: z.string().min(1).max(255),
+})
+
+export const ImportEpubPreviewResponseSchema = z.object({
+  title: z.string(),
+  subtitle: z.string().optional(),
+  chapterCount: z.number().int().min(0),
+  hasCover: z.boolean(),
+  coverBase64: z.string().optional(),
+})
+
+export const ImportEpubConfirmBodySchema = z.object({
+  base64: z.string().max(15_000_000),
+  filename: z.string().min(1).max(255),
+  tags: z.array(z.string().min(1).max(50)).max(20).optional(),
+  series: z.string().min(1).max(100).optional(),
+  seriesOrder: z.number().int().min(1).optional(),
 })
 
 export const RatingBodySchema = z.object({

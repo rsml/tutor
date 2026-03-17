@@ -1,4 +1,4 @@
-import { AlertTriangle, Loader2 } from 'lucide-react'
+import { AlertTriangle, Loader2, FileDown } from 'lucide-react'
 import { NoiseOverlay } from '@src/components/NoiseOverlay'
 import { StarRating } from '@src/components/StarRating'
 
@@ -21,11 +21,12 @@ interface BookCardProps {
   finalQuizTotal?: number
   coverUrl?: string
   showTitleOnCover?: boolean
+  imported?: boolean
   onClick?: () => void
   onContextMenu?: (e: React.MouseEvent) => void
 }
 
-export function BookCard({ title, subtitle, chaptersRead, totalChapters, status, rating, finalQuizScore, finalQuizTotal, coverUrl, showTitleOnCover, onClick, onContextMenu }: BookCardProps) {
+export function BookCard({ title, subtitle, chaptersRead, totalChapters, status, rating, finalQuizScore, finalQuizTotal, coverUrl, showTitleOnCover, imported, onClick, onContextMenu }: BookCardProps) {
   const hue = stringToHue(title)
   const progress = totalChapters > 0 ? chaptersRead / totalChapters : 0
   const isGenerating = status === 'generating_toc' || status === 'generating'
@@ -92,6 +93,15 @@ export function BookCard({ title, subtitle, chaptersRead, totalChapters, status,
               <AlertTriangle className="size-3 text-red-300" />
               <span className="text-xs font-medium text-red-200">
                 Failed
+              </span>
+            </div>
+          )}
+          {/* Imported badge */}
+          {imported && !isGenerating && !isFailed && progress === 0 && (
+            <div className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 backdrop-blur-sm">
+              <FileDown className="size-3 text-blue-300/80" />
+              <span className="text-[0.65em] font-medium text-blue-200/80">
+                Imported
               </span>
             </div>
           )}
