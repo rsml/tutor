@@ -105,6 +105,9 @@ export async function importEpub(
       strongDelimiter: '**',
     })
 
+    // Recover raw mermaid/KaTeX source from Tutor-exported hidden elements
+    addTutorSourceRules(turndown)
+
     // Extract chapters in spine order
     const chapterContents: string[] = []
     const tocChapters: Array<{ title: string; description: string }> = []
@@ -176,4 +179,58 @@ export async function importEpub(
   } finally {
     await cleanupEpub(epub)
   }
+}
+
+/**
+ * Add Turndown rules that recover raw mermaid/KaTeX source from Tutor-exported
+ * hidden elements (`data-tutor-type`), reconstructing the original markdown.
+ * For non-Tutor EPUBs these rules simply never match.
+ */
+function addTutorSourceRules(turndown: TurndownService): void {
+  // Hidden mermaid source → ```mermaid code block
+  turndown.addRule('tutor-mermaid-source', {
+    filter: (node) =>
+      node.getAttribute?.('data-tutor-type') === 'mermaid',
+    replacement: (_content, node) => {
+      const raw = (node as HTMLElement).textContent ?? ''
+      return `\n\n\`\`\`mermaid\n${raw}\n\`\`\`\n\n`
+    },
+  })
+
+  // Hidden inline KaTeX source → $...$
+  turndown.addRule('tutor-katex-inline', {
+    filter: (node) =>
+      node.getAttribute?.('data-tutor-type') === 'katex-inline',
+    replacement: (_content, node) => {
+      const raw = (node as HTMLElement).textContent ?? ''
+      return `$${raw}$`
+    },
+  })
+
+  // Hidden display KaTeX source → $$...$$
+  turndown.addRule('tutor-katex-display', {
+    filter: (node) =>
+      node.getAttribute?.('data-tutor-type') === 'katex-display',
+    replacement: (_content, node) => {
+      const raw = (node as HTMLElement).textContent ?? ''
+      return `\n\n$$\n${raw}\n$$\n\n`
+    },
+  })
+
+  // Remove rendered mermaid SVG containers (the source div handles reconstruction)
+  turndown.addRule('tutor-mermaid-rendered', {
+    filter: (node) =>
+      (node as HTMLElement).classList?.contains?.('tutor-mermaid-rendered') === true,
+    replacement: () => '',
+  })
+
+  // Remove rendered KaTeX output (the source element handles reconstruction)
+  turndown.addRule('tutor-katex-rendered', {
+    filter: (node) => {
+      const classes = (node as HTMLElement).classList
+      if (!classes) return false
+      return classes.contains('katex') || classes.contains('katex-display')
+    },
+    replacement: () => '',
+  })
 }
