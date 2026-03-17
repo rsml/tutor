@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback, useMemo, useDeferredValue } from 'react'
+import { useState, useEffect, useCallback, useMemo, useDeferredValue, useRef } from 'react'
 import { toast } from 'sonner'
 import { Plus, BookOpen, X } from 'lucide-react'
+import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
 import { Button } from '@src/components/ui/button'
 import { Badge } from '@src/components/ui/badge'
 import {
@@ -12,6 +14,8 @@ import {
   DialogFooter,
 } from '@src/components/ui/dialog'
 import { BookCard } from '@src/components/BookCard'
+import { SortableBookCard } from '@src/components/SortableBookCard'
+import { SortableSeriesCard } from '@src/components/SortableSeriesCard'
 import { LibraryToolbar } from '@src/components/LibraryToolbar'
 import { StarRating } from '@src/components/StarRating'
 import { NoiseOverlay } from '@src/components/NoiseOverlay'
@@ -431,6 +435,36 @@ export default function App() {
     setSetSeriesDialog(null)
   }
 
+  // Track the previous sort field to detect transitions to manual mode
+  const prevSortFieldRef = useRef(librarySort.field)
+
+  // Initialize sortOrder on first switch to manual mode
+  useEffect(() => {
+    const wasManual = prevSortFieldRef.current === 'manual'
+    prevSortFieldRef.current = librarySort.field
+
+    if (librarySort.field !== 'manual' || wasManual) return
+    // Switching to manual — assign integer sortOrders if books don't have them yet
+    const needsInit = apiBooks.some(b => b.sortOrder == null)
+    if (!needsInit) return
+
+    // Use the current display order (filteredBooks would be ideal, but apiBooks is fine as a base)
+    const booksToInit = [...apiBooks]
+    // They're in whatever order they were before — assign integers
+    const patches = booksToInit.map((book, index) => {
+      if (book.sortOrder != null) return null
+      return fetch(apiUrl(`/api/books/${book.id}`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sortOrder: index }),
+      })
+    }).filter(Boolean)
+
+    if (patches.length > 0) {
+      Promise.all(patches).then(() => fetchBooks()).catch(() => {})
+    }
+  }, [librarySort.field, apiBooks, fetchBooks])
+
   const apiBookIds = new Set(apiBooks.map(b => b.id))
   const allBooks = apiBooks
 
@@ -605,6 +639,116 @@ export default function App() {
       searchResultCount: query ? sorted.length : undefined,
     }
   }, [allBooks, libraryFilters, librarySort, classifyBook, deferredSearch, furthest, readingPositions])
+
+  // Drag-and-drop handler for manual sort mode
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    // Build the grid items list (same structure as the rendered grid)
+    const renderedSeries = new Set<string>()
+    const gridItemIds: string[] = []
+    const gridItemSortOrders: number[] = []
+
+    for (const book of filteredBooks) {
+      if (book.series) {
+        if (renderedSeries.has(book.series)) continue
+        renderedSeries.add(book.series)
+        const itemId = `series-${book.series}`
+        gridItemIds.push(itemId)
+        gridItemSortOrders.push(book.sortOrder ?? 0)
+      } else {
+        gridItemIds.push(book.id)
+        gridItemSortOrders.push(book.sortOrder ?? 0)
+      }
+    }
+
+    const oldIndex = gridItemIds.indexOf(String(active.id))
+    const newIndex = gridItemIds.indexOf(String(over.id))
+    if (oldIndex === -1 || newIndex === -1) return
+
+    // Build the reordered array by removing the dragged item and re-inserting
+    // Use the same logic as arrayMove: remove at oldIndex, insert at newIndex
+    const reorderedIds = [...gridItemIds]
+    const reorderedOrders = [...gridItemSortOrders]
+    const [movedId] = reorderedIds.splice(oldIndex, 1)
+    const [_movedOrder] = reorderedOrders.splice(oldIndex, 1)
+    // Adjust insert position: after removing, if oldIndex < newIndex the target shifted left
+    const insertAt = oldIndex < newIndex ? newIndex - 1 : newIndex
+    reorderedIds.splice(insertAt, 0, movedId)
+
+    // Calculate new sortOrder using midpoint strategy based on neighbors in the reordered array
+    let newSortOrder: number
+    if (insertAt === 0) {
+      newSortOrder = reorderedOrders.length > 0 ? reorderedOrders[0] - 1 : 0
+    } else if (insertAt >= reorderedOrders.length) {
+      newSortOrder = reorderedOrders[reorderedOrders.length - 1] + 1
+    } else {
+      const prevOrder = reorderedOrders[insertAt - 1]
+      const nextOrder = reorderedOrders[insertAt]
+      newSortOrder = (prevOrder + nextOrder) / 2
+    }
+
+    // Determine which book(s) to PATCH
+    const draggedItemId = String(active.id)
+    const bookIdsToPatch: string[] = []
+
+    if (draggedItemId.startsWith('series-')) {
+      const seriesName = draggedItemId.slice(7)
+      const seriesBooks = apiBooks.filter(b => b.series === seriesName)
+      bookIdsToPatch.push(...seriesBooks.map(b => b.id))
+    } else {
+      bookIdsToPatch.push(draggedItemId)
+    }
+
+    try {
+      await Promise.all(bookIdsToPatch.map(bookId =>
+        fetch(apiUrl(`/api/books/${bookId}`), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sortOrder: newSortOrder }),
+        })
+      ))
+
+      // Check if rebalancing is needed
+      reorderedOrders.splice(insertAt, 0, newSortOrder)
+      let needsRebalance = false
+      for (let i = 1; i < reorderedOrders.length; i++) {
+        if (Math.abs(reorderedOrders[i] - reorderedOrders[i - 1]) < 1e-10) {
+          needsRebalance = true
+          break
+        }
+      }
+
+      if (needsRebalance) {
+        const rebalancePatches = reorderedIds.map((itemId, index) => {
+          if (itemId.startsWith('series-')) {
+            const sName = itemId.slice(7)
+            const sBooks = apiBooks.filter(b => b.series === sName)
+            return sBooks.map(b =>
+              fetch(apiUrl(`/api/books/${b.id}`), {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sortOrder: index }),
+              })
+            )
+          } else {
+            return [fetch(apiUrl(`/api/books/${itemId}`), {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sortOrder: index }),
+            })]
+          }
+        }).flat()
+
+        await Promise.all(rebalancePatches)
+      }
+
+      await fetchBooks()
+    } catch {
+      toast.error('Failed to reorder — server unreachable')
+    }
+  }, [filteredBooks, apiBooks, fetchBooks])
 
   // Compute active filter chips for display
   const activeFilterChips = useMemo(() => {
@@ -870,28 +1014,33 @@ export default function App() {
               )
             })()
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 lg:gap-8 xl:grid-cols-5">
-              {(() => {
-                // Build grid items: collapse series into stack cards, keep non-series as individual cards
-                const renderedSeries = new Set<string>()
-                const items: React.ReactNode[] = []
+            (() => {
+              // Build grid items: collapse series into stack cards, keep non-series as individual cards
+              const renderedSeries = new Set<string>()
+              const gridItemIds: string[] = []
+              const gridElements: React.ReactNode[] = []
+              const isManual = librarySort.field === 'manual'
 
-                for (const book of filteredBooks) {
-                  if (book.series) {
-                    if (renderedSeries.has(book.series)) continue
-                    renderedSeries.add(book.series)
+              for (const book of filteredBooks) {
+                if (book.series) {
+                  if (renderedSeries.has(book.series)) continue
+                  renderedSeries.add(book.series)
 
-                    // Gather all books in this series from filteredBooks
-                    const seriesBooks = filteredBooks.filter(b => b.series === book.series)
-                    const totalChapters = seriesBooks.reduce((s, b) => s + b.totalChapters, 0)
-                    const chaptersRead = seriesBooks.reduce((s, b) => {
-                      const rp = furthest[b.id]
-                      return s + (rp != null ? rp + 1 : b.chaptersRead)
-                    }, 0)
+                  const seriesBooks = filteredBooks.filter(b => b.series === book.series)
+                  const totalChapters = seriesBooks.reduce((s, b) => s + b.totalChapters, 0)
+                  const chaptersRead = seriesBooks.reduce((s, b) => {
+                    const rp = furthest[b.id]
+                    return s + (rp != null ? rp + 1 : b.chaptersRead)
+                  }, 0)
 
-                    items.push(
-                      <SeriesStackCard
-                        key={`series-${book.series}`}
+                  const itemId = `series-${book.series}`
+                  gridItemIds.push(itemId)
+
+                  if (isManual) {
+                    gridElements.push(
+                      <SortableSeriesCard
+                        key={itemId}
+                        id={itemId}
                         seriesName={book.series}
                         books={seriesBooks}
                         chaptersRead={chaptersRead}
@@ -900,11 +1049,48 @@ export default function App() {
                       />
                     )
                   } else {
-                    const reduxProgress = furthest[book.id]
-                    const chaptersRead = reduxProgress != null
-                      ? reduxProgress + 1
-                      : book.chaptersRead
-                    items.push(
+                    gridElements.push(
+                      <SeriesStackCard
+                        key={itemId}
+                        seriesName={book.series}
+                        books={seriesBooks}
+                        chaptersRead={chaptersRead}
+                        totalChapters={totalChapters}
+                        onClick={() => setView({ type: 'series', seriesName: book.series! })}
+                      />
+                    )
+                  }
+                } else {
+                  const reduxProgress = furthest[book.id]
+                  const chaptersRead = reduxProgress != null
+                    ? reduxProgress + 1
+                    : book.chaptersRead
+                  gridItemIds.push(book.id)
+
+                  if (isManual) {
+                    gridElements.push(
+                      <SortableBookCard
+                        key={book.id}
+                        id={book.id}
+                        title={book.title}
+                        subtitle={book.subtitle}
+                        chaptersRead={chaptersRead}
+                        totalChapters={book.totalChapters}
+                        status={book.status}
+                        rating={book.rating}
+                        finalQuizScore={book.finalQuizScore}
+                        finalQuizTotal={book.finalQuizTotal}
+                        coverUrl={book.hasCover ? apiUrl(`/api/books/${book.id}/cover?v=${book.coverUpdatedAt ?? ''}`) : undefined}
+                        showTitleOnCover={book.showTitleOnCover}
+                        onClick={() => setView({ type: 'reading', book })}
+                        onContextMenu={apiBookIds.has(book.id) ? (e) => {
+                          e.preventDefault()
+                          setContextMenu({ book, x: e.clientX, y: e.clientY })
+                        } : undefined}
+                      />
+                    )
+                  } else {
+                    gridElements.push(
                       <BookCard
                         key={book.id}
                         title={book.title}
@@ -926,10 +1112,26 @@ export default function App() {
                     )
                   }
                 }
+              }
 
-                return items
-              })()}
-            </div>
+              const gridDiv = (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 lg:gap-8 xl:grid-cols-5">
+                  {gridElements}
+                </div>
+              )
+
+              if (isManual) {
+                return (
+                  <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={gridItemIds} strategy={rectSortingStrategy}>
+                      {gridDiv}
+                    </SortableContext>
+                  </DndContext>
+                )
+              }
+
+              return gridDiv
+            })()
           )}
         </div>
       </main>
