@@ -48,9 +48,9 @@ export function SortableBookCard({ id, ...bookCardProps }: SortableBookCardProps
       <div
         {...attributes}
         {...listeners}
-        className="absolute top-2 left-2 z-10 cursor-grab rounded p-1 opacity-25 transition-opacity hover:opacity-70 active:cursor-grabbing"
+        className="absolute top-2 left-2 z-10 cursor-grab rounded-md bg-black/20 p-1 opacity-40 backdrop-blur-sm transition-opacity hover:opacity-90 active:cursor-grabbing"
       >
-        <GripVertical className="size-4 text-white drop-shadow-md" />
+        <GripVertical className="size-5 text-white drop-shadow-md" />
       </div>
     </div>
   )

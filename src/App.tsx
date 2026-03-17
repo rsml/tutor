@@ -96,6 +96,7 @@ export default function App() {
   const [serverAvailable, setServerAvailable] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [fullSearch, setFullSearch] = useState(false)
+  const [contentSearchResults, setContentSearchResults] = useState<Set<string>>(new Set())
   const [importPreview, setImportPreview] = useState<EpubPreview | null>(null)
   const [importFileBase64, setImportFileBase64] = useState('')
   const [importFilename, setImportFilename] = useState('')
@@ -242,6 +243,26 @@ export default function App() {
   useEffect(() => {
     fetchBooks()
   }, [fetchBooks])
+
+  // Full-text content search via backend
+  useEffect(() => {
+    if (!fullSearch || !deferredSearch.trim()) {
+      setContentSearchResults(new Set())
+      return
+    }
+    let cancelled = false
+    const doSearch = async () => {
+      try {
+        const res = await fetch(apiUrl(`/api/books/search?q=${encodeURIComponent(deferredSearch.trim())}&full=true`))
+        if (res.ok && !cancelled) {
+          const data = await res.json()
+          setContentSearchResults(new Set(data.map((r: { bookId: string }) => r.bookId)))
+        }
+      } catch { /* ignore */ }
+    }
+    doSearch()
+    return () => { cancelled = true }
+  }, [fullSearch, deferredSearch])
 
   // Connect to background task SSE stream — refresh library on cover generation + auto-download EPUB
   const handleEpubExported = useCallback((bookId: string, bookTitle: string) => {
@@ -597,12 +618,13 @@ export default function App() {
       filtered = filtered.filter(b => new Date(b.createdAt).getTime() >= cutoff)
     }
 
-    // Client-side search filtering (title + subtitle)
+    // Client-side search filtering (title + subtitle + optional content search results)
     const query = deferredSearch.trim().toLowerCase()
     if (query) {
       filtered = filtered.filter(b =>
         b.title.toLowerCase().includes(query) ||
-        (b.subtitle?.toLowerCase().includes(query) ?? false)
+        (b.subtitle?.toLowerCase().includes(query) ?? false) ||
+        (fullSearch && contentSearchResults.has(b.id))
       )
     }
 
@@ -708,7 +730,7 @@ export default function App() {
       filteredBooks: sorted,
       searchResultCount: query ? sorted.length : undefined,
     }
-  }, [allBooks, libraryFilters, librarySort, classifyBook, deferredSearch, furthest, readingPositions])
+  }, [allBooks, libraryFilters, librarySort, classifyBook, deferredSearch, furthest, readingPositions, fullSearch, contentSearchResults])
 
   // Drag-and-drop handler for manual sort mode
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
@@ -734,17 +756,18 @@ export default function App() {
     if (oldIndex === -1 || newIndex === -1) return
 
     // Calculate the new sortOrder based on the target position's neighbors
-    // We want to place the dragged item at newIndex position
+    // In desc mode, higher sortOrder = earlier position, so edge fallbacks must be flipped
+    const isDesc = librarySort.direction === 'desc'
     let newSortOrder: number
     if (oldIndex < newIndex) {
       // Moving forward: place after the item at newIndex
       const after = items[newIndex].sortOrder
-      const next = newIndex + 1 < items.length ? items[newIndex + 1].sortOrder : after + 2
+      const next = newIndex + 1 < items.length ? items[newIndex + 1].sortOrder : after + (isDesc ? -2 : 2)
       newSortOrder = (after + next) / 2
     } else {
       // Moving backward: place before the item at newIndex
       const before = items[newIndex].sortOrder
-      const prev = newIndex - 1 >= 0 ? items[newIndex - 1].sortOrder : before - 2
+      const prev = newIndex - 1 >= 0 ? items[newIndex - 1].sortOrder : before + (isDesc ? 2 : -2)
       newSortOrder = (prev + before) / 2
     }
 
@@ -759,6 +782,11 @@ export default function App() {
     } else {
       bookIdsToPatch.push(draggedItemId)
     }
+
+    // Optimistically update state so the card doesn't jump on release
+    setApiBooks(prev => prev.map(b =>
+      bookIdsToPatch.includes(b.id) ? { ...b, sortOrder: newSortOrder } : b
+    ))
 
     try {
       await Promise.all(bookIdsToPatch.map(bookId =>
@@ -804,11 +832,13 @@ export default function App() {
         await Promise.all(rebalancePatches)
       }
 
-      await fetchBooks()
+      // Background sync — no need to await since we already updated optimistically
+      fetchBooks()
     } catch {
       toast.error('Failed to reorder — server unreachable')
+      fetchBooks() // Revert optimistic update on failure
     }
-  }, [filteredBooks, apiBooks, fetchBooks])
+  }, [filteredBooks, apiBooks, fetchBooks, librarySort.direction])
 
   // Compute active filter chips for display
   const activeFilterChips = useMemo(() => {
@@ -934,7 +964,7 @@ export default function App() {
       <NoiseOverlay />
       {/* Header */}
       <header
-        className="relative flex h-12 shrink-0 items-center justify-between border-b border-border-default/50 bg-surface-base/90 px-4 backdrop-blur-sm"
+        className="relative flex h-12 shrink-0 items-center justify-between border-b border-border-default/50 bg-surface-base/90 px-8 backdrop-blur-sm"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
         <span className="absolute inset-x-0 pointer-events-none text-center text-sm font-semibold tracking-tight">
