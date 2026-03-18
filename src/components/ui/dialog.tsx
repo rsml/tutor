@@ -168,7 +168,7 @@ function ScrollableDialogHeader({
   children: React.ReactNode
 }) {
   return (
-    <div className={cn("shrink-0 px-4 pt-4 pb-3 border-b border-border-default", className)}>
+    <div className={cn("shrink-0 px-4 pt-4 pb-3 border-b border-border-default/40", className)}>
       <DialogHeader>{children}</DialogHeader>
     </div>
   )
@@ -196,7 +196,7 @@ function ScrollableDialogFooter({
   children: React.ReactNode
 }) {
   return (
-    <div className={cn("shrink-0 px-4 py-3 flex justify-end gap-2", className)}>
+    <div className={cn("shrink-0 border-t border-border-default/40 bg-muted/30 px-4 py-3 flex justify-end gap-2", className)}>
       {children}
     </div>
   )
