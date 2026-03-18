@@ -257,6 +257,8 @@
 /* Custom range slider */
 input[type="range"] {
   --range-fill: 50%;
+  position: relative;
+  z-index: 10;
   -webkit-appearance: none;
   appearance: none;
   height: 5px;
