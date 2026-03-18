@@ -89,7 +89,7 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkil
         <ScrollableDialogHeader>
           <DialogTitle>Learning Profile</DialogTitle>
         </ScrollableDialogHeader>
-        <ScrollableDialogBody>
+        <ScrollableDialogBody className="pt-0">
 
         <div className="grid gap-4">
           {/* Prior Knowledge */}
