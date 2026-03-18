@@ -62,17 +62,17 @@ export function ModelAssignmentDialog({ open, onOpenChange }: ModelAssignmentDia
         <ScrollableDialogHeader>
           <DialogTitle>Model Assignment</DialogTitle>
           <DialogDescription>
-            Assign different models to different functions. Unset groups use the default.
+            Choose which models to use for different features
           </DialogDescription>
         </ScrollableDialogHeader>
         <ScrollableDialogBody>
 
-        <div className="grid gap-1">
+        <div className="grid gap-1 mb-2">
           <div className="flex items-baseline gap-2">
             <label htmlFor="fn-model-default" className="text-sm font-medium text-content-primary">
               Default
             </label>
-            <span className="text-xs text-content-muted">Fallback model for all functions</span>
+            <span className="text-xs text-content-muted">Fallback for all functions</span>
           </div>
           <select
             id="fn-model-default"
@@ -100,7 +100,7 @@ export function ModelAssignmentDialog({ open, onOpenChange }: ModelAssignmentDia
           </select>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           {FUNCTION_GROUPS.map(group => {
             const isImage = group.id === 'image'
             return (

@@ -58,9 +58,9 @@ export type AiFunctionGroup = 'generation' | 'quiz' | 'chat' | 'profile' | 'imag
 export const FUNCTION_GROUPS: { id: AiFunctionGroup; label: string; description: string }[] = [
   { id: 'generation', label: 'Book Generation', description: 'TOC, chapters, skill classification' },
   { id: 'quiz', label: 'Quizzes', description: 'Chapter quizzes & final quiz' },
-  { id: 'chat', label: 'Inline Chat', description: 'Sentence explanations' },
+  { id: 'chat', label: 'Inline Chat', description: 'Select text to dive deeper' },
   { id: 'profile', label: 'Profile & Suggestions', description: 'Interview, skill & book suggestions' },
-  { id: 'image', label: 'Cover Images', description: 'AI-generated book covers' },
+  { id: 'image', label: 'Cover Images', description: 'Right-click a book to add a cover' },
 ]
 
 export const IMAGE_MODELS: Partial<Record<ProviderId, ModelOption[]>> = {
