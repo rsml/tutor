@@ -114,7 +114,7 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
             What do you want to learn next?
           </DialogDescription>
         </ScrollableDialogHeader>
-        <ScrollableDialogBody className="px-4 py-4">
+        <ScrollableDialogBody>
 
         <div className="grid gap-4">
           {reasoning && (

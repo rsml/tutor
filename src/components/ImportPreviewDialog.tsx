@@ -125,7 +125,7 @@ export function ImportPreviewDialog({
           <DialogTitle>Import EPUB</DialogTitle>
           <DialogDescription>Review the book details before importing.</DialogDescription>
         </ScrollableDialogHeader>
-        <ScrollableDialogBody className="px-4 py-4">
+        <ScrollableDialogBody>
 
         <div className="min-w-0 space-y-4">
           {/* Book preview */}

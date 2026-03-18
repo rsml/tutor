@@ -90,7 +90,7 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkil
         </ScrollableDialogHeader>
         <ScrollableDialogBody>
 
-        <div className="grid gap-4 px-4 py-4">
+        <div className="grid gap-4">
           {/* Prior Knowledge */}
           <div className="grid gap-2">
             <span className="text-sm font-medium text-content-primary">Prior Knowledge</span>

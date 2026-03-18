@@ -51,7 +51,7 @@ export function BookOverviewModal({ open, onOpenChange, book }: BookOverviewModa
           {book.subtitle && <p className="text-sm text-content-muted">{book.subtitle}</p>}
           {prompt && <DialogDescription>{prompt}</DialogDescription>}
         </ScrollableDialogHeader>
-        <ScrollableDialogBody className="p-4">
+        <ScrollableDialogBody>
 
         {loading ? (
           <div className="flex items-center gap-2 py-8 justify-center text-content-muted">

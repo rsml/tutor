@@ -182,7 +182,7 @@ function ScrollableDialogBody({
   children: React.ReactNode
 }) {
   return (
-    <div className={cn("overflow-y-auto flex-1 min-h-0", className)}>
+    <div className={cn("overflow-y-auto flex-1 min-h-0 px-4 py-4", className)}>
       {children}
     </div>
   )

@@ -65,7 +65,7 @@ export function ModelAssignmentDialog({ open, onOpenChange }: ModelAssignmentDia
             Assign different models to different functions. Unset groups use the default.
           </DialogDescription>
         </ScrollableDialogHeader>
-        <ScrollableDialogBody className="px-4 py-4">
+        <ScrollableDialogBody>
 
         <div className="grid gap-1">
           <div className="flex items-baseline gap-2">

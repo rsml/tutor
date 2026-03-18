@@ -89,7 +89,7 @@ export function SetSeriesDialog({
           <DialogTitle>Set Series</DialogTitle>
           <DialogDescription>Assign this book to a series, or clear to remove.</DialogDescription>
         </ScrollableDialogHeader>
-        <ScrollableDialogBody className="px-4 py-4">
+        <ScrollableDialogBody>
 
         <div className="space-y-3">
           {/* Series name input */}

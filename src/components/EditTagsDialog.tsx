@@ -95,7 +95,7 @@ export function EditTagsDialog({ open, onOpenChange, bookId, currentTags, allTag
           <DialogTitle>Edit Tags</DialogTitle>
           <DialogDescription>Add or remove tags for this book. Max 20 tags.</DialogDescription>
         </ScrollableDialogHeader>
-        <ScrollableDialogBody className="px-4 py-4">
+        <ScrollableDialogBody>
 
         <div className="space-y-3">
           {/* Input with autocomplete */}

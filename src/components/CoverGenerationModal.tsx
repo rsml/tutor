@@ -156,7 +156,7 @@ export function CoverGenerationModal({
           </DialogTitle>
           <DialogDescription>Generate an AI cover or upload your own image.</DialogDescription>
         </ScrollableDialogHeader>
-        <ScrollableDialogBody className="px-4 py-4">
+        <ScrollableDialogBody>
 
         <div className="grid gap-4">
           <div className="grid gap-1.5">
