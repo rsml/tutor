@@ -276,7 +276,8 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
                 max={10}
                 value={quizLength}
                 onChange={e => dispatch(setQuizLength(parseInt(e.target.value)))}
-                className="w-full accent-[oklch(0.55_0.20_285)] cursor-pointer"
+                className="w-full cursor-pointer"
+                style={{ '--range-fill': `${((quizLength - 1) / 9) * 100}%` } as React.CSSProperties}
                 onPointerDown={e => e.stopPropagation()}
               />
               <div className="flex justify-between px-2 -mt-0.5">
@@ -311,7 +312,8 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
                 max={CHAPTER_COUNTS.length - 1}
                 value={chapterCountIndex >= 0 ? chapterCountIndex : defaultChapterIndex}
                 onChange={e => dispatch(setDefaultChapterCount(CHAPTER_COUNTS[parseInt(e.target.value)]))}
-                className="w-full accent-[oklch(0.55_0.20_285)] cursor-pointer"
+                className="w-full cursor-pointer"
+                style={{ '--range-fill': `${((chapterCountIndex >= 0 ? chapterCountIndex : defaultChapterIndex) / (CHAPTER_COUNTS.length - 1)) * 100}%` } as React.CSSProperties}
                 onPointerDown={e => e.stopPropagation()}
               />
               <div className="flex justify-between px-2 -mt-0.5">
@@ -367,7 +369,8 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
                 max={FONT_SIZES.length - 1}
                 value={fontSizeIndex >= 0 ? fontSizeIndex : defaultIndex}
                 onChange={e => dispatch(setFontSize(FONT_SIZES[parseInt(e.target.value)]))}
-                className="w-full accent-[oklch(0.55_0.20_285)] cursor-pointer"
+                className="w-full cursor-pointer"
+                style={{ '--range-fill': `${((fontSizeIndex >= 0 ? fontSizeIndex : defaultIndex) / (FONT_SIZES.length - 1)) * 100}%` } as React.CSSProperties}
                 onPointerDown={e => e.stopPropagation()}
               />
               {/* Tick marks — px-2 (8px) = half the native range thumb width so ticks align with thumb center */}
@@ -403,7 +406,8 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
                 max={READING_WIDTHS.length - 1}
                 value={readingWidthIndex >= 0 ? readingWidthIndex : defaultWidthIndex}
                 onChange={e => dispatch(setReadingWidth(READING_WIDTHS[parseInt(e.target.value)]))}
-                className="w-full accent-[oklch(0.55_0.20_285)] cursor-pointer"
+                className="w-full cursor-pointer"
+                style={{ '--range-fill': `${((readingWidthIndex >= 0 ? readingWidthIndex : defaultWidthIndex) / (READING_WIDTHS.length - 1)) * 100}%` } as React.CSSProperties}
                 onPointerDown={e => e.stopPropagation()}
               />
               <div className="flex justify-between px-2 -mt-0.5">
@@ -451,7 +455,8 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
                   max={100}
                   value={Math.round(textureOpacity * 100)}
                   onChange={e => dispatch(setTextureOpacity(parseInt(e.target.value) / 100))}
-                  className="w-full accent-[oklch(0.55_0.20_285)] cursor-pointer"
+                  className="w-full cursor-pointer"
+                  style={{ '--range-fill': `${Math.round(textureOpacity * 100)}%` } as React.CSSProperties}
                   onPointerDown={e => e.stopPropagation()}
                 />
                 <div className="flex justify-between text-[9px] text-content-muted -mt-0.5 px-0.5">

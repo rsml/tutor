@@ -30,7 +30,7 @@ export function FeedbackForm({ chapterNum, onSubmit, submitLabel }: FeedbackForm
             onChange={e => setLiked(e.target.value)}
             placeholder="Examples, tone, depth, analogies..."
             rows={3}
-            className="mt-2 w-full resize-none rounded-lg border border-border-default/50 bg-surface-raised px-4 py-3 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+            className="mt-2 w-full rounded-lg border border-border-default/50 bg-surface-raised px-4 py-3 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
           />
         </div>
 
@@ -43,16 +43,17 @@ export function FeedbackForm({ chapterNum, onSubmit, submitLabel }: FeedbackForm
             onChange={e => setDisliked(e.target.value)}
             placeholder="Too fast, too slow, confusing section..."
             rows={3}
-            className="mt-2 w-full resize-none rounded-lg border border-border-default/50 bg-surface-raised px-4 py-3 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+            className="mt-2 w-full rounded-lg border border-border-default/50 bg-surface-raised px-4 py-3 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
           />
         </div>
       </div>
 
       <div className="mt-8 flex justify-end">
         <Button
+          variant="primary"
           size="lg"
           onClick={() => onSubmit(liked, disliked)}
-          className="bg-[oklch(0.55_0.20_285)] text-white font-semibold hover:bg-[oklch(0.50_0.22_285)]"
+          className="font-semibold"
         >
           {submitLabel ?? 'Generate Next Chapter'}
         </Button>

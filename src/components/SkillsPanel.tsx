@@ -174,7 +174,8 @@ export function SkillsPanel({ open, onClose }: SkillsPanelProps) {
                       max={10}
                       value={skill.level}
                       onChange={e => setLevel(i, parseInt(e.target.value))}
-                      className="w-20 accent-[oklch(0.55_0.20_285)] cursor-pointer"
+                      className="w-20 cursor-pointer"
+                      style={{ '--range-fill': `${((skill.level - 1) / 9) * 100}%` } as React.CSSProperties}
                     />
                     <span className="text-xs tabular-nums text-content-muted w-7 text-right">{skill.level}/10</span>
                   </div>

@@ -166,7 +166,7 @@ export function CoverGenerationModal({
               onChange={e => setPrompt(e.target.value)}
               placeholder="Describe the cover you want..."
               rows={8}
-              className="resize-y rounded-lg border border-border-default bg-surface-raised px-3 py-2 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+              className="rounded-lg border border-border-default bg-surface-raised px-3 py-2 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
             />
             <Button
               variant="ghost"
@@ -241,9 +241,9 @@ export function CoverGenerationModal({
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
               <Button
+                variant="primary"
                 onClick={handleGenerate}
                 disabled={!prompt.trim() || generating}
-                className="bg-[oklch(0.55_0.20_285)] text-white hover:bg-[oklch(0.50_0.22_285)]"
               >
                 {generating ? <Loader2 className="size-4 animate-spin" data-icon="inline-start" /> : <ImagePlus className="size-4" data-icon="inline-start" />}
                 Generate

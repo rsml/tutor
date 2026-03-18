@@ -55,7 +55,8 @@ export function ProfileEditView({ skills, preferences, aboutMe, onSkillsChange, 
                   max={10}
                   value={skill.level}
                   onChange={e => setLevel(i, parseInt(e.target.value))}
-                  className="w-20 accent-[oklch(0.55_0.20_285)] cursor-pointer"
+                  className="w-20 cursor-pointer"
+                  style={{ '--range-fill': `${((skill.level - 1) / 9) * 100}%` } as React.CSSProperties}
                 />
                 <span className="text-xs tabular-nums text-content-muted w-7 text-right">{skill.level}/10</span>
               </div>
@@ -101,7 +102,7 @@ export function ProfileEditView({ skills, preferences, aboutMe, onSkillsChange, 
               >
                 <span
                   className={`pointer-events-none inline-block size-4 rounded-full bg-white shadow-sm transition-transform ${
-                    preferences[key as keyof Preferences] ? 'translate-x-4' : 'translate-x-0.5'
+                    preferences[key as keyof Preferences] ? 'translate-x-[18px]' : 'translate-x-0.5'
                   } translate-y-0.5`}
                 />
               </button>
@@ -128,7 +129,8 @@ export function ProfileEditView({ skills, preferences, aboutMe, onSkillsChange, 
                   max={5}
                   value={preferences[key] as number}
                   onChange={e => setSlider(key, parseInt(e.target.value))}
-                  className="flex-1 accent-[oklch(0.55_0.20_285)] cursor-pointer"
+                  className="flex-1 cursor-pointer"
+                  style={{ '--range-fill': `${(((preferences[key] as number) - 1) / 4) * 100}%` } as React.CSSProperties}
                 />
                 <span className="text-[10px] text-content-muted w-20 shrink-0">{right}</span>
               </div>
@@ -144,7 +146,7 @@ export function ProfileEditView({ skills, preferences, aboutMe, onSkillsChange, 
           value={aboutMe}
           onChange={e => onAboutMeChange(e.target.value)}
           rows={4}
-          className="w-full resize-none rounded-lg border border-border-default bg-surface-raised px-3 py-2 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+          className="w-full rounded-lg border border-border-default bg-surface-raised px-3 py-2 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
           placeholder="Your background, experience level, what you're trying to learn..."
         />
       </div>

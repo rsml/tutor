@@ -3,11 +3,11 @@ import { ChevronRight, Sparkles } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import {
   Dialog,
-  DialogContent,
-  DialogHeader,
+  ScrollableDialogContent,
+  ScrollableDialogHeader,
+  ScrollableDialogBody,
+  ScrollableDialogFooter,
   DialogTitle,
-  DialogDescription,
-  DialogFooter,
 } from '@src/components/ui/dialog'
 import { apiUrl } from '@src/lib/api-base'
 import { type Skill, type Preferences, BOOL_PREF_LABELS, BOOL_KEYS, SLIDER_PREFS, DEFAULT_PREFS } from '@src/lib/profile-constants'
@@ -84,15 +84,13 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkil
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
+      <ScrollableDialogContent className="sm:max-w-lg">
+        <ScrollableDialogHeader>
           <DialogTitle>Learning Profile</DialogTitle>
-          <DialogDescription>
-            Tell us about yourself. This shapes how books are written for you.
-          </DialogDescription>
-        </DialogHeader>
+        </ScrollableDialogHeader>
+        <ScrollableDialogBody>
 
-        <div className="grid gap-4 py-2">
+        <div className="grid gap-4 px-4 py-4">
           {/* Prior Knowledge */}
           <div className="grid gap-2">
             <span className="text-sm font-medium text-content-primary">Prior Knowledge</span>
@@ -137,7 +135,7 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkil
               value={aboutMe}
               onChange={e => setAboutMe(e.target.value)}
               rows={4}
-              className="resize-none rounded-lg border border-border-default bg-surface-raised px-3 py-2 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+              className="rounded-lg border border-border-default bg-surface-raised px-3 py-2 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
               placeholder="Your background, experience level, what you're trying to learn..."
             />
           </div>
@@ -157,7 +155,7 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkil
                 >
                   <span
                     className={`pointer-events-none inline-block size-4 rounded-full bg-white shadow-sm transition-transform ${
-                      preferences[key as keyof Preferences] ? 'translate-x-4' : 'translate-x-0.5'
+                      preferences[key as keyof Preferences] ? 'translate-x-[18px]' : 'translate-x-0.5'
                     } translate-y-0.5`}
                   />
                 </button>
@@ -182,7 +180,8 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkil
                     max={5}
                     value={preferences[key] as number}
                     onChange={e => setSlider(key, parseInt(e.target.value))}
-                    className="flex-1 accent-[oklch(0.55_0.20_285)] cursor-pointer"
+                    className="flex-1 cursor-pointer"
+                    style={{ '--range-fill': `${(((preferences[key] as number) - 1) / 4) * 100}%` } as React.CSSProperties}
                   />
                   <span className="text-[10px] text-content-muted w-20 shrink-0">{right}</span>
                 </div>
@@ -191,13 +190,14 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkil
           </div>
         </div>
 
-        <DialogFooter>
+        </ScrollableDialogBody>
+        <ScrollableDialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving || !loaded}>
+          <Button variant="primary" onClick={handleSave} disabled={saving || !loaded}>
             {saving ? 'Saving...' : 'Save'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
+        </ScrollableDialogFooter>
+      </ScrollableDialogContent>
     </Dialog>
   )
 }

@@ -152,7 +152,7 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
                 onChange={e => setDetails(e.target.value)}
                 placeholder="Any specific areas to focus on, your experience level, or goals..."
                 rows={6}
-                className="resize-y rounded-lg border border-border-default bg-surface-raised px-3 py-2 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+                className="rounded-lg border border-border-default bg-surface-raised px-3 py-2 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
               />
             )}
           </div>
@@ -173,7 +173,8 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
                 max={CHAPTER_COUNTS.length - 1}
                 value={chapterCountIndex}
                 onChange={e => setChapterCountIndex(parseInt(e.target.value))}
-                className="w-full accent-[oklch(0.55_0.20_285)] cursor-pointer"
+                className="w-full cursor-pointer"
+                style={{ '--range-fill': `${(chapterCountIndex / (CHAPTER_COUNTS.length - 1)) * 100}%` } as React.CSSProperties}
               />
               <div className="flex justify-between px-2 -mt-0.5">
                 {CHAPTER_COUNTS.map((count, i) => {
@@ -212,10 +213,11 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
             Suggest
           </Button>
           <Button
+            variant="primary"
             size="lg"
             disabled={!topic.trim()}
             onClick={handleCreate}
-            className="bg-[oklch(0.55_0.20_285)] text-white font-semibold hover:bg-[oklch(0.50_0.22_285)]"
+            className="font-semibold"
           >
             Create
           </Button>

@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { Loader2, CheckCircle2, Circle } from 'lucide-react'
 import {
   Dialog,
-  DialogContent,
-  DialogHeader,
+  ScrollableDialogContent,
+  ScrollableDialogHeader,
+  ScrollableDialogBody,
   DialogTitle,
   DialogDescription,
 } from '@src/components/ui/dialog'
@@ -44,12 +45,13 @@ export function BookOverviewModal({ open, onOpenChange, book }: BookOverviewModa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
+      <ScrollableDialogContent className="sm:max-w-lg" maxHeight="80vh">
+        <ScrollableDialogHeader>
           <DialogTitle>{book.title}</DialogTitle>
           {book.subtitle && <p className="text-sm text-content-muted">{book.subtitle}</p>}
           {prompt && <DialogDescription>{prompt}</DialogDescription>}
-        </DialogHeader>
+        </ScrollableDialogHeader>
+        <ScrollableDialogBody className="p-4">
 
         {loading ? (
           <div className="flex items-center gap-2 py-8 justify-center text-content-muted">
@@ -78,7 +80,8 @@ export function BookOverviewModal({ open, onOpenChange, book }: BookOverviewModa
             })}
           </div>
         )}
-      </DialogContent>
+        </ScrollableDialogBody>
+      </ScrollableDialogContent>
     </Dialog>
   )
 }

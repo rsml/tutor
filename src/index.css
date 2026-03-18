@@ -218,6 +218,10 @@
     user-select: text;
     cursor: text;
   }
+  textarea {
+    field-sizing: content;
+    resize: vertical;
+  }
   button, [role="button"] {
     cursor: pointer;
   }
@@ -248,6 +252,34 @@
 /* Prevent native overscroll on reader scroll container */
 #reader-scroll {
   overscroll-behavior-y: none;
+}
+
+/* Custom range slider */
+input[type="range"] {
+  --range-fill: 50%;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 5px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    oklch(0.55 0.20 285) var(--range-fill),
+    var(--color-border-default) var(--range-fill)
+  );
+  outline: none;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: oklch(0.55 0.20 285);
+  border: 2.5px solid white;
+  box-shadow: 0 0.5px 3px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
 }
 
 /* Visible scrollbars */

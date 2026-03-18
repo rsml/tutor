@@ -143,6 +143,65 @@ function DialogDescription({
   )
 }
 
+function ScrollableDialogContent({
+  className,
+  maxHeight = "85vh",
+  ...props
+}: DialogPrimitive.Popup.Props & {
+  showCloseButton?: boolean
+  maxHeight?: string
+}) {
+  return (
+    <DialogContent
+      className={cn("overflow-hidden p-0 flex flex-col gap-0", className)}
+      style={{ maxHeight }}
+      {...props}
+    />
+  )
+}
+
+function ScrollableDialogHeader({
+  className,
+  children,
+}: {
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className={cn("shrink-0 px-4 pt-4 pb-3 border-b border-border-default", className)}>
+      <DialogHeader>{children}</DialogHeader>
+    </div>
+  )
+}
+
+function ScrollableDialogBody({
+  className,
+  children,
+}: {
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className={cn("overflow-y-auto flex-1 min-h-0", className)}>
+      {children}
+    </div>
+  )
+}
+
+function ScrollableDialogFooter({
+  className,
+  children,
+}: {
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className={cn("shrink-0 px-4 py-3 flex justify-end gap-2", className)}>
+      {children}
+    </div>
+  )
+}
+
 export {
   Dialog,
   DialogClose,
@@ -154,4 +213,8 @@ export {
   DialogPortal,
   DialogTitle,
   DialogTrigger,
+  ScrollableDialogBody,
+  ScrollableDialogContent,
+  ScrollableDialogFooter,
+  ScrollableDialogHeader,
 }
