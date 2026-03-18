@@ -20,6 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuGroup,
 } from '@src/components/ui/dropdown-menu'
+import { TickSlider } from '@src/components/ui/tick-slider'
 import { ModelAssignmentDialog } from '@src/components/ModelAssignmentDialog'
 import { ProfileDialog } from '@src/components/ProfileDialog'
 import { InterviewPanel } from '@src/components/InterviewPanel'
@@ -269,31 +270,17 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
               Quiz Length
               <span className="ml-auto tabular-nums">{quizLength}</span>
             </div>
-            <div className="relative px-1">
-              <input
-                type="range"
-                min={1}
-                max={10}
-                value={quizLength}
-                onChange={e => dispatch(setQuizLength(parseInt(e.target.value)))}
-                className="w-full cursor-pointer"
-                style={{ '--range-fill': `${((quizLength - 1) / 9) * 100}%` } as React.CSSProperties}
-                onPointerDown={e => e.stopPropagation()}
-              />
-              <div className="flex justify-between px-2 -mt-0.5">
-                {Array.from({ length: 10 }, (_, i) => i + 1).map((val) => (
-                  <div
-                    key={val}
-                    className={`relative flex flex-col items-center ${val === 3 ? 'text-content-primary' : 'text-content-muted/40'}`}
-                  >
-                    <div className={`h-1.5 w-px ${val === 3 ? 'bg-content-primary' : 'bg-content-muted/30'}`} />
-                    {val === 3 && (
-                      <span className="absolute top-2 left-1/2 -translate-x-1/2 text-[9px] whitespace-nowrap">default</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+            <TickSlider
+              min={1}
+              max={10}
+              value={quizLength}
+              onChange={v => dispatch(setQuizLength(v))}
+              onPointerDown={e => e.stopPropagation()}
+              ticks={Array.from({ length: 10 }, (_, i) => ({
+                highlight: i + 1 === 3,
+                label: i + 1 === 3 ? 'default' : undefined,
+              }))}
+            />
           </div>
 
           <DropdownMenuSeparator />
@@ -305,31 +292,17 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
               Default Book Length
               <span className="ml-auto tabular-nums">{defaultChapterCount} &middot; {chapterCountLabel}</span>
             </div>
-            <div className="relative px-1">
-              <input
-                type="range"
-                min={0}
-                max={CHAPTER_COUNTS.length - 1}
-                value={chapterCountIndex >= 0 ? chapterCountIndex : defaultChapterIndex}
-                onChange={e => dispatch(setDefaultChapterCount(CHAPTER_COUNTS[parseInt(e.target.value)]))}
-                className="w-full cursor-pointer"
-                style={{ '--range-fill': `${((chapterCountIndex >= 0 ? chapterCountIndex : defaultChapterIndex) / (CHAPTER_COUNTS.length - 1)) * 100}%` } as React.CSSProperties}
-                onPointerDown={e => e.stopPropagation()}
-              />
-              <div className="flex justify-between px-2 -mt-0.5">
-                {CHAPTER_COUNTS.map((_, i) => (
-                  <div
-                    key={i}
-                    className={`relative flex flex-col items-center ${i === defaultChapterIndex ? 'text-content-primary' : 'text-content-muted/40'}`}
-                  >
-                    <div className={`h-1.5 w-px ${i === defaultChapterIndex ? 'bg-content-primary' : 'bg-content-muted/30'}`} />
-                    {i === defaultChapterIndex && (
-                      <span className="absolute top-2 left-1/2 -translate-x-1/2 text-[9px] whitespace-nowrap">default</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+            <TickSlider
+              min={0}
+              max={CHAPTER_COUNTS.length - 1}
+              value={chapterCountIndex >= 0 ? chapterCountIndex : defaultChapterIndex}
+              onChange={v => dispatch(setDefaultChapterCount(CHAPTER_COUNTS[v]))}
+              onPointerDown={e => e.stopPropagation()}
+              ticks={CHAPTER_COUNTS.map((_, i) => ({
+                highlight: i === defaultChapterIndex,
+                label: i === defaultChapterIndex ? 'default' : undefined,
+              }))}
+            />
           </div>
 
           <DropdownMenuSeparator />
@@ -362,32 +335,17 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
               Font Size
               <span className="ml-auto tabular-nums">{fontSize}px</span>
             </div>
-            <div className="relative px-1">
-              <input
-                type="range"
-                min={0}
-                max={FONT_SIZES.length - 1}
-                value={fontSizeIndex >= 0 ? fontSizeIndex : defaultIndex}
-                onChange={e => dispatch(setFontSize(FONT_SIZES[parseInt(e.target.value)]))}
-                className="w-full cursor-pointer"
-                style={{ '--range-fill': `${((fontSizeIndex >= 0 ? fontSizeIndex : defaultIndex) / (FONT_SIZES.length - 1)) * 100}%` } as React.CSSProperties}
-                onPointerDown={e => e.stopPropagation()}
-              />
-              {/* Tick marks — px-2 (8px) = half the native range thumb width so ticks align with thumb center */}
-              <div className="flex justify-between px-2 -mt-0.5">
-                {FONT_SIZES.map((size, i) => (
-                  <div
-                    key={size}
-                    className={`relative flex flex-col items-center ${i === defaultIndex ? 'text-content-primary' : 'text-content-muted/40'}`}
-                  >
-                    <div className={`h-1.5 w-px ${i === defaultIndex ? 'bg-content-primary' : 'bg-content-muted/30'}`} />
-                    {i === defaultIndex && (
-                      <span className="absolute top-2 left-1/2 -translate-x-1/2 text-[9px] whitespace-nowrap">default</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+            <TickSlider
+              min={0}
+              max={FONT_SIZES.length - 1}
+              value={fontSizeIndex >= 0 ? fontSizeIndex : defaultIndex}
+              onChange={v => dispatch(setFontSize(FONT_SIZES[v]))}
+              onPointerDown={e => e.stopPropagation()}
+              ticks={FONT_SIZES.map((_, i) => ({
+                highlight: i === defaultIndex,
+                label: i === defaultIndex ? 'default' : undefined,
+              }))}
+            />
           </div>
 
           <DropdownMenuSeparator />
@@ -399,31 +357,17 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
               Reading Width
               <span className="ml-auto tabular-nums">{readingWidthLabel}</span>
             </div>
-            <div className="relative px-1">
-              <input
-                type="range"
-                min={0}
-                max={READING_WIDTHS.length - 1}
-                value={readingWidthIndex >= 0 ? readingWidthIndex : defaultWidthIndex}
-                onChange={e => dispatch(setReadingWidth(READING_WIDTHS[parseInt(e.target.value)]))}
-                className="w-full cursor-pointer"
-                style={{ '--range-fill': `${((readingWidthIndex >= 0 ? readingWidthIndex : defaultWidthIndex) / (READING_WIDTHS.length - 1)) * 100}%` } as React.CSSProperties}
-                onPointerDown={e => e.stopPropagation()}
-              />
-              <div className="flex justify-between px-2 -mt-0.5">
-                {READING_WIDTHS.map((_, i) => (
-                  <div
-                    key={i}
-                    className={`relative flex flex-col items-center ${i === defaultWidthIndex ? 'text-content-primary' : 'text-content-muted/40'}`}
-                  >
-                    <div className={`h-1.5 w-px ${i === defaultWidthIndex ? 'bg-content-primary' : 'bg-content-muted/30'}`} />
-                    {i === defaultWidthIndex && (
-                      <span className="absolute top-2 left-1/2 -translate-x-1/2 text-[9px] whitespace-nowrap">default</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+            <TickSlider
+              min={0}
+              max={READING_WIDTHS.length - 1}
+              value={readingWidthIndex >= 0 ? readingWidthIndex : defaultWidthIndex}
+              onChange={v => dispatch(setReadingWidth(READING_WIDTHS[v]))}
+              onPointerDown={e => e.stopPropagation()}
+              ticks={READING_WIDTHS.map((_, i) => ({
+                highlight: i === defaultWidthIndex,
+                label: i === defaultWidthIndex ? 'default' : undefined,
+              }))}
+            />
           </div>
 
           <DropdownMenuSeparator />

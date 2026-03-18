@@ -11,6 +11,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@src/components/ui/dialog'
+import { TickSlider } from '@src/components/ui/tick-slider'
 import { useAppSelector, selectFunctionModel, selectHasApiKey, selectDefaultChapterCount } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
 import { store } from '@src/store'
@@ -153,7 +154,7 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
                 value={details}
                 onChange={e => setDetails(e.target.value)}
                 placeholder="Any specific areas to focus on, your experience level, or goals..."
-                rows={6}
+                rows={12}
                 className="rounded-lg border border-border-default bg-surface-raised px-3 py-2 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
               />
             )}
@@ -168,33 +169,16 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
                 <span className="ml-1.5 text-content-muted/60">{CHAPTER_LABELS[chapterCountIndex]}</span>
               </span>
             </div>
-            <div className="relative px-1">
-              <input
-                type="range"
-                min={0}
-                max={CHAPTER_COUNTS.length - 1}
-                value={chapterCountIndex}
-                onChange={e => setChapterCountIndex(parseInt(e.target.value))}
-                className="w-full cursor-pointer"
-                style={{ '--range-fill': `${(chapterCountIndex / (CHAPTER_COUNTS.length - 1)) * 100}%` } as React.CSSProperties}
-              />
-              <div className="flex justify-between px-2 -mt-0.5">
-                {CHAPTER_COUNTS.map((count, i) => {
-                  const isDefault = count === defaultChapterCount
-                  return (
-                    <div
-                      key={count}
-                      className={`relative flex flex-col items-center ${isDefault ? 'text-content-primary' : 'text-content-muted/40'}`}
-                    >
-                      <div className={`h-1.5 w-px ${isDefault ? 'bg-content-primary' : 'bg-content-muted/30'}`} />
-                      <span className={`absolute top-2 left-1/2 -translate-x-1/2 text-[9px] whitespace-nowrap ${isDefault ? '' : 'text-content-muted/50'}`}>
-                        {CHAPTER_LABELS[i]}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
+            <TickSlider
+              min={0}
+              max={CHAPTER_COUNTS.length - 1}
+              value={chapterCountIndex}
+              onChange={setChapterCountIndex}
+              ticks={CHAPTER_COUNTS.map((count, i) => ({
+                label: CHAPTER_LABELS[i],
+                highlight: count === defaultChapterCount,
+              }))}
+            />
           </div>
         </div>
 

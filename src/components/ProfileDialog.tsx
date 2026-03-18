@@ -9,6 +9,7 @@ import {
   ScrollableDialogFooter,
   DialogTitle,
 } from '@src/components/ui/dialog'
+import { TickSlider } from '@src/components/ui/tick-slider'
 import { apiUrl } from '@src/lib/api-base'
 import { type Skill, type Preferences, BOOL_PREF_LABELS, BOOL_KEYS, SLIDER_PREFS, DEFAULT_PREFS } from '@src/lib/profile-constants'
 
@@ -134,7 +135,7 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkil
               id="about-me"
               value={aboutMe}
               onChange={e => setAboutMe(e.target.value)}
-              rows={4}
+              rows={8}
               className="rounded-lg border border-border-default bg-surface-raised px-3 py-2 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
               placeholder="Your background, experience level, what you're trying to learn..."
             />
@@ -174,14 +175,12 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkil
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] text-content-muted w-20 text-right shrink-0">{left}</span>
-                  <input
-                    type="range"
+                  <TickSlider
                     min={1}
                     max={5}
                     value={preferences[key] as number}
-                    onChange={e => setSlider(key, parseInt(e.target.value))}
-                    className="flex-1 cursor-pointer"
-                    style={{ '--range-fill': `${(((preferences[key] as number) - 1) / 4) * 100}%` } as React.CSSProperties}
+                    onChange={v => setSlider(key, v)}
+                    className="flex-1"
                   />
                   <span className="text-[10px] text-content-muted w-20 shrink-0">{right}</span>
                 </div>

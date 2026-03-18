@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
 import { useState } from 'react'
+import { TickSlider } from '@src/components/ui/tick-slider'
 import { type Skill, type Preferences, BOOL_PREF_LABELS, BOOL_KEYS, SLIDER_PREFS } from '@src/lib/profile-constants'
 
 interface ProfileEditViewProps {
@@ -123,14 +124,12 @@ export function ProfileEditView({ skills, preferences, aboutMe, onSkillsChange, 
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-content-muted w-20 text-right shrink-0">{left}</span>
-                <input
-                  type="range"
+                <TickSlider
                   min={1}
                   max={5}
                   value={preferences[key] as number}
-                  onChange={e => setSlider(key, parseInt(e.target.value))}
-                  className="flex-1 cursor-pointer"
-                  style={{ '--range-fill': `${(((preferences[key] as number) - 1) / 4) * 100}%` } as React.CSSProperties}
+                  onChange={v => setSlider(key, parseInt(String(v)))}
+                  className="flex-1"
                 />
                 <span className="text-[10px] text-content-muted w-20 shrink-0">{right}</span>
               </div>
