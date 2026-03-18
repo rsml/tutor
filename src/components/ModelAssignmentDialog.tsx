@@ -67,40 +67,40 @@ export function ModelAssignmentDialog({ open, onOpenChange }: ModelAssignmentDia
         </ScrollableDialogHeader>
         <ScrollableDialogBody>
 
-        <div className="grid gap-1 mb-2">
-          <div className="flex items-baseline gap-2">
-            <label htmlFor="fn-model-default" className="text-sm font-medium text-content-primary">
-              Default
-            </label>
-            <span className="text-xs text-content-muted">Fallback for all functions</span>
-          </div>
-          <select
-            id="fn-model-default"
-            value={`${activeProvider}:${currentModel}`}
-            onChange={e => handleDefaultChange(e.target.value)}
-            className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
-          >
-            {PROVIDER_IDS.map(pid => {
-              const def = PROVIDERS[pid]
-              const hasKey = !!providers[pid]?.apiKey
-              return (
-                <optgroup key={pid} label={def.name}>
-                  {def.models.map(m => (
-                    <option
-                      key={`${pid}:${m.value}`}
-                      value={`${pid}:${m.value}`}
-                      disabled={!hasKey}
-                    >
-                      {m.label}{!hasKey ? ' (no key)' : ''}
-                    </option>
-                  ))}
-                </optgroup>
-              )
-            })}
-          </select>
-        </div>
-
         <div className="space-y-4">
+          <div className="grid gap-1">
+            <div className="flex items-baseline gap-2">
+              <label htmlFor="fn-model-default" className="text-sm font-medium text-content-primary">
+                Default
+              </label>
+              <span className="text-xs text-content-muted">Fallback for all functions</span>
+            </div>
+            <select
+              id="fn-model-default"
+              value={`${activeProvider}:${currentModel}`}
+              onChange={e => handleDefaultChange(e.target.value)}
+              className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+            >
+              {PROVIDER_IDS.map(pid => {
+                const def = PROVIDERS[pid]
+                const hasKey = !!providers[pid]?.apiKey
+                return (
+                  <optgroup key={pid} label={def.name}>
+                    {def.models.map(m => (
+                      <option
+                        key={`${pid}:${m.value}`}
+                        value={`${pid}:${m.value}`}
+                        disabled={!hasKey}
+                      >
+                        {m.label}{!hasKey ? ' (no key)' : ''}
+                      </option>
+                    ))}
+                  </optgroup>
+                )
+              })}
+            </select>
+          </div>
+
           {FUNCTION_GROUPS.map(group => {
             const isImage = group.id === 'image'
             return (
