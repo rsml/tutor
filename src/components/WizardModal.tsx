@@ -160,7 +160,7 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
           </div>
 
           {/* Chapter count slider */}
-          <div className="grid gap-1.5 pb-4">
+          <div className="grid gap-1.5">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-content-primary">Length</span>
               <span className="text-xs text-content-muted">
