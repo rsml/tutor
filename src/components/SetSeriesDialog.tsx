@@ -3,11 +3,12 @@ import { Button } from '@src/components/ui/button'
 import { Input } from '@src/components/ui/input'
 import {
   Dialog,
-  DialogContent,
-  DialogHeader,
+  ScrollableDialogContent,
+  ScrollableDialogHeader,
+  ScrollableDialogBody,
+  ScrollableDialogFooter,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from '@src/components/ui/dialog'
 
 interface SetSeriesDialogProps {
@@ -83,11 +84,12 @@ export function SetSeriesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
+      <ScrollableDialogContent className="sm:max-w-sm">
+        <ScrollableDialogHeader>
           <DialogTitle>Set Series</DialogTitle>
           <DialogDescription>Assign this book to a series, or clear to remove.</DialogDescription>
-        </DialogHeader>
+        </ScrollableDialogHeader>
+        <ScrollableDialogBody className="px-4 py-4">
 
         <div className="space-y-3">
           {/* Series name input */}
@@ -136,16 +138,17 @@ export function SetSeriesDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        </ScrollableDialogBody>
+        <ScrollableDialogFooter>
           {currentSeries && (
             <Button variant="outline" onClick={handleRemove} className="mr-auto text-status-error hover:text-status-error">
               Remove from Series
             </Button>
           )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave}>Save</Button>
-        </DialogFooter>
-      </DialogContent>
+          <Button variant="primary" onClick={handleSave}>Save</Button>
+        </ScrollableDialogFooter>
+      </ScrollableDialogContent>
     </Dialog>
   )
 }

@@ -1,7 +1,8 @@
 import {
   Dialog,
-  DialogContent,
-  DialogHeader,
+  ScrollableDialogContent,
+  ScrollableDialogHeader,
+  ScrollableDialogBody,
   DialogTitle,
   DialogDescription,
 } from '@src/components/ui/dialog'
@@ -57,13 +58,14 @@ export function ModelAssignmentDialog({ open, onOpenChange }: ModelAssignmentDia
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      <ScrollableDialogContent className="sm:max-w-md">
+        <ScrollableDialogHeader>
           <DialogTitle>Model Assignment</DialogTitle>
           <DialogDescription>
             Assign different models to different functions. Unset groups use the default.
           </DialogDescription>
-        </DialogHeader>
+        </ScrollableDialogHeader>
+        <ScrollableDialogBody className="px-4 py-4">
 
         <div className="grid gap-1">
           <div className="flex items-baseline gap-2">
@@ -161,7 +163,8 @@ export function ModelAssignmentDialog({ open, onOpenChange }: ModelAssignmentDia
             )
           })}
         </div>
-      </DialogContent>
+        </ScrollableDialogBody>
+      </ScrollableDialogContent>
     </Dialog>
   )
 }

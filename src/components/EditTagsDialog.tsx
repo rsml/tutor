@@ -5,11 +5,12 @@ import { Badge } from '@src/components/ui/badge'
 import { Input } from '@src/components/ui/input'
 import {
   Dialog,
-  DialogContent,
-  DialogHeader,
+  ScrollableDialogContent,
+  ScrollableDialogHeader,
+  ScrollableDialogBody,
+  ScrollableDialogFooter,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from '@src/components/ui/dialog'
 
 interface EditTagsDialogProps {
@@ -89,11 +90,12 @@ export function EditTagsDialog({ open, onOpenChange, bookId, currentTags, allTag
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      <ScrollableDialogContent className="sm:max-w-md">
+        <ScrollableDialogHeader>
           <DialogTitle>Edit Tags</DialogTitle>
           <DialogDescription>Add or remove tags for this book. Max 20 tags.</DialogDescription>
-        </DialogHeader>
+        </ScrollableDialogHeader>
+        <ScrollableDialogBody className="px-4 py-4">
 
         <div className="space-y-3">
           {/* Input with autocomplete */}
@@ -151,11 +153,12 @@ export function EditTagsDialog({ open, onOpenChange, bookId, currentTags, allTag
           )}
         </div>
 
-        <DialogFooter>
+        </ScrollableDialogBody>
+        <ScrollableDialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave}>Save</Button>
-        </DialogFooter>
-      </DialogContent>
+          <Button variant="primary" onClick={handleSave}>Save</Button>
+        </ScrollableDialogFooter>
+      </ScrollableDialogContent>
     </Dialog>
   )
 }

@@ -4,11 +4,12 @@ import { toast } from 'sonner'
 import { Button } from '@src/components/ui/button'
 import {
   Dialog,
-  DialogContent,
-  DialogHeader,
+  ScrollableDialogContent,
+  ScrollableDialogHeader,
+  ScrollableDialogBody,
+  ScrollableDialogFooter,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from '@src/components/ui/dialog'
 import { useAppSelector, selectFunctionModel } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
@@ -147,14 +148,15 @@ export function CoverGenerationModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      <ScrollableDialogContent className="sm:max-w-md">
+        <ScrollableDialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ImagePlus className="size-5" />
             Book Cover
           </DialogTitle>
           <DialogDescription>Generate an AI cover or upload your own image.</DialogDescription>
-        </DialogHeader>
+        </ScrollableDialogHeader>
+        <ScrollableDialogBody className="px-4 py-4">
 
         <div className="grid gap-4">
           <div className="grid gap-1.5">
@@ -222,36 +224,35 @@ export function CoverGenerationModal({
           </Button>
         </div>
 
-        <DialogFooter>
-          <div className="flex w-full items-center justify-between">
-            {hasCover ? (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleDelete}
-                disabled={deleting}
-                className="gap-1"
-              >
-                {deleting ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
-                Delete Cover
-              </Button>
-            ) : (
-              <div />
-            )}
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-              <Button
-                variant="primary"
-                onClick={handleGenerate}
-                disabled={!prompt.trim() || generating}
-              >
-                {generating ? <Loader2 className="size-4 animate-spin" data-icon="inline-start" /> : <ImagePlus className="size-4" data-icon="inline-start" />}
-                Generate
-              </Button>
-            </div>
+        </ScrollableDialogBody>
+        <ScrollableDialogFooter className="justify-between">
+          {hasCover ? (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="gap-1"
+            >
+              {deleting ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+              Delete Cover
+            </Button>
+          ) : (
+            <div />
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button
+              variant="primary"
+              onClick={handleGenerate}
+              disabled={!prompt.trim() || generating}
+            >
+              {generating ? <Loader2 className="size-4 animate-spin" data-icon="inline-start" /> : <ImagePlus className="size-4" data-icon="inline-start" />}
+              Generate
+            </Button>
           </div>
-        </DialogFooter>
-      </DialogContent>
+        </ScrollableDialogFooter>
+      </ScrollableDialogContent>
     </Dialog>
   )
 }

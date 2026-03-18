@@ -4,11 +4,12 @@ import { ChevronDown, Sparkles, Loader2 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import {
   Dialog,
-  DialogContent,
-  DialogHeader,
+  ScrollableDialogContent,
+  ScrollableDialogHeader,
+  ScrollableDialogBody,
+  ScrollableDialogFooter,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from '@src/components/ui/dialog'
 import { useAppSelector, selectFunctionModel, selectHasApiKey, selectDefaultChapterCount } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
@@ -106,13 +107,14 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader className="items-center">
+      <ScrollableDialogContent className="sm:max-w-md">
+        <ScrollableDialogHeader className="items-center text-center">
           <DialogTitle className="text-xl">New Book</DialogTitle>
           <DialogDescription>
             What do you want to learn next?
           </DialogDescription>
-        </DialogHeader>
+        </ScrollableDialogHeader>
+        <ScrollableDialogBody className="px-4 py-4">
 
         <div className="grid gap-4">
           {reasoning && (
@@ -196,7 +198,8 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
           </div>
         </div>
 
-        <DialogFooter className="mt-2 flex-row justify-between sm:justify-between">
+        </ScrollableDialogBody>
+        <ScrollableDialogFooter className="justify-between">
           <Button
             variant="ghost"
             size="lg"
@@ -221,8 +224,8 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
           >
             Create
           </Button>
-        </DialogFooter>
-      </DialogContent>
+        </ScrollableDialogFooter>
+      </ScrollableDialogContent>
     </Dialog>
   )
 }

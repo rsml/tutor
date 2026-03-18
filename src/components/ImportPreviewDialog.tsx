@@ -5,11 +5,12 @@ import { Badge } from '@src/components/ui/badge'
 import { Input } from '@src/components/ui/input'
 import {
   Dialog,
-  DialogContent,
-  DialogHeader,
+  ScrollableDialogContent,
+  ScrollableDialogHeader,
+  ScrollableDialogBody,
+  ScrollableDialogFooter,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from '@src/components/ui/dialog'
 
 interface ImportPreviewDialogProps {
@@ -119,11 +120,12 @@ export function ImportPreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      <ScrollableDialogContent className="sm:max-w-md">
+        <ScrollableDialogHeader>
           <DialogTitle>Import EPUB</DialogTitle>
           <DialogDescription>Review the book details before importing.</DialogDescription>
-        </DialogHeader>
+        </ScrollableDialogHeader>
+        <ScrollableDialogBody className="px-4 py-4">
 
         <div className="min-w-0 space-y-4">
           {/* Book preview */}
@@ -267,11 +269,12 @@ export function ImportPreviewDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        </ScrollableDialogBody>
+        <ScrollableDialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleConfirm}>Import</Button>
-        </DialogFooter>
-      </DialogContent>
+          <Button variant="primary" onClick={handleConfirm}>Import</Button>
+        </ScrollableDialogFooter>
+      </ScrollableDialogContent>
     </Dialog>
   )
 }
