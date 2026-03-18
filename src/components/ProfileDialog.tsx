@@ -94,7 +94,7 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkil
         <div className="grid gap-4">
           {/* Prior Knowledge */}
           <div className="grid gap-2">
-            <span className="text-sm font-medium text-content-primary">Prior Knowledge</span>
+            <span className="-mx-4 px-4 py-1.5 bg-surface-muted/40 text-xs font-semibold uppercase tracking-wider text-content-muted">Prior Knowledge</span>
             <button
               type="button"
               onClick={onOpenSkills}
@@ -107,8 +107,8 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkil
 
           {/* About Me */}
           <div className="grid gap-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="about-me" className="text-sm font-medium text-content-primary">
+            <div className="-mx-4 px-4 py-1.5 bg-surface-muted/40 flex items-center justify-between">
+              <label htmlFor="about-me" className="text-xs font-semibold uppercase tracking-wider text-content-muted">
                 About Me
               </label>
               <Button variant="ghost" size="sm" onClick={handleInterviewClick} className="gap-1.5 text-[var(--color-ai)] hover:text-[var(--color-ai-hover)] hover:bg-[var(--color-ai)]/10">
@@ -143,7 +143,7 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkil
 
           {/* Boolean Toggles */}
           <div className="grid gap-2">
-            <span className="text-sm font-medium text-content-primary">Preferences</span>
+            <span className="-mx-4 px-4 py-1.5 bg-surface-muted/40 text-xs font-semibold uppercase tracking-wider text-content-muted">Preferences</span>
             {BOOL_KEYS.map(key => (
               <label key={key} className="flex items-center justify-between gap-3">
                 <span className="text-sm text-content-secondary">{BOOL_PREF_LABELS[key]}</span>
@@ -166,7 +166,7 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkil
 
           {/* Slider Preferences */}
           <div className="grid gap-3">
-            <span className="text-sm font-medium text-content-primary">Style</span>
+            <span className="-mx-4 px-4 py-1.5 bg-surface-muted/40 text-xs font-semibold uppercase tracking-wider text-content-muted">Style</span>
             {SLIDER_PREFS.map(({ key, label, left, right }) => (
               <div key={key} className="grid gap-1">
                 <div className="flex items-center justify-between">
