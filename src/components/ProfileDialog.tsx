@@ -107,7 +107,7 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkil
 
           {/* About Me */}
           <div className="grid gap-1.5">
-            <div className="-mx-4 px-4 py-1.5 bg-surface-muted/40 flex items-center justify-between">
+            <div className="-mx-4 px-4 bg-surface-muted/40 flex items-center justify-between">
               <label htmlFor="about-me" className="text-xs font-semibold uppercase tracking-wider text-content-muted">
                 About Me
               </label>
