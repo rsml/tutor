@@ -15,6 +15,7 @@ import {
   PatchBookBodySchema,
   RatingBodySchema,
   SuggestBookBodySchema,
+  SuggestDetailsBodySchema,
   TocBookSkillSchema,
   TocChapterSkillSchema,
   ChapterProgressSchema,
@@ -1002,7 +1003,7 @@ Write this chapter now.`,
       throw err
     }
 
-    const { model, provider, quizHistory } = body
+    const { model, provider, quizHistory, mode } = body
 
     const allBooks = await store.listBooks()
     const profileContext = await buildProfileContext()
@@ -1082,6 +1083,9 @@ Write this chapter now.`,
         }),
         prompt: `You are a learning advisor. Based on this reader's learning data — organized as an evidence hierarchy — suggest ONE book topic they should study next.
 
+=== SUGGESTION MODE ===
+${mode === 'deepen' ? 'DEEPEN EXISTING SKILLS: Suggest a topic that goes deeper into a skill or domain the reader already has. Look for areas where they have foundational knowledge but could level up — intermediate-to-advanced progression, filling gaps in existing expertise, or mastering a subtopic they\'ve only scratched the surface of.' : mode === 'complementary' ? 'LEARN COMPLEMENTARY SKILLS: Suggest a topic in a different domain that complements the reader\'s existing skills. Look for adjacent disciplines, cross-functional knowledge, or skills that would make their existing expertise more valuable — e.g., a developer learning design, a writer learning data visualization, a manager learning negotiation.' : 'Suggest whatever topic would be most valuable for the reader\'s growth, whether deepening existing skills or branching into new areas.'}
+
 === LAYER 1: LEARNER PROFILE (baseline identity + preferences) ===
 ${profileContext || 'No profile available.'}${profileUpdatedAt ? `\nProfile last updated: ${profileUpdatedAt.split('T')[0]}` : ''}
 
@@ -1102,6 +1106,50 @@ ${skillProgressContext || 'No skill mastery data yet.'}
 6. Never suggest a topic they already have a book for
 7. Keep the topic specific and relevant to their role/goals (not "Programming" but "Event-Driven Architecture in Node.js")
 8. The details should explain what the book should focus on and why it's a good next step given their learning data`,
+      })
+
+      return result.object
+    } finally {
+      timeout.clear()
+    }
+  })
+
+  fastify.post<{ Body: unknown }>('/api/books/suggest-details', async (request, reply) => {
+    let body: z.infer<typeof SuggestDetailsBodySchema>
+    try {
+      body = SuggestDetailsBodySchema.parse(request.body)
+    } catch (err) {
+      if (err instanceof ZodError) {
+        return reply.status(400).send({ error: 'Invalid request', details: err.issues })
+      }
+      throw err
+    }
+
+    const { topic, model, provider } = body
+    const profileContext = await buildProfileContext()
+
+    const timeout = createTimeout()
+    try {
+      const result = await generateObject({
+        model: createModelClient(provider ?? 'anthropic', model),
+        abortSignal: timeout.signal,
+        schema: z.object({
+          details: z.string().describe('Specific focus areas, goals, and context for this book (2-4 sentences)'),
+        }),
+        prompt: `You are a learning advisor. Given a book topic and the reader's learning profile, suggest specific details for what this book should cover and how it should be tailored to the reader.
+
+=== TOPIC ===
+${topic}
+
+=== LEARNER PROFILE ===
+${profileContext || 'No profile available.'}
+
+=== INSTRUCTIONS ===
+1. Suggest specific focus areas, prerequisites to cover, and learning goals for this topic
+2. Tailor the suggestions to the reader's experience level, role, and interests from their profile
+3. If the profile mentions relevant skills or knowledge, reference how this book should build on them
+4. Keep it practical and actionable — 2-4 sentences
+5. Do NOT repeat the topic name — focus on what the book should specifically cover`,
       })
 
       return result.object

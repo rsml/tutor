@@ -273,7 +273,12 @@ export const UploadCoverBodySchema = z.object({
 
 export const SuggestCoverPromptBodySchema = AiRequestSchema
 
+export const SuggestDetailsBodySchema = AiRequestSchema.extend({
+  topic: z.string().min(1).max(500),
+})
+
 export const SuggestBookBodySchema = AiRequestSchema.extend({
+  mode: z.enum(['deepen', 'complementary']).optional(),
   quizHistory: z.record(
     z.string(),
     z.record(

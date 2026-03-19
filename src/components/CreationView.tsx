@@ -52,7 +52,8 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
       })
 
       if (!res.ok || !res.body) {
-        throw new Error(`Request failed: ${res.status}`)
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.message || `Request failed: ${res.status}`)
       }
 
       await parseSSEStream(res, {
@@ -93,14 +94,14 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
               break
 
             case 'error':
-              setError(event.message)
+              setError('Generation failed: ' + event.message)
               setPhase('error')
               break
           }
         },
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Connection failed')
+      setError('Generation failed: ' + (err instanceof Error ? err.message : 'Unknown error'))
       setPhase('error')
     }
   }, [hasApiKey, model, provider, quizModel, quizProvider, quizLength, chapterCount, topic, details, toc, chapter, onBookCreated])

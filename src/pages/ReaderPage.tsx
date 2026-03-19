@@ -1,5 +1,6 @@
 import { AlertTriangle, ArrowLeft, BarChart3, ChevronLeft, ChevronRight, Loader2, MessageSquare, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@src/components/ui/button'
 import { SelectionTooltip } from '@src/components/SelectionTooltip'
 import { ChatPanel } from '@src/components/ChatPanel'
@@ -57,6 +58,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
   const [finalQuizTotal, setFinalQuizTotal] = useState(0)
   const [bookRating, setBookRating] = useState(0)
   const [finalQuizLoading, setFinalQuizLoading] = useState(false)
+  const [finalQuizError, setFinalQuizError] = useState<string | null>(null)
 
   const { provider: genProvider, model: genModel } = useAppSelector(selectFunctionModel('generation'))
   const { provider: quizProvider, model: quizModel } = useAppSelector(selectFunctionModel('quiz'))
@@ -224,14 +226,16 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
           return
         }
       }
-    } catch { /* empty */ }
+    } catch {
+      toast.error('Failed to load quiz — skipping to feedback')
+    }
     setPhase('feedback')
     scrollRef.current?.scrollTo({ top: 0 })
   }, [book.id, chapterIndex, syncChapterCompleted])
 
-  const handleFinishBook = useCallback(async () => {
-    syncChapterCompleted(chapterIndex + 1)
+  const fetchFinalQuiz = useCallback(async () => {
     setFinalQuizLoading(true)
+    setFinalQuizError(null)
     setPhase('final-quiz')
     scrollRef.current?.scrollTo({ top: 0 })
 
@@ -241,13 +245,22 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: quizModel, provider: quizProvider }),
       })
-      if (res.ok) {
-        const data = await res.json()
-        setFinalQuizQuestions(data.questions)
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.message || 'Final quiz generation failed')
       }
-    } catch { /* fire-and-forget */ }
+      const data = await res.json()
+      setFinalQuizQuestions(data.questions)
+    } catch (err) {
+      setFinalQuizError(err instanceof Error ? err.message : 'An unexpected error occurred.')
+    }
     setFinalQuizLoading(false)
-  }, [book.id, chapterIndex, syncChapterCompleted, quizModel, quizProvider])
+  }, [book.id, quizModel, quizProvider])
+
+  const handleFinishBook = useCallback(async () => {
+    syncChapterCompleted(chapterIndex + 1)
+    await fetchFinalQuiz()
+  }, [chapterIndex, syncChapterCompleted, fetchFinalQuiz])
 
   const handleFinalQuizComplete = useCallback((answers: number[]) => {
     const score = answers.filter((a, i) => a === finalQuizQuestions[i].correctIndex).length
@@ -314,7 +327,10 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
         body: JSON.stringify({ model: genModel, provider: genProvider, quizModel, quizProvider, quizLength }),
       })
 
-      if (!res.ok || !res.body) throw new Error('Generation failed')
+      if (!res.ok || !res.body) {
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.message || 'Generation failed')
+      }
 
       await parseSSEStream(res, {
         onEvent: (event) => {
@@ -339,7 +355,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
       })
     } catch (err) {
       setGenerationStage(null)
-      setGenerationError(err instanceof Error ? err.message : 'Generation failed')
+      setGenerationError(err instanceof Error ? err.message : 'An unexpected error occurred.')
       setPhase('generation-error')
     }
   }, [book.id, generatedUpTo, genModel, genProvider, quizModel, quizProvider, quizLength, dispatch, streaming])
@@ -756,7 +772,42 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
               )}
 
               {phase === 'final-quiz' && (
-                finalQuizLoading || finalQuizQuestions.length === 0 ? (
+                finalQuizError ? (
+                  <div className="mx-auto px-8 pb-24" style={{ maxWidth: readingWidth }}>
+                    <div className="pt-12">
+                      <div className="rounded-lg border border-status-error/20 bg-status-error/5 p-6">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="size-5 text-status-error shrink-0 mt-0.5" />
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-semibold text-content-primary">Final quiz generation failed</h3>
+                            <p className="mt-1 text-sm text-content-muted">{finalQuizError}</p>
+                            <div className="mt-4 flex items-center gap-3">
+                              <Button
+                                size="sm"
+                                onClick={fetchFinalQuiz}
+                                className="bg-[oklch(0.55_0.20_285)] text-white font-medium hover:bg-[oklch(0.50_0.22_285)]"
+                              >
+                                <RefreshCw className="size-3.5" data-icon="inline-start" />
+                                Retry
+                              </Button>
+                              <button
+                                onClick={() => {
+                                  setFinalQuizScore(0)
+                                  setFinalQuizTotal(0)
+                                  setPhase('rating')
+                                  scrollRef.current?.scrollTo({ top: 0 })
+                                }}
+                                className="text-sm text-content-muted hover:text-content-secondary transition-colors"
+                              >
+                                Skip quiz
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : finalQuizLoading || finalQuizQuestions.length === 0 ? (
                   <div className="mx-auto px-8 py-8" style={{ maxWidth: readingWidth }}>
                     <div className="flex items-center gap-2 pt-12 text-content-muted">
                       <Loader2 className="size-4 animate-spin" />

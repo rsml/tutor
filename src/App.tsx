@@ -347,7 +347,7 @@ export default function App() {
       const { taskId } = await res.json()
       setGenerateAllModal({ taskId, book })
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to start generation')
+      toast.error('Failed to start generation: ' + (err instanceof Error ? err.message : 'Unknown error'))
     }
   }
 
@@ -371,7 +371,7 @@ export default function App() {
         toast.success('EPUB export started — check background tasks')
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to export EPUB')
+      toast.error('Failed to export EPUB: ' + (err instanceof Error ? err.message : 'Unknown error'))
     }
   }
 
@@ -522,7 +522,7 @@ export default function App() {
       setImportPreview(preview)
       setImportDialogOpen(true)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to preview EPUB')
+      toast.error('Failed to preview EPUB: ' + (err instanceof Error ? err.message : 'Unknown error'))
     }
   }
 
@@ -542,7 +542,7 @@ export default function App() {
       toast.success('Book imported successfully')
       await fetchBooks()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to import EPUB')
+      toast.error('Failed to import EPUB: ' + (err instanceof Error ? err.message : 'Unknown error'))
     }
   }
 

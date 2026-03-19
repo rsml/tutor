@@ -61,7 +61,7 @@ export function CoverGenerationModal({
       const data = await res.json()
       setPrompt(data.prompt)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to suggest prompt')
+      toast.error('Failed to suggest cover prompt: ' + (err instanceof Error ? err.message : 'Unknown error'))
     } finally {
       setSuggesting(false)
     }
@@ -83,7 +83,7 @@ export function CoverGenerationModal({
       toast.success('Cover generation started — check background tasks')
       onOpenChange(false)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Cover generation failed')
+      toast.error('Failed to generate cover: ' + (err instanceof Error ? err.message : 'Unknown error'))
     } finally {
       setGenerating(false)
     }
@@ -106,12 +106,15 @@ export function CoverGenerationModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ base64, mediaType }),
       })
-      if (!res.ok) throw new Error('Upload failed')
+      if (!res.ok) {
+        const err = await res.json().catch(() => null)
+        throw new Error(err?.message || 'Upload failed')
+      }
       toast.success('Cover uploaded')
       onCoverChanged()
       onOpenChange(false)
-    } catch {
-      toast.error('Failed to upload cover')
+    } catch (err) {
+      toast.error('Failed to upload cover: ' + (err instanceof Error ? err.message : 'Unknown error'))
     } finally {
       setUploading(false)
     }
@@ -121,12 +124,15 @@ export function CoverGenerationModal({
     setDeleting(true)
     try {
       const res = await fetch(apiUrl(`/api/books/${bookId}/cover`), { method: 'DELETE' })
-      if (!res.ok) throw new Error('Delete failed')
+      if (!res.ok) {
+        const err = await res.json().catch(() => null)
+        throw new Error(err?.message || 'Delete failed')
+      }
       toast.success('Cover deleted')
       onCoverChanged()
       onOpenChange(false)
-    } catch {
-      toast.error('Failed to delete cover')
+    } catch (err) {
+      toast.error('Failed to delete cover: ' + (err instanceof Error ? err.message : 'Unknown error'))
     } finally {
       setDeleting(false)
     }
