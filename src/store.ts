@@ -119,7 +119,7 @@ export interface LibrarySort {
 }
 
 export interface LibraryFilters {
-  status: 'all' | 'in-progress' | 'not-started' | 'finished'
+  status: 'all' | 'in-progress' | 'not-started' | 'finished' | 'unfinished'
   tags: string[]
   ratingMin: number | null
   datePreset: 'any' | 'week' | 'month' | '3months'

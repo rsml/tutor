@@ -22,6 +22,7 @@ interface FilterPopoverProps {
 
 const STATUS_OPTIONS: Array<{ value: LibraryFilters['status']; label: string }> = [
   { value: 'all', label: 'All' },
+  { value: 'unfinished', label: 'Unfinished' },
   { value: 'in-progress', label: 'In Progress' },
   { value: 'not-started', label: 'Not Started' },
   { value: 'finished', label: 'Finished' },

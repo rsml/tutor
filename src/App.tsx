@@ -617,7 +617,9 @@ export default function App() {
     let filtered = [...allBooks]
 
     // Status filter
-    if (libraryFilters.status !== 'all') {
+    if (libraryFilters.status === 'unfinished') {
+      filtered = filtered.filter(b => bookClasses.get(b.id) !== 'finished')
+    } else if (libraryFilters.status !== 'all') {
       filtered = filtered.filter(b => bookClasses.get(b.id) === libraryFilters.status)
     }
 
@@ -875,6 +877,7 @@ export default function App() {
         'in-progress': 'In Progress',
         'not-started': 'Not Started',
         'finished': 'Finished',
+        'unfinished': 'Unfinished',
       }
       chips.push({
         key: 'status',
