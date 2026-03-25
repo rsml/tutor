@@ -138,7 +138,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     chapterIndex, sectionIndex, sections, currentSection,
     fullChapterContent, loading: chapterLoading,
     hasPrev, hasNext,
-    isLastSectionOfChapter, isLastSectionOfLastGenerated, isLastSectionOfBook, isLastChapter,
+    isLastSectionOfChapter, isLastSectionOfBook, isLastChapter,
     goNext, goPrev, goToChapter, clearCacheForChapter,
   } = useSectionNavigation({ bookId: book.id, totalChapters: book.totalChapters, generatedUpTo })
 
