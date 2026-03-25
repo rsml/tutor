@@ -1,3 +1,6 @@
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { GripVertical } from 'lucide-react'
 import { BookListRow } from '@src/components/BookListRow'
 
 interface Book {
@@ -29,13 +32,59 @@ type ListItem =
 
 interface BookListViewProps {
   items: ListItem[]
+  isManual?: boolean
   onBookClick: (book: Book) => void
   onSeriesClick: (seriesName: string) => void
   onContextMenu: (book: Book, e: React.MouseEvent) => void
   onSeriesContextMenu?: (seriesName: string, books: Book[], e: React.MouseEvent) => void
 }
 
-export function BookListView({ items, onBookClick, onSeriesClick, onContextMenu, onSeriesContextMenu }: BookListViewProps) {
+function SortableListRow({ id, children }: { id: string; children: React.ReactNode }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  if (isDragging) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className="h-10 rounded-lg border border-dashed border-border-default/50 bg-surface-raised/20"
+      />
+    )
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="relative flex items-center"
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="shrink-0 cursor-grab pl-1 pr-0 py-2.5 text-content-faint opacity-40 hover:opacity-90 active:cursor-grabbing transition-opacity"
+      >
+        <GripVertical className="size-4" />
+      </div>
+      <div className="flex-1 min-w-0">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+export function BookListView({ items, isManual, onBookClick, onSeriesClick, onContextMenu, onSeriesContextMenu }: BookListViewProps) {
   return (
     <div className="w-full">
       {/* Column headers — sticky, breaks out of parent padding to cover full scroll area */}
@@ -52,7 +101,7 @@ export function BookListView({ items, onBookClick, onSeriesClick, onContextMenu,
       {/* Rows */}
       {items.map(item => {
         if (item.type === 'series') {
-          return (
+          const seriesContent = (
             <div key={`series-${item.seriesName}`}>
               {/* Series header row */}
               <div
@@ -87,16 +136,13 @@ export function BookListView({ items, onBookClick, onSeriesClick, onContextMenu,
               <div className="relative ml-2">
                 {item.books.map(({ book, chaptersRead }, idx) => (
                   <div key={book.id} className="relative">
-                    {/* Vertical line: full height for non-last, half for last */}
                     <div
                       className="absolute left-4 top-0 w-px bg-border-default/50"
                       style={{ height: idx === item.books.length - 1 ? '50%' : '100%' }}
                     />
-                    {/* Vertical line above for non-first items (connects to previous) */}
                     {idx === 0 && (
                       <div className="absolute left-4 top-0 w-px h-1/2 bg-border-default/50" />
                     )}
-                    {/* Horizontal connector to row */}
                     <div className="absolute left-4 top-1/2 -translate-y-px h-px w-3.5 bg-border-default/50" />
                     <div className="pl-8">
                       <BookListRow
@@ -115,9 +161,19 @@ export function BookListView({ items, onBookClick, onSeriesClick, onContextMenu,
               </div>
             </div>
           )
+
+          if (isManual) {
+            return (
+              <SortableListRow key={`series-${item.seriesName}`} id={`series-${item.seriesName}`}>
+                {seriesContent}
+              </SortableListRow>
+            )
+          }
+
+          return seriesContent
         }
 
-        return (
+        const bookRow = (
           <BookListRow
             key={item.book.id}
             book={item.book}
@@ -129,6 +185,16 @@ export function BookListView({ items, onBookClick, onSeriesClick, onContextMenu,
             }}
           />
         )
+
+        if (isManual) {
+          return (
+            <SortableListRow key={item.book.id} id={item.book.id}>
+              {bookRow}
+            </SortableListRow>
+          )
+        }
+
+        return bookRow
       })}
     </div>
   )

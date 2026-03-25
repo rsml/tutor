@@ -24,7 +24,7 @@ interface Book {
   imported?: boolean
 }
 
-interface BookListRowProps {
+export interface BookListRowProps {
   book: Book
   chaptersRead: number
   onClick: () => void

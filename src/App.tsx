@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, useDeferredValue, useRef } from 'react'
 import { toast } from '@src/lib/toast'
 import { Plus, BookOpen, X, FileDown, Pencil, Star, Tags, Library, ClipboardCheck, Eye, Image, Zap, Download, Trash2 } from 'lucide-react'
-import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core'
-import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
+import { DndContext, DragOverlay, closestCenter, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
+import { SortableContext, rectSortingStrategy, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Button } from '@src/components/ui/button'
 import { Badge } from '@src/components/ui/badge'
 import {
@@ -31,6 +31,7 @@ import { ImportPreviewDialog } from '@src/components/ImportPreviewDialog'
 import { SetSeriesDialog } from '@src/components/SetSeriesDialog'
 import { SeriesStackCard } from '@src/components/SeriesStackCard'
 import { BookListView } from '@src/components/BookListView'
+import { BookListRow } from '@src/components/BookListRow'
 import { SeriesView } from '@src/components/SeriesView'
 import { ReaderPage } from '@src/pages/ReaderPage'
 import { QuizReviewPage } from '@src/pages/QuizReviewPage'
@@ -553,6 +554,12 @@ export default function App() {
     e.target.value = ''
   }
 
+  const [activeDragId, setActiveDragId] = useState<string | null>(null)
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveDragId(String(event.active.id))
+  }, [])
+
   // Track the previous sort field to detect transitions to manual mode
   const prevSortFieldRef = useRef(librarySort.field)
 
@@ -763,6 +770,7 @@ export default function App() {
 
   // Drag-and-drop handler for manual sort mode
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    setActiveDragId(null)
     const { active, over } = event
     if (!over || active.id === over.id) return
 
@@ -1475,7 +1483,7 @@ export default function App() {
 
       {/* Library grid */}
       <main
-        className="relative flex-1 overflow-y-auto px-8"
+        className="relative flex-1 overflow-y-auto overflow-x-hidden px-8"
         style={{ fontSize: `${fontSize}px` }}
         onDragEnter={(e) => {
           e.preventDefault()
@@ -1572,9 +1580,11 @@ export default function App() {
                 }
               }
 
-              return (
+              const isManual = librarySort.field === 'manual'
+              const listView = (
                 <BookListView
                   items={listItems}
+                  isManual={isManual}
                   onBookClick={(book) => setView({ type: 'reading', book })}
                   onSeriesClick={(seriesName) => setView({ type: 'series', seriesName })}
                   onContextMenu={(book, e) => {
@@ -1589,6 +1599,49 @@ export default function App() {
                   }}
                 />
               )
+
+              if (isManual) {
+                const listItemIds = listItems.map(item =>
+                  item.type === 'series' ? `series-${item.seriesName}` : item.book.id
+                )
+                return (
+                  <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={() => setActiveDragId(null)}>
+                    <SortableContext items={listItemIds} strategy={verticalListSortingStrategy}>
+                      {listView}
+                    </SortableContext>
+                    <DragOverlay>
+                      {activeDragId && (() => {
+                        if (activeDragId.startsWith('series-')) {
+                          const seriesName = activeDragId.slice(7)
+                          const seriesBooks = filteredBooks.filter(b => b.series === seriesName)
+                          return (
+                            <div className="flex items-center gap-2 px-4 py-2.5 bg-surface-raised rounded-lg shadow-lg ring-1 ring-border-focus/30">
+                              <div className="flex -space-x-0.5">
+                                {[...Array(Math.min(seriesBooks.length, 3))].map((_, i) => (
+                                  <div key={i} className="h-3 w-2 rounded-[1px] border border-content-faint/30 bg-content-faint/10" />
+                                ))}
+                              </div>
+                              <span className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">{seriesName}</span>
+                              <span className="text-[10px] text-content-faint">{seriesBooks.length} books</span>
+                            </div>
+                          )
+                        }
+                        const book = filteredBooks.find(b => b.id === activeDragId)
+                        if (!book) return null
+                        const rp = furthest[book.id]
+                        const chaptersRead = rp != null ? rp + 1 : book.chaptersRead
+                        return (
+                          <div className="bg-surface-raised rounded-lg shadow-lg ring-1 ring-border-focus/30">
+                            <BookListRow book={book} chaptersRead={chaptersRead} onClick={() => {}} />
+                          </div>
+                        )
+                      })()}
+                    </DragOverlay>
+                  </DndContext>
+                )
+              }
+
+              return listView
             })()
           ) : (
             (() => {
