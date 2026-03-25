@@ -9,7 +9,7 @@ import { useTextSelection } from '@src/hooks/useTextSelection'
 import { useSectionNavigation } from '@src/hooks/useSectionNavigation'
 import { useStreamingContent } from '@src/hooks/useStreamingContent'
 import { parseSSEStream } from '@src/lib/parse-sse-stream'
-import { store, useAppDispatch, useAppSelector, setPosition, setChapterFeedback, setChapterQuizResult, recordQuizAttempt, selectFontSize, selectReadingWidth, selectQuizLength, selectFunctionModel, selectChatMessages } from '@src/store'
+import { store, useAppDispatch, useAppSelector, setChapterFeedback, setChapterQuizResult, recordQuizAttempt, selectFontSize, selectReadingWidth, selectQuizLength, selectFunctionModel, selectChatMessages } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
 import { cn } from '@src/lib/utils'
 import { SafeMarkdown } from '@src/components/SafeMarkdown'
@@ -109,7 +109,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
                 setGenerationStage(null)
                 setGeneratedUpTo(event.chapterNum)
                 setGeneratingChapterNum(null)
-                dispatch(setPosition({ bookId: book.id, chapter: event.chapterNum - 1, section: 0 }))
+                setReadingPosition(event.chapterNum - 1, 0)
                 setPhase('reading')
                 scrollRef.current?.scrollTo({ top: 0 })
               } else if (event.type === 'error') {
@@ -139,7 +139,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     fullChapterContent, loading: chapterLoading,
     hasPrev, hasNext,
     isLastSectionOfChapter, isLastSectionOfBook, isLastChapter,
-    goNext, goPrev, goToChapter, clearCacheForChapter,
+    goNext, goPrev, goToChapter, setReadingPosition, clearCacheForChapter,
   } = useSectionNavigation({ bookId: book.id, totalChapters: book.totalChapters, generatedUpTo })
 
   // Save initial position on mount
@@ -147,7 +147,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     const pos = store.getState().readingProgress.positions[book.id]
     if (!pos) {
       const initialChapter = book.chaptersRead > 0 ? book.chaptersRead - 1 : 0
-      dispatch(setPosition({ bookId: book.id, chapter: initialChapter, section: 0 }))
+      setReadingPosition(initialChapter, 0)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -350,7 +350,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
             setGenerationStage(null)
             setGeneratedUpTo(event.chapterNum)
             setGeneratingChapterNum(null)
-            dispatch(setPosition({ bookId: book.id, chapter: event.chapterNum - 1, section: 0 }))
+            setReadingPosition(event.chapterNum - 1, 0)
             setPhase('reading')
             scrollRef.current?.scrollTo({ top: 0 })
           } else if (event.type === 'error') {
@@ -365,7 +365,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
       setGenerationError(err instanceof Error ? err.message : 'An unexpected error occurred.')
       setPhase('generation-error')
     }
-  }, [book.id, generatedUpTo, genModel, genProvider, quizModel, quizProvider, quizLength, dispatch, streaming])
+  }, [book.id, generatedUpTo, genModel, genProvider, quizModel, quizProvider, quizLength, setReadingPosition, streaming])
 
   const handleFeedbackSubmit = useCallback(async (liked: string, disliked: string) => {
     dispatch(setChapterFeedback({ bookId: book.id, chapterNum: chapterIndex + 1, liked, disliked }))
@@ -380,14 +380,14 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
 
     // If next chapter already exists, skip generation and advance directly
     if (chapterIndex + 2 <= generatedUpTo) {
-      dispatch(setPosition({ bookId: book.id, chapter: chapterIndex + 1, section: 0 }))
+      setReadingPosition(chapterIndex + 1, 0)
       setPhase('reading')
       scrollRef.current?.scrollTo({ top: 0 })
       return
     }
 
     await startGenerationStream()
-  }, [book.id, chapterIndex, generatedUpTo, quizAnswers, dispatch, startGenerationStream])
+  }, [book.id, chapterIndex, generatedUpTo, quizAnswers, dispatch, setReadingPosition, startGenerationStream])
 
   const handleRetryGeneration = useCallback(() => {
     startGenerationStream()
@@ -427,7 +427,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
             setGenerationStage(null)
             setGeneratingChapterNum(null)
             clearCacheForChapter(chapterIndex)
-            dispatch(setPosition({ bookId: book.id, chapter: chapterIndex, section: 0 }))
+            setReadingPosition(chapterIndex, 0)
             setPhase('reading')
             scrollRef.current?.scrollTo({ top: 0 })
           } else if (event.type === 'error') {
@@ -442,7 +442,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
       setGenerationError(err instanceof Error ? err.message : 'An unexpected error occurred.')
       setPhase('generation-error')
     }
-  }, [book.id, chapterIndex, genModel, genProvider, quizModel, quizProvider, quizLength, dispatch, streaming, clearCacheForChapter])
+  }, [book.id, chapterIndex, genModel, genProvider, quizModel, quizProvider, quizLength, setReadingPosition, streaming, clearCacheForChapter])
 
   // Auto-scroll during streaming, but stop if user scrolls manually
   useEffect(() => {

@@ -26,6 +26,7 @@ interface UseSectionNavigationReturn {
   goNext: () => void
   goPrev: () => void
   goToChapter: (chapter: number, section?: number) => void
+  setReadingPosition: (chapter: number, section?: number) => void
   clearCacheForChapter: (chapterIndex: number) => void
 }
 
@@ -131,6 +132,13 @@ export function useSectionNavigation({
     ? `Ch. ${chapterIndex + 1} · ${sectionIndex + 1}/${sections.length}`
     : `${chapterIndex + 1} / ${totalChapters}`
 
+  // Updates both local view state AND Redux position in one call
+  const setReadingPosition = useCallback((chapter: number, section = 0) => {
+    setViewChapter(chapter)
+    setViewSection(section)
+    dispatch(setPosition({ bookId, chapter, section }))
+  }, [dispatch, bookId])
+
   // Browse-only: updates view state without touching Redux position
   const goToChapter = useCallback((chapter: number, section = 0) => {
     setViewChapter(chapter)
@@ -199,6 +207,7 @@ export function useSectionNavigation({
     goNext,
     goPrev,
     goToChapter,
+    setReadingPosition,
     clearCacheForChapter,
   }
 }
