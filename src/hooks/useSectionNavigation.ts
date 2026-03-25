@@ -88,8 +88,11 @@ export function useSectionNavigation({
     }
   }, [bookId])
 
+  const [fetchTrigger, setFetchTrigger] = useState(0)
+
   const clearCacheForChapter = useCallback((chapIdx: number) => {
     cacheRef.current.delete(chapIdx)
+    setFetchTrigger(t => t + 1)
   }, [])
 
   // Fetch and split current chapter
@@ -110,7 +113,7 @@ export function useSectionNavigation({
     })
 
     return () => { cancelled = true }
-  }, [chapterIndex, fetchChapter])
+  }, [chapterIndex, fetchChapter, fetchTrigger])
 
   // Clear cache when bookId changes
   useEffect(() => {
