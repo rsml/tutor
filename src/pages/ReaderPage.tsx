@@ -803,6 +803,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
                 <FeedbackForm
                   chapterNum={chapterIndex + 1}
                   onSubmit={handleFeedbackSubmit}
+                  submitLabel={chapterIndex + 2 <= generatedUpTo ? 'Next Chapter' : undefined}
                 />
               )}
 

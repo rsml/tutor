@@ -17,7 +17,7 @@ export function FeedbackForm({ chapterNum, onSubmit, submitLabel }: FeedbackForm
     <div className="mx-auto px-8 py-8" style={{ maxWidth: readingWidth }}>
       <h2 className="text-xl font-semibold tracking-tight">Chapter {chapterNum} Feedback</h2>
       <p className="mt-1 text-sm text-content-muted">
-        Your feedback shapes how the next chapter is written.
+        {submitLabel ? 'Your feedback helps improve future books.' : 'Your feedback shapes how the next chapter is written.'}
       </p>
 
       <div className="mt-8 space-y-6">
