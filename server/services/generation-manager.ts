@@ -90,7 +90,7 @@ async function buildProfileContext(): Promise<string> {
   }
 }
 
-async function generateQuiz(
+export async function generateQuiz(
   provider: string,
   model: string,
   chapterContent: string,
@@ -127,6 +127,7 @@ export interface GenerationOptions {
   quizModel?: string
   quizLength?: number
   quizProvider?: string
+  targetChapterNum?: number
 }
 
 export function isGenerating(bookId: string): boolean {
@@ -317,7 +318,7 @@ Write this chapter now.`,
 async function runGeneration(bookId: string, state: GenerationState, options: GenerationOptions): Promise<void> {
   try {
     const meta = await store.getBook(bookId)
-    const nextNum = meta.generatedUpTo + 1
+    const nextNum = options.targetChapterNum ?? meta.generatedUpTo + 1
     state.chapterNum = nextNum
 
     if (nextNum > meta.totalChapters) {

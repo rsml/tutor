@@ -138,8 +138,8 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     chapterIndex, sectionIndex, sections, currentSection,
     fullChapterContent, loading: chapterLoading,
     hasPrev, hasNext,
-    isLastSectionOfLastGenerated, isLastSectionOfBook,
-    goNext, goPrev, goToChapter,
+    isLastSectionOfChapter, isLastSectionOfLastGenerated, isLastSectionOfBook, isLastChapter,
+    goNext, goPrev, goToChapter, clearCacheForChapter,
   } = useSectionNavigation({ bookId: book.id, totalChapters: book.totalChapters, generatedUpTo })
 
   // Save initial position on mount
@@ -213,14 +213,20 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     }).catch(() => {})
   }, [book.id])
 
+  const [quizLoading, setQuizLoading] = useState(false)
+
   const handleKeepGoing = useCallback(async () => {
     syncChapterCompleted(chapterIndex + 1)
+    setQuizLoading(true)
     try {
-      const res = await fetch(apiUrl(`/api/books/${book.id}/chapters/${chapterIndex + 1}/quiz`))
+      const params = new URLSearchParams({ model: quizModel, provider: quizProvider })
+      if (quizLength) params.set('quizLength', String(quizLength))
+      const res = await fetch(apiUrl(`/api/books/${book.id}/chapters/${chapterIndex + 1}/quiz?${params}`))
       if (res.ok) {
         const data = await res.json()
         if (data.questions?.length > 0) {
           setQuizQuestions(data.questions)
+          setQuizLoading(false)
           setPhase('quiz')
           scrollRef.current?.scrollTo({ top: 0 })
           return
@@ -229,9 +235,10 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     } catch {
       toast.error('Failed to load quiz — skipping to feedback')
     }
+    setQuizLoading(false)
     setPhase('feedback')
     scrollRef.current?.scrollTo({ top: 0 })
-  }, [book.id, chapterIndex, syncChapterCompleted])
+  }, [book.id, chapterIndex, syncChapterCompleted, quizModel, quizProvider, quizLength])
 
   const fetchFinalQuiz = useCallback(async () => {
     setFinalQuizLoading(true)
@@ -371,12 +378,71 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
       })
     } catch { /* fire-and-forget */ }
 
+    // If next chapter already exists, skip generation and advance directly
+    if (chapterIndex + 2 <= generatedUpTo) {
+      dispatch(setPosition({ bookId: book.id, chapter: chapterIndex + 1, section: 0 }))
+      setPhase('reading')
+      scrollRef.current?.scrollTo({ top: 0 })
+      return
+    }
+
     await startGenerationStream()
-  }, [book.id, chapterIndex, quizAnswers, dispatch, startGenerationStream])
+  }, [book.id, chapterIndex, generatedUpTo, quizAnswers, dispatch, startGenerationStream])
 
   const handleRetryGeneration = useCallback(() => {
     startGenerationStream()
   }, [startGenerationStream])
+
+  const handleRegenerateChapter = useCallback(async () => {
+    const chapterNum = chapterIndex + 1
+    setPhase('generating')
+    streaming.reset()
+    setGenerationStage(null)
+    setGenerationError(null)
+    setGeneratingChapterNum(chapterNum)
+    bufferBoundaryRef.current = 0
+    userHasScrolledRef.current = false
+    scrollRef.current?.scrollTo({ top: 0 })
+
+    try {
+      const res = await fetch(apiUrl(`/api/books/${book.id}/chapters/${chapterNum}/regenerate`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: genModel, provider: genProvider, quizModel, quizProvider, quizLength }),
+      })
+
+      if (!res.ok || !res.body) {
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.message || 'Regeneration failed')
+      }
+
+      await parseSSEStream(res, {
+        onEvent: (event) => {
+          if (event.type === 'chapter') {
+            streaming.appendChunk(event.text)
+          } else if (event.type === 'stage') {
+            setGenerationStage(event.stage)
+          } else if (event.type === 'done' && event.chapterNum != null) {
+            streaming.flushNow()
+            setGenerationStage(null)
+            setGeneratingChapterNum(null)
+            clearCacheForChapter(chapterIndex)
+            dispatch(setPosition({ bookId: book.id, chapter: chapterIndex, section: 0 }))
+            setPhase('reading')
+            scrollRef.current?.scrollTo({ top: 0 })
+          } else if (event.type === 'error') {
+            setGenerationStage(null)
+            setGenerationError(event.message)
+            setPhase('generation-error')
+          }
+        },
+      })
+    } catch (err) {
+      setGenerationStage(null)
+      setGenerationError(err instanceof Error ? err.message : 'An unexpected error occurred.')
+      setPhase('generation-error')
+    }
+  }, [book.id, chapterIndex, genModel, genProvider, quizModel, quizProvider, quizLength, dispatch, streaming, clearCacheForChapter])
 
   // Auto-scroll during streaming, but stop if user scrolls manually
   useEffect(() => {
@@ -660,14 +726,20 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
                       <div className="reader-prose">
                         <SafeMarkdown>{currentSection.markdown}</SafeMarkdown>
                       </div>
-                      {(isLastSectionOfLastGenerated || isLastSectionOfBook) ? (
+                      {(isLastSectionOfChapter && !isLastChapter) || isLastSectionOfBook ? (
                         <div className="mt-12 flex justify-center">
                           <Button
                             size="lg"
                             onClick={isLastSectionOfBook ? handleFinishBook : handleKeepGoing}
+                            disabled={quizLoading}
                             className="bg-[oklch(0.55_0.20_285)] text-white font-semibold hover:bg-[oklch(0.50_0.22_285)]"
                           >
-                            {isLastSectionOfBook ? 'Finish Book' : 'Next Chapter'}
+                            {quizLoading ? (
+                              <>
+                                <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
+                                Loading quiz...
+                              </>
+                            ) : isLastSectionOfBook ? 'Finish Book' : 'Next Chapter'}
                           </Button>
                         </div>
                       ) : (hasPrev || hasNext) && (
@@ -690,9 +762,24 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
                   ) : (
                     <div className="pt-12 text-sm text-content-muted">
                       {chapterIndex + 1 <= generatedUpTo ? (
-                        <div className="flex items-center gap-2">
-                          <Loader2 className="size-4 animate-spin" />
-                          <span>Loading chapter...</span>
+                        <div className="rounded-lg border border-status-error/20 bg-status-error/5 p-6">
+                          <div className="flex items-start gap-3">
+                            <AlertTriangle className="size-5 text-status-error shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-sm font-semibold text-content-primary">Chapter content missing</h3>
+                              <p className="mt-1 text-sm text-content-muted">
+                                This chapter's content could not be loaded. You can regenerate it.
+                              </p>
+                              <Button
+                                size="sm"
+                                onClick={handleRegenerateChapter}
+                                className="mt-4 bg-[oklch(0.55_0.20_285)] text-white font-medium hover:bg-[oklch(0.50_0.22_285)]"
+                              >
+                                <RefreshCw className="size-3.5" data-icon="inline-start" />
+                                Regenerate Chapter
+                              </Button>
+                            </div>
+                          </div>
                         </div>
                       ) : chapterIndex + 1 === generatedUpTo + 1 ? (
                         <p>This chapter is ready to generate. Complete the previous chapter to continue.</p>

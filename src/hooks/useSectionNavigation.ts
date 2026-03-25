@@ -26,6 +26,7 @@ interface UseSectionNavigationReturn {
   goNext: () => void
   goPrev: () => void
   goToChapter: (chapter: number, section?: number) => void
+  clearCacheForChapter: (chapterIndex: number) => void
 }
 
 const CACHE_SIZE = 5
@@ -39,8 +40,22 @@ export function useSectionNavigation({
   const rawPosition = useAppSelector(s => s.readingProgress.positions[bookId])
   const position = rawPosition ? migratePosition(rawPosition) : null
 
-  const chapterIndex = position?.chapter ?? 0
-  const sectionIndex = position?.section ?? 0
+  const readingChapter = position?.chapter ?? 0
+  const readingSection = position?.section ?? 0
+
+  // Transient view state (what's currently rendered) — decoupled from Redux
+  const [viewChapter, setViewChapter] = useState(readingChapter)
+  const [viewSection, setViewSection] = useState(readingSection)
+
+  // Sync local state when Redux changes (from goNext/goPrev/external setPosition)
+  useEffect(() => {
+    setViewChapter(readingChapter)
+    setViewSection(readingSection)
+  }, [readingChapter, readingSection])
+
+  // Exported values use local view state
+  const chapterIndex = viewChapter
+  const sectionIndex = viewSection
 
   const [loading, setLoading] = useState(true)
   const [sections, setSections] = useState<Section[]>([])
@@ -71,6 +86,10 @@ export function useSectionNavigation({
       return null
     }
   }, [bookId])
+
+  const clearCacheForChapter = useCallback((chapIdx: number) => {
+    cacheRef.current.delete(chapIdx)
+  }, [])
 
   // Fetch and split current chapter
   useEffect(() => {
@@ -112,38 +131,56 @@ export function useSectionNavigation({
     ? `Ch. ${chapterIndex + 1} · ${sectionIndex + 1}/${sections.length}`
     : `${chapterIndex + 1} / ${totalChapters}`
 
+  // Browse-only: updates view state without touching Redux position
   const goToChapter = useCallback((chapter: number, section = 0) => {
-    dispatch(setPosition({ bookId, chapter, section }))
-  }, [dispatch, bookId])
+    setViewChapter(chapter)
+    setViewSection(section)
+  }, [])
 
+  // Reading navigation: updates both view state AND Redux position
   const goNext = useCallback(() => {
     if (!isLastSectionOfChapter) {
-      dispatch(setPosition({ bookId, chapter: chapterIndex, section: sectionIndex + 1 }))
-    } else if (!isLastChapter && chapterIndex + 1 < generatedUpTo) {
+      const next = { chapter: viewChapter, section: viewSection + 1 }
+      setViewChapter(next.chapter)
+      setViewSection(next.section)
+      dispatch(setPosition({ bookId, ...next }))
+    } else if (!isLastChapter && viewChapter + 1 < generatedUpTo) {
       // Mark current chapter as completed on the server
-      fetch(apiUrl(`/api/books/${bookId}/progress/${chapterIndex + 1}`), {
+      fetch(apiUrl(`/api/books/${bookId}/progress/${viewChapter + 1}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scroll: 1, completed: true, completedAt: new Date().toISOString() }),
       }).catch(() => {})
-      dispatch(setPosition({ bookId, chapter: chapterIndex + 1, section: 0 }))
+      const next = { chapter: viewChapter + 1, section: 0 }
+      setViewChapter(next.chapter)
+      setViewSection(next.section)
+      dispatch(setPosition({ bookId, ...next }))
     }
-  }, [dispatch, bookId, chapterIndex, sectionIndex, isLastSectionOfChapter, isLastChapter, generatedUpTo])
+  }, [dispatch, bookId, viewChapter, viewSection, isLastSectionOfChapter, isLastChapter, generatedUpTo])
 
   const goPrev = useCallback(async () => {
-    if (sectionIndex > 0) {
-      dispatch(setPosition({ bookId, chapter: chapterIndex, section: sectionIndex - 1 }))
-    } else if (chapterIndex > 0) {
+    if (viewSection > 0) {
+      const next = { chapter: viewChapter, section: viewSection - 1 }
+      setViewChapter(next.chapter)
+      setViewSection(next.section)
+      dispatch(setPosition({ bookId, ...next }))
+    } else if (viewChapter > 0) {
       // Fetch previous chapter to get its last section
-      const prevContent = await fetchChapter(chapterIndex - 1)
+      const prevContent = await fetchChapter(viewChapter - 1)
       if (prevContent) {
         const prevSections = splitChapterIntoSections(prevContent)
-        dispatch(setPosition({ bookId, chapter: chapterIndex - 1, section: prevSections.length - 1 }))
+        const next = { chapter: viewChapter - 1, section: prevSections.length - 1 }
+        setViewChapter(next.chapter)
+        setViewSection(next.section)
+        dispatch(setPosition({ bookId, ...next }))
       } else {
-        dispatch(setPosition({ bookId, chapter: chapterIndex - 1, section: 0 }))
+        const next = { chapter: viewChapter - 1, section: 0 }
+        setViewChapter(next.chapter)
+        setViewSection(next.section)
+        dispatch(setPosition({ bookId, ...next }))
       }
     }
-  }, [dispatch, bookId, chapterIndex, sectionIndex, fetchChapter])
+  }, [dispatch, bookId, viewChapter, viewSection, fetchChapter])
 
   return {
     chapterIndex,
@@ -162,5 +199,6 @@ export function useSectionNavigation({
     goNext,
     goPrev,
     goToChapter,
+    clearCacheForChapter,
   }
 }

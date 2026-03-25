@@ -343,13 +343,30 @@ export async function bookRoutes(fastify: FastifyInstance) {
     },
   )
 
-  fastify.get<{ Params: { id: string; num: string } }>(
+  fastify.get<{ Params: { id: string; num: string }; Querystring: { model?: string; provider?: string; quizLength?: string } }>(
     '/api/books/:id/chapters/:num/quiz',
     { schema: { params: bookChapterSchema } },
     async (request) => {
       const chapterNum = parseInt(request.params.num)
-      await validateChapterNum(request.params.id, chapterNum)
-      return store.getQuiz(request.params.id, chapterNum)
+      const bookId = request.params.id
+      await validateChapterNum(bookId, chapterNum)
+
+      // Try loading existing quiz
+      try {
+        return await store.getQuiz(bookId, chapterNum)
+      } catch {
+        // Quiz file missing — try generating on-demand if chapter content exists
+      }
+
+      // On-demand quiz generation
+      const chapterContent = await store.getChapter(bookId, chapterNum)
+      const model = request.query.model || 'claude-sonnet-4-20250514'
+      const provider = request.query.provider || 'anthropic'
+      const quizLen = request.query.quizLength ? parseInt(request.query.quizLength) : 3
+
+      const quiz = await genManager.generateQuiz(provider, model, chapterContent, quizLen)
+      await store.saveQuiz(bookId, chapterNum, quiz)
+      return quiz
     },
   )
 
@@ -423,6 +440,66 @@ export async function bookRoutes(fastify: FastifyInstance) {
     }
 
     genManager.startGeneration(bookId, { model, provider, quizModel, quizProvider, quizLength })
+
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    })
+
+    let ended = false
+    const unsubscribe = genManager.subscribe(bookId, (event) => {
+      if (ended) return
+      reply.raw.write(`data: ${JSON.stringify(event)}\n\n`)
+      if (event.type === 'done' || event.type === 'error') {
+        ended = true
+        reply.raw.end()
+      }
+    }, false)
+
+    request.raw.on('close', () => {
+      unsubscribe()
+      if (!ended) { ended = true; reply.raw.end() }
+    })
+  })
+
+  // --- Regenerate a specific chapter ---
+
+  fastify.post<{
+    Params: { id: string; num: string }
+    Body: unknown
+  }>('/api/books/:id/chapters/:num/regenerate', { schema: { params: bookChapterSchema }, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
+    let body: { model: string; provider?: string; quizModel?: string; quizProvider?: string; quizLength?: number }
+    try {
+      body = GenerateNextBodySchema.parse(request.body)
+    } catch (err) {
+      if (err instanceof ZodError) {
+        return reply.status(400).send({ error: 'Invalid request', details: err.issues })
+      }
+      throw err
+    }
+
+    const bookId = request.params.id
+    const chapterNum = parseInt(request.params.num)
+    const meta = await store.getBook(bookId)
+
+    if (chapterNum < 1 || chapterNum > meta.totalChapters) {
+      return reply.status(400).send({ error: `Chapter ${chapterNum} out of range (1-${meta.totalChapters})` })
+    }
+    if (chapterNum > meta.generatedUpTo) {
+      return reply.status(400).send({ error: `Chapter ${chapterNum} has not been generated yet` })
+    }
+
+    if (genManager.isGenerating(bookId)) {
+      return reply.status(409).send({ error: 'Generation already in progress for this book' })
+    }
+
+    if (taskManager.getActiveTaskForBook(bookId, 'generate-all')) {
+      return reply.status(409).send({ error: 'Generate-all is running for this book' })
+    }
+
+    const { model, provider, quizModel, quizProvider, quizLength } = body
+    genManager.startGeneration(bookId, { model, provider, quizModel, quizProvider, quizLength, targetChapterNum: chapterNum })
 
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
