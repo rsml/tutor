@@ -25,6 +25,15 @@ import { store } from '@src/store'
 const CHAPTER_COUNTS = [1, 3, 6, 12, 25, 50]
 const CHAPTER_LABELS = ['Essay', 'Short', 'Novella', 'Standard', 'Long', 'Epic']
 
+function getChapterLabel(count: number): string {
+  const idx = CHAPTER_COUNTS.indexOf(count)
+  if (idx >= 0) return CHAPTER_LABELS[idx]
+  const nearest = CHAPTER_COUNTS.reduce((prev, curr) =>
+    Math.abs(curr - count) < Math.abs(prev - count) ? curr : prev
+  )
+  return `~${CHAPTER_LABELS[CHAPTER_COUNTS.indexOf(nearest)]}`
+}
+
 const COVER_STYLES = [
   'Minimalist pen-and-ink illustration on cream background, reminiscent of classic O\'Reilly animal covers',
   'Bold typographic cover with subtle geometric patterns, inspired by Penguin Classics design language',
@@ -563,18 +572,17 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
   const [generateCover, setGenerateCover] = useState(false)
   const [coverDescription, setCoverDescription] = useState('')
   const defaultChapterCount = useAppSelector(selectDefaultChapterCount)
-  const [chapterCountIndex, setChapterCountIndex] = useState(() => {
-    const idx = CHAPTER_COUNTS.indexOf(defaultChapterCount)
-    return idx >= 0 ? idx : CHAPTER_COUNTS.indexOf(12)
-  })
+  const [chapterCount, setChapterCount] = useState(defaultChapterCount)
+  const [editingCount, setEditingCount] = useState(false)
+  const [editValue, setEditValue] = useState('')
   const { provider, model } = useAppSelector(selectFunctionModel('profile'))
   const hasApiKey = useAppSelector(selectHasApiKey)
 
   // Reset chapter count when default changes or dialog opens
   useEffect(() => {
     if (open) {
-      const idx = CHAPTER_COUNTS.indexOf(defaultChapterCount)
-      setChapterCountIndex(idx >= 0 ? idx : CHAPTER_COUNTS.indexOf(12))
+      setChapterCount(defaultChapterCount)
+      setEditingCount(false)
     }
   }, [open, defaultChapterCount])
 
@@ -587,7 +595,7 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
           return `Elegant book cover. ${style}. Subject: ${details.trim() || topic.trim()}. Professional publishing quality, no text or lettering on the image.`
         })())
       : undefined
-    onCreate(topic.trim(), details.trim(), CHAPTER_COUNTS[chapterCountIndex], coverPromptValue)
+    onCreate(topic.trim(), details.trim(), chapterCount, coverPromptValue)
     setTopic('')
     setDetails('')
     setReasoning(null)
@@ -744,15 +752,47 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-content-primary">Length</span>
               <span className="text-xs text-content-muted">
-                {CHAPTER_COUNTS[chapterCountIndex]} {CHAPTER_COUNTS[chapterCountIndex] === 1 ? 'chapter' : 'chapters'}
-                <span className="ml-1.5 text-content-muted/60">{CHAPTER_LABELS[chapterCountIndex]}</span>
+                {editingCount ? (
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    autoFocus
+                    value={editValue}
+                    onChange={e => setEditValue(e.target.value)}
+                    onBlur={() => {
+                      const n = Math.max(1, Math.min(50, Math.round(Number(editValue) || 1)))
+                      setChapterCount(n)
+                      setEditingCount(false)
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.currentTarget.blur()
+                      } else if (e.key === 'Escape') {
+                        setEditingCount(false)
+                      }
+                    }}
+                    className="w-[3ch] bg-transparent border-b border-border-focus text-right text-xs text-content-primary outline-none tabular-nums"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => { setEditValue(String(chapterCount)); setEditingCount(true) }}
+                    className="tabular-nums cursor-text border-b border-transparent hover:border-content-muted/40 text-content-primary"
+                  >
+                    {chapterCount}
+                  </button>
+                )}
+                {' '}{chapterCount === 1 ? 'chapter' : 'chapters'}
+                <span className="ml-1.5 text-content-muted/60">{getChapterLabel(chapterCount)}</span>
               </span>
             </div>
             <TickSlider
               min={0}
               max={CHAPTER_COUNTS.length - 1}
-              value={chapterCountIndex}
-              onChange={setChapterCountIndex}
+              value={CHAPTER_COUNTS.reduce((closest, curr, i) =>
+                Math.abs(curr - chapterCount) < Math.abs(CHAPTER_COUNTS[closest] - chapterCount) ? i : closest, 0)}
+              onChange={i => setChapterCount(CHAPTER_COUNTS[i])}
               ticks={CHAPTER_COUNTS.map((count, i) => ({
                 label: CHAPTER_LABELS[i],
                 highlight: count === defaultChapterCount,
