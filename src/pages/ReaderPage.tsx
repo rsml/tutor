@@ -1,6 +1,6 @@
 import { AlertTriangle, ArrowLeft, BarChart3, ChevronLeft, ChevronRight, Loader2, MessageSquare, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@src/lib/toast'
 import { Button } from '@src/components/ui/button'
 import { SelectionTooltip } from '@src/components/SelectionTooltip'
 import { ChatPanel } from '@src/components/ChatPanel'

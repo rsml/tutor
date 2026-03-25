@@ -1,6 +1,6 @@
 {
   "name": "tutor",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "type": "module",
   "author": "Ross Miller <rossnmiller@gmail.com> (http://rossmiller.dev/)",
   "main": "dist-electron/main.js",

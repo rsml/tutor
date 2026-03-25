@@ -16,7 +16,7 @@ initApiBase().then(() => {
         <PersistGate loading={null} persistor={persistor}>
           <ThemeProvider>
             <App />
-            <Toaster position="bottom-right" theme="dark" richColors />
+            <Toaster position="bottom-right" theme="dark" richColors closeButton />
           </ThemeProvider>
         </PersistGate>
       </Provider>

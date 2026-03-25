@@ -564,3 +564,23 @@ input[type="range"]::-webkit-slider-thumb {
 .katex {
   font-size: 1.05em !important;
 }
+
+/* ─── Sonner toast close button: top-right, inside the card ─── */
+[data-sonner-toast][data-styled='true'] [data-close-button] {
+  left: unset;
+  right: 4px;
+  top: 4px;
+  transform: none;
+  background: transparent;
+  border: none;
+  color: currentColor;
+  opacity: 0.4;
+  box-shadow: none;
+  border-radius: 4px;
+}
+
+[data-sonner-toast][data-styled='true']:hover [data-close-button]:hover {
+  background: transparent;
+  border: none;
+  opacity: 1;
+}

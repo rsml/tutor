@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@src/lib/toast'
 import { Sparkles, Loader2, TrendingUp, Puzzle, Dices } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import {

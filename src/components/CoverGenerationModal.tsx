@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { ImagePlus, Upload, Sparkles, Loader2, Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@src/lib/toast'
 import { Button } from '@src/components/ui/button'
 import {
   Dialog,

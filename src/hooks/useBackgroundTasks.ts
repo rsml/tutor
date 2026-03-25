@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@src/lib/toast'
 import { store, useAppDispatch } from '@src/store'
 import { taskCreated, taskProgressUpdated, taskCompleted, taskFailed, taskCancelled } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'

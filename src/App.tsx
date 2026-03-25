@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useDeferredValue, useRef } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@src/lib/toast'
 import { Plus, BookOpen, X, FileDown, Pencil, Star, Tags, Library, ClipboardCheck, Eye, Image, Zap, Download, Trash2 } from 'lucide-react'
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'

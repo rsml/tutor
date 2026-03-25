@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Loader2, CheckCircle2, XCircle, ChevronUp, ChevronDown, X } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@src/lib/toast'
 import {
   Dialog,
   DialogContent,
