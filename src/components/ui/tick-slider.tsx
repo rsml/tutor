@@ -26,7 +26,7 @@ export function TickSlider({
   className,
   onPointerDown,
 }: TickSliderProps) {
-  const count = Math.floor((max - min) / step) + 1
+  const tickCount = ticks?.length ?? Math.floor((max - min) / step) + 1
   const fill = max > min ? ((value - min) / (max - min)) * 100 : 0
   const hasLabels = ticks?.some(t => t.label)
 
@@ -38,13 +38,13 @@ export function TickSlider({
         max={max}
         step={step}
         value={value}
-        onChange={e => onChange(parseInt(e.target.value))}
+        onChange={e => onChange(parseFloat(e.target.value))}
         className="w-full cursor-pointer"
         style={{ '--range-fill': `${fill}%` } as React.CSSProperties}
         onPointerDown={onPointerDown}
       />
       <div className="flex justify-between px-2 -mt-0.5">
-        {Array.from({ length: count }, (_, i) => {
+        {Array.from({ length: tickCount }, (_, i) => {
           const tick = ticks?.[i]
           const hl = tick?.highlight
           return (

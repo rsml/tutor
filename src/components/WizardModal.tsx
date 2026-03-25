@@ -20,10 +20,23 @@ import {
 import { TickSlider } from '@src/components/ui/tick-slider'
 import { useAppSelector, selectFunctionModel, selectHasApiKey, selectDefaultChapterCount } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
+import { cn } from '@src/lib/utils'
 import { store } from '@src/store'
 
 const CHAPTER_COUNTS = [1, 3, 6, 12, 25, 50]
 const CHAPTER_LABELS = ['Essay', 'Short', 'Novella', 'Standard', 'Long', 'Epic']
+
+function chapterCountToSliderPos(count: number): number {
+  if (count <= CHAPTER_COUNTS[0]) return 0
+  if (count >= CHAPTER_COUNTS[CHAPTER_COUNTS.length - 1]) return CHAPTER_COUNTS.length - 1
+  for (let i = 0; i < CHAPTER_COUNTS.length - 1; i++) {
+    if (count <= CHAPTER_COUNTS[i + 1]) {
+      const frac = (count - CHAPTER_COUNTS[i]) / (CHAPTER_COUNTS[i + 1] - CHAPTER_COUNTS[i])
+      return i + frac
+    }
+  }
+  return 0
+}
 
 function getChapterLabel(count: number): string {
   const idx = CHAPTER_COUNTS.indexOf(count)
@@ -575,6 +588,7 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
   const [chapterCount, setChapterCount] = useState(defaultChapterCount)
   const [editingCount, setEditingCount] = useState(false)
   const [editValue, setEditValue] = useState('')
+  const [countError, setCountError] = useState('')
   const { provider, model } = useAppSelector(selectFunctionModel('profile'))
   const hasApiKey = useAppSelector(selectHasApiKey)
 
@@ -749,36 +763,64 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
 
           {/* Chapter count slider */}
           <div className="grid gap-1.5">
-            <div className="flex items-center justify-between">
+            <div className={cn("relative flex items-center justify-between", countError && "mb-4")}>
               <span className="text-sm font-medium text-content-primary">Length</span>
               <span className="text-xs text-content-muted">
                 {editingCount ? (
                   <input
-                    type="number"
-                    min={1}
-                    max={50}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     autoFocus
                     value={editValue}
-                    onChange={e => setEditValue(e.target.value)}
+                    onFocus={e => e.target.select()}
+                    onChange={e => {
+                      const raw = e.target.value.replace(/[^0-9]/g, '')
+                      setEditValue(raw)
+                      const n = parseInt(raw, 10)
+                      if (!raw) {
+                        setCountError('')
+                      } else if (n > 50 || n < 1) {
+                        setCountError('Must be between 1 and 50')
+                      } else {
+                        setCountError('')
+                        setChapterCount(n)
+                      }
+                    }}
                     onBlur={() => {
-                      const n = Math.max(1, Math.min(50, Math.round(Number(editValue) || 1)))
-                      setChapterCount(n)
+                      const n = parseInt(editValue, 10)
+                      if (!n || n < 1) setChapterCount(1)
+                      else if (n > 50) setChapterCount(50)
+                      setCountError('')
                       setEditingCount(false)
                     }}
                     onKeyDown={e => {
                       if (e.key === 'Enter') {
                         e.currentTarget.blur()
                       } else if (e.key === 'Escape') {
+                        setCountError('')
                         setEditingCount(false)
+                      } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                        e.preventDefault()
+                        const current = parseInt(editValue, 10) || chapterCount
+                        const next = e.key === 'ArrowUp' ? Math.min(current + 1, 50) : Math.max(current - 1, 1)
+                        setEditValue(String(next))
+                        setCountError('')
+                        setChapterCount(next)
+                      } else if (['-', '.', ',', 'e', 'E', '+'].includes(e.key)) {
+                        e.preventDefault()
                       }
                     }}
-                    className="w-[3ch] bg-transparent border-b border-border-focus text-right text-xs text-content-primary outline-none tabular-nums"
+                    className={cn(
+                      "w-[3.5rem] h-6 rounded-md border bg-surface-raised px-2 text-center text-xs text-content-primary outline-none tabular-nums",
+                      countError ? "border-red-500 ring-1 ring-red-500/30" : "border-border-focus ring-1 ring-border-focus/30"
+                    )}
                   />
                 ) : (
                   <button
                     type="button"
-                    onClick={() => { setEditValue(String(chapterCount)); setEditingCount(true) }}
-                    className="tabular-nums cursor-text border-b border-transparent hover:border-content-muted/40 text-content-primary"
+                    onClick={() => { setEditValue(String(chapterCount)); setCountError(''); setEditingCount(true) }}
+                    className="w-[3.5rem] h-6 rounded-md border border-border-default/60 bg-surface-raised/50 px-2 text-center tabular-nums cursor-text text-content-primary hover:border-border-focus/50 hover:bg-surface-raised transition-colors"
                   >
                     {chapterCount}
                   </button>
@@ -786,13 +828,16 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
                 {' '}{chapterCount === 1 ? 'chapter' : 'chapters'}
                 <span className="ml-1.5 text-content-muted/60">{getChapterLabel(chapterCount)}</span>
               </span>
+              {countError && (
+                <span className="absolute right-0 top-full text-[10px] text-red-400 mt-0.5">{countError}</span>
+              )}
             </div>
             <TickSlider
               min={0}
               max={CHAPTER_COUNTS.length - 1}
-              value={CHAPTER_COUNTS.reduce((closest, curr, i) =>
-                Math.abs(curr - chapterCount) < Math.abs(CHAPTER_COUNTS[closest] - chapterCount) ? i : closest, 0)}
-              onChange={i => setChapterCount(CHAPTER_COUNTS[i])}
+              step={0.01}
+              value={chapterCountToSliderPos(chapterCount)}
+              onChange={v => setChapterCount(CHAPTER_COUNTS[Math.round(v)])}
               ticks={CHAPTER_COUNTS.map((count, i) => ({
                 label: CHAPTER_LABELS[i],
                 highlight: count === defaultChapterCount,
