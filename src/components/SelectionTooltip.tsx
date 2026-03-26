@@ -1,15 +1,16 @@
 import { useRef, useState, useLayoutEffect } from 'react'
-import { Lightbulb, MessageCircle, ArrowDown, SendHorizontal } from 'lucide-react'
+import { Copy, Lightbulb, MessageCircle, ArrowDown, SendHorizontal } from 'lucide-react'
 
 interface SelectionTooltipProps {
   selectedText: string
   selectionRect: DOMRect | null
   onAction: (prompt: string) => void
+  clearSelection: () => void
 }
 
 const PAD = 8
 
-export function SelectionTooltip({ selectedText, selectionRect, onAction }: SelectionTooltipProps) {
+export function SelectionTooltip({ selectedText, selectionRect, onAction, clearSelection }: SelectionTooltipProps) {
   const [customPrompt, setCustomPrompt] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
@@ -86,8 +87,18 @@ export function SelectionTooltip({ selectedText, selectionRect, onAction }: Sele
         }
       }}
     >
-      <div className="flex flex-col gap-1.5 rounded-xl border border-border-default/50 bg-surface-overlay/95 p-1.5 shadow-lg backdrop-blur-sm">
+      <div className="flex min-w-[340px] flex-col gap-1.5 rounded-xl border border-border-default/50 bg-surface-overlay/95 p-1.5 shadow-lg backdrop-blur-sm">
         <div className="flex items-center gap-0.5">
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(selectedText)
+              clearSelection()
+            }}
+            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-content-secondary transition-colors hover:bg-surface-muted hover:text-content-primary"
+          >
+            <Copy className="size-3.5" />
+            Copy
+          </button>
           <button
             onClick={() => handleAction('explain')}
             className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-content-secondary transition-colors hover:bg-surface-muted hover:text-content-primary"
