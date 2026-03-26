@@ -985,6 +985,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
             selectedText={selectedText}
             selectionRect={selectionRect}
             onAction={handleSelectionAction}
+            clearSelection={clearSelection}
           />
         </div>
 

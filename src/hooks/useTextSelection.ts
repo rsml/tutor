@@ -87,6 +87,9 @@ export function useTextSelection(containerRef: React.RefObject<HTMLElement | nul
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') clearSelection()
+      if ((e.metaKey || e.ctrlKey) && e.key === 'c' && selectedTextRef.current) {
+        navigator.clipboard.writeText(selectedTextRef.current)
+      }
     }
 
     const handleSelectionChange = () => {
