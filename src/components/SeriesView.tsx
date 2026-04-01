@@ -26,19 +26,19 @@ interface Book {
 interface SeriesViewProps {
   seriesName: string
   books: Book[]
-  furthest: Record<string, number>
+  readingPositions: Record<string, { chapter: number }>
   onBookClick: (book: Book) => void
   onBack: () => void
   onContextMenu?: (book: Book, e: React.MouseEvent) => void
 }
 
-export function SeriesView({ seriesName, books, furthest, onBookClick, onBack, onContextMenu }: SeriesViewProps) {
+export function SeriesView({ seriesName, books, readingPositions, onBookClick, onBack, onContextMenu }: SeriesViewProps) {
   const sortedBooks = [...books].sort((a, b) => (a.seriesOrder ?? 0) - (b.seriesOrder ?? 0))
 
   const totalChapters = sortedBooks.reduce((sum, b) => sum + b.totalChapters, 0)
   const totalRead = sortedBooks.reduce((sum, b) => {
-    const reduxProgress = furthest[b.id]
-    return sum + (reduxProgress != null ? reduxProgress + 1 : b.chaptersRead)
+    const pos = readingPositions[b.id]
+    return sum + (pos != null ? pos.chapter + 1 : b.chaptersRead)
   }, 0)
 
   return (
@@ -79,9 +79,9 @@ export function SeriesView({ seriesName, books, furthest, onBookClick, onBack, o
           {/* Books grid */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 lg:gap-8 xl:grid-cols-5">
             {sortedBooks.map((book) => {
-              const reduxProgress = furthest[book.id]
-              const chaptersRead = reduxProgress != null
-                ? reduxProgress + 1
+              const pos = readingPositions[book.id]
+              const chaptersRead = pos != null
+                ? pos.chapter + 1
                 : book.chaptersRead
               return (
                 <BookCard

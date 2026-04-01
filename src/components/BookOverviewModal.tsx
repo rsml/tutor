@@ -26,7 +26,7 @@ export function BookOverviewModal({ open, onOpenChange, book }: BookOverviewModa
   const [toc, setToc] = useState<TocChapter[]>([])
   const [prompt, setPrompt] = useState('')
   const [loading, setLoading] = useState(true)
-  const furthest = useAppSelector(s => s.readingProgress.furthest[book.id] ?? -1)
+  const currentChapter = useAppSelector(s => s.readingProgress.positions[book.id]?.chapter ?? -1)
 
   useEffect(() => {
     if (!open) return
@@ -61,7 +61,7 @@ export function BookOverviewModal({ open, onOpenChange, book }: BookOverviewModa
         ) : (
           <div className="space-y-2 py-2">
             {toc.map((ch, i) => {
-              const read = i <= furthest
+              const read = i <= currentChapter
               return (
                 <div key={i} className="flex items-start gap-3">
                   {read ? (

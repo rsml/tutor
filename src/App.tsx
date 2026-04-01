@@ -108,7 +108,6 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dragCounterRef = useRef(0)
   const deferredSearch = useDeferredValue(searchQuery)
-  const furthest = useAppSelector(s => s.readingProgress.furthest)
   const readingPositions = useAppSelector(s => s.readingProgress.positions)
   const dispatch = useAppDispatch()
   const hasApiKey = useAppSelector(selectHasApiKey)
@@ -595,9 +594,9 @@ export default function App() {
 
   const classifyBook = useCallback((book: Book): 'finished' | 'in-progress' | 'not-started' => {
     if (book.status === 'complete') return 'finished'
-    if (furthest[book.id] != null) return 'in-progress'
+    if (readingPositions[book.id] != null) return 'in-progress'
     return 'not-started'
-  }, [furthest])
+  }, [readingPositions])
 
   // Compute allTags from all books
   const allTags = useMemo(() => {
@@ -683,10 +682,10 @@ export default function App() {
         }
         case 'progress': {
           const pa = a.totalChapters > 0
-            ? ((furthest[a.id] != null ? furthest[a.id] + 1 : a.chaptersRead) / a.totalChapters)
+            ? ((readingPositions[a.id] != null ? readingPositions[a.id].chapter + 1 : a.chaptersRead) / a.totalChapters)
             : 0
           const pb = b.totalChapters > 0
-            ? ((furthest[b.id] != null ? furthest[b.id] + 1 : b.chaptersRead) / b.totalChapters)
+            ? ((readingPositions[b.id] != null ? readingPositions[b.id].chapter + 1 : b.chaptersRead) / b.totalChapters)
             : 0
           return dir * (pa - pb)
         }
@@ -766,7 +765,7 @@ export default function App() {
       filteredBooks: sorted,
       searchResultCount: query ? sorted.length : undefined,
     }
-  }, [allBooks, libraryFilters, librarySort, classifyBook, deferredSearch, furthest, readingPositions, fullSearch, contentSearchResults])
+  }, [allBooks, libraryFilters, librarySort, classifyBook, deferredSearch, readingPositions, fullSearch, contentSearchResults])
 
   // Drag-and-drop handler for manual sort mode
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
@@ -1377,7 +1376,7 @@ export default function App() {
         <SeriesView
           seriesName={view.seriesName}
           books={seriesBooks}
-          furthest={furthest}
+          readingPositions={readingPositions}
           onBookClick={(book) => setView({ type: 'reading', book })}
           onBack={() => { fetchBooks(); setView({ type: 'library' }) }}
           onContextMenu={(book, e) => {
@@ -1566,16 +1565,16 @@ export default function App() {
                     seriesName: book.series,
                     bookCount: seriesBooks.length,
                     books: seriesBooks.map(b => {
-                      const rp = furthest[b.id]
-                      return { book: b, chaptersRead: rp != null ? rp + 1 : b.chaptersRead }
+                      const pos = readingPositions[b.id]
+                      return { book: b, chaptersRead: pos != null ? pos.chapter + 1 : b.chaptersRead }
                     }),
                   })
                 } else {
-                  const rp = furthest[book.id]
+                  const pos = readingPositions[book.id]
                   listItems.push({
                     type: 'book',
                     book,
-                    chaptersRead: rp != null ? rp + 1 : book.chaptersRead,
+                    chaptersRead: pos != null ? pos.chapter + 1 : book.chaptersRead,
                   })
                 }
               }
@@ -1628,8 +1627,8 @@ export default function App() {
                         }
                         const book = filteredBooks.find(b => b.id === activeDragId)
                         if (!book) return null
-                        const rp = furthest[book.id]
-                        const chaptersRead = rp != null ? rp + 1 : book.chaptersRead
+                        const pos = readingPositions[book.id]
+                        const chaptersRead = pos != null ? pos.chapter + 1 : book.chaptersRead
                         return (
                           <div className="bg-surface-raised rounded-lg shadow-lg ring-1 ring-border-focus/30">
                             <BookListRow book={book} chaptersRead={chaptersRead} onClick={() => {}} />
@@ -1659,8 +1658,8 @@ export default function App() {
                   const seriesBooks = filteredBooks.filter(b => b.series === book.series)
                   const totalChapters = seriesBooks.reduce((s, b) => s + b.totalChapters, 0)
                   const chaptersRead = seriesBooks.reduce((s, b) => {
-                    const rp = furthest[b.id]
-                    return s + (rp != null ? rp + 1 : b.chaptersRead)
+                    const pos = readingPositions[b.id]
+                    return s + (pos != null ? pos.chapter + 1 : b.chaptersRead)
                   }, 0)
 
                   const itemId = `series-${book.series}`
@@ -1698,9 +1697,9 @@ export default function App() {
                     )
                   }
                 } else {
-                  const reduxProgress = furthest[book.id]
-                  const chaptersRead = reduxProgress != null
-                    ? reduxProgress + 1
+                  const pos = readingPositions[book.id]
+                  const chaptersRead = pos != null
+                    ? pos.chapter + 1
                     : book.chaptersRead
                   gridItemIds.push(book.id)
 
