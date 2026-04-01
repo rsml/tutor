@@ -134,6 +134,9 @@ export const DEFAULT_LIBRARY_FILTERS: LibraryFilters = {
   datePreset: 'any',
 }
 
+export const READING_WIDTHS = [560, 640, 768, 896, 1024, 99999] as const
+export const DEFAULT_READING_WIDTH = 768
+
 export interface SettingsState {
   // Legacy fields (ignored after migration)
   apiKey?: string | null
@@ -256,7 +259,10 @@ export const selectModel = (state: RootState) => state.settings.providers[state.
 export const selectActiveProvider = (state: RootState) => state.settings.activeProvider
 export const selectProviders = (state: RootState) => state.settings.providers
 export const selectFontSize = (state: RootState) => state.settings.fontSize
-export const selectReadingWidth = (state: RootState) => state.settings.readingWidth
+export const selectReadingWidth = (state: RootState) => {
+  const w = state.settings.readingWidth
+  return READING_WIDTHS.includes(w as typeof READING_WIDTHS[number]) ? w : DEFAULT_READING_WIDTH
+}
 export const selectQuizLength = (state: RootState) => state.settings.quizLength ?? 3
 export const selectDefaultChapterCount = (state: RootState) => state.settings.defaultChapterCount ?? 12
 export const selectTextureEnabled = (state: RootState) => state.settings.textureEnabled
@@ -436,6 +442,9 @@ const migrateLibraryTabTransform = createTransform(
       librarySort: outbound.librarySort ?? { field: 'date', direction: 'desc' },
       libraryView: outbound.libraryView ?? 'grid',
       libraryFilters: outbound.libraryFilters ?? { ...DEFAULT_LIBRARY_FILTERS },
+      readingWidth: READING_WIDTHS.includes(outbound.readingWidth as typeof READING_WIDTHS[number])
+        ? outbound.readingWidth
+        : DEFAULT_READING_WIDTH,
     }
   },
   { whitelist: ['settings'] },

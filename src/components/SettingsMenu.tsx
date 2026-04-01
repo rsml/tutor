@@ -42,6 +42,8 @@ import {
   setProviderApiKey,
   setFontSize,
   setReadingWidth,
+  READING_WIDTHS,
+  DEFAULT_READING_WIDTH,
   setQuizLength,
   setDefaultChapterCount,
   setTextureEnabled,
@@ -59,9 +61,7 @@ const DEFAULT_CHAPTER_COUNT = 12
 const FONT_SIZES = [12, 13, 14, 15, 16, 17, 18, 20, 22]
 const DEFAULT_FONT_SIZE = 16
 
-const READING_WIDTHS = [560, 640, 768, 896, 1024, 99999]
 const READING_WIDTH_LABELS = ['Narrow', 'Medium', 'Default', 'Wide', 'Extra Wide', 'Full']
-const DEFAULT_READING_WIDTH = 768
 
 interface SettingsMenuProps {
   apiKeyDialogOpen?: boolean
@@ -181,7 +181,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
 
   const fontSizeIndex = FONT_SIZES.indexOf(fontSize)
   const defaultIndex = FONT_SIZES.indexOf(DEFAULT_FONT_SIZE)
-  const readingWidthIndex = READING_WIDTHS.indexOf(readingWidth)
+  const readingWidthIndex = (READING_WIDTHS as readonly number[]).indexOf(readingWidth)
   const defaultWidthIndex = READING_WIDTHS.indexOf(DEFAULT_READING_WIDTH)
   const readingWidthLabel = READING_WIDTH_LABELS[readingWidthIndex >= 0 ? readingWidthIndex : defaultWidthIndex]
 

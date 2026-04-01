@@ -143,6 +143,68 @@ describe('splitChapterIntoSections', () => {
     expect(sectionWithSub!.markdown).toContain('## Main Section')
   })
 
+  it('does not split fenced code blocks containing blank lines', () => {
+    const md = [
+      '# Chapter',
+      '',
+      words(200),
+      '',
+      'Here is some code:',
+      '',
+      '```python',
+      'def hello():',
+      '    x = 1',
+      '',
+      '    print(x)',
+      '```',
+      '',
+      words(200),
+    ].join('\n')
+
+    const sections = splitChapterIntoSections(md)
+    // The code block must appear intact in a single section
+    const codeSection = sections.find(s => s.markdown.includes('```python'))
+    expect(codeSection).toBeDefined()
+    expect(codeSection!.markdown).toContain('print(x)')
+    expect(codeSection!.markdown).toContain('```python')
+    // Should contain both the opening and closing fence
+    const fenceCount = (codeSection!.markdown.match(/```/g) || []).length
+    expect(fenceCount).toBeGreaterThanOrEqual(2)
+  })
+
+  it('does not split on ## headings inside fenced code blocks', () => {
+    const md = [
+      '# Chapter',
+      '',
+      words(100),
+      '',
+      '## Real Section',
+      '',
+      words(200),
+      '',
+      '```markdown',
+      '## This is not a heading',
+      '',
+      'Just example markdown',
+      '```',
+      '',
+      words(200),
+      '',
+      '## Another Real Section',
+      '',
+      words(300),
+    ].join('\n')
+
+    const sections = splitChapterIntoSections(md)
+    // The ## inside the fence should NOT create its own section
+    const allContent = sections.map(s => s.markdown).join('\n\n')
+    expect(allContent).toContain('## This is not a heading')
+    // The fenced ## should be in the same section as the surrounding content
+    const fencedSection = sections.find(s => s.markdown.includes('```markdown'))
+    expect(fencedSection).toBeDefined()
+    expect(fencedSection!.markdown).toContain('## This is not a heading')
+  })
+
   it('assigns correct indices', () => {
     const md = [
       '# Title',

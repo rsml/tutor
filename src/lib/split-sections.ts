@@ -15,14 +15,24 @@ interface Segment {
   wordCount: number
 }
 
+/** Check if a line opens or closes a fenced code block (``` or ~~~). */
+function isFenceLine(line: string): boolean {
+  return /^(`{3,}|~{3,})/.test(line.trim())
+}
+
 function splitAtHeadings(markdown: string): Segment[] {
   const lines = markdown.split('\n')
   const segments: Segment[] = []
   let currentLines: string[] = []
   let currentTitle: string | null = null
+  let inFence = false
 
   for (const line of lines) {
-    if (/^## /.test(line)) {
+    if (isFenceLine(line)) {
+      inFence = !inFence
+    }
+
+    if (!inFence && /^## /.test(line)) {
       // Flush previous segment
       if (currentLines.length > 0) {
         const md = currentLines.join('\n').trim()
@@ -48,8 +58,44 @@ function splitAtHeadings(markdown: string): Segment[] {
   return segments
 }
 
+/**
+ * Split markdown on blank lines, but treat fenced code blocks as atomic —
+ * blank lines inside fences do not cause a split.
+ */
+function splitParagraphsPreservingFences(markdown: string): string[] {
+  const lines = markdown.split('\n')
+  const paragraphs: string[] = []
+  let current: string[] = []
+  let inFence = false
+
+  for (const line of lines) {
+    if (isFenceLine(line)) {
+      inFence = !inFence
+      current.push(line)
+      continue
+    }
+
+    if (!inFence && line.trim() === '') {
+      if (current.some(l => l.trim() !== '')) {
+        paragraphs.push(current.join('\n').trim())
+        current = []
+      }
+      continue
+    }
+
+    current.push(line)
+  }
+
+  if (current.length > 0) {
+    const trimmed = current.join('\n').trim()
+    if (trimmed) paragraphs.push(trimmed)
+  }
+
+  return paragraphs
+}
+
 function splitByParagraphs(markdown: string, targetWords: number): Section[] {
-  const paragraphs = markdown.split(/\n{2,}/)
+  const paragraphs = splitParagraphsPreservingFences(markdown)
   const sections: Section[] = []
   let currentParagraphs: string[] = []
   let currentWordCount = 0
@@ -74,7 +120,7 @@ function splitByParagraphs(markdown: string, targetWords: number): Section[] {
 
   // Ensure minimum 2 sections
   if (sections.length < 2 && sections.length === 1) {
-    const allParas = markdown.split(/\n{2,}/)
+    const allParas = splitParagraphsPreservingFences(markdown)
     if (allParas.length >= 2) {
       const mid = Math.ceil(allParas.length / 2)
       const first = allParas.slice(0, mid).join('\n\n').trim()
