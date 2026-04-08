@@ -155,6 +155,35 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
   const articleRef = useRef<HTMLElement>(null)
   const tocNavRef = useRef<HTMLElement>(null)
   const chapterTabRefs = useRef<(HTMLButtonElement | null)[]>([])
+  const smoothScrollRafRef = useRef<number | null>(null)
+  const smoothScrollTargetRef = useRef<number | null>(null)
+
+  // Custom RAF-based smooth scroll — smoother than native `behavior: smooth`
+  // and cumulative (rapid presses stack their deltas instead of restarting).
+  const smoothScrollBy = useCallback((deltaY: number, duration = 320) => {
+    const el = scrollRef.current
+    if (!el) return
+    const baseY = smoothScrollTargetRef.current ?? el.scrollTop
+    const targetY = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, baseY + deltaY))
+    smoothScrollTargetRef.current = targetY
+    if (smoothScrollRafRef.current) cancelAnimationFrame(smoothScrollRafRef.current)
+    const startY = el.scrollTop
+    const startTime = performance.now()
+    const totalDelta = targetY - startY
+    const step = (now: number) => {
+      const t = Math.min((now - startTime) / duration, 1)
+      // easeOutCubic — fast start, gentle landing
+      const eased = 1 - Math.pow(1 - t, 3)
+      el.scrollTop = startY + totalDelta * eased
+      if (t < 1) {
+        smoothScrollRafRef.current = requestAnimationFrame(step)
+      } else {
+        smoothScrollRafRef.current = null
+        smoothScrollTargetRef.current = null
+      }
+    }
+    smoothScrollRafRef.current = requestAnimationFrame(step)
+  }, [])
 
   // Text selection
   const { selectedText, selectionRect, clearSelection } = useTextSelection(articleRef)
@@ -488,11 +517,11 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     scrollRef.current?.scrollTo({ top: 0 })
   }, [chapterIndex, sectionIndex])
 
-  // Center the active chapter tab in the TOC strip
+  // Center the active chapter tab in the TOC strip (instant — no animation)
   useEffect(() => {
     const btn = chapterTabRefs.current[chapterIndex]
     if (!btn) return
-    btn.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
+    btn.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'instant' })
   }, [chapterIndex, tocChapters.length])
 
   // Keyboard navigation: arrows for sections/scrolling, Enter/Space for page-down
@@ -513,21 +542,19 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
         e.preventDefault()
         const el = scrollRef.current
         if (!el) return
-        el.scrollBy({ top: el.clientHeight * (2 / 3), behavior: 'smooth' })
+        smoothScrollBy(el.clientHeight * (2 / 3), 420)
       } else if (e.key === 'ArrowDown') {
         e.preventDefault()
-        const fiveLines = fontSize * 1.625 * 5
-        scrollRef.current?.scrollBy({ top: fiveLines, behavior: 'smooth' })
+        smoothScrollBy(fontSize * 1.625 * 5, 240)
       } else if (e.key === 'ArrowUp') {
         e.preventDefault()
-        const fiveLines = fontSize * 1.625 * 5
-        scrollRef.current?.scrollBy({ top: -fiveLines, behavior: 'smooth' })
+        smoothScrollBy(-fontSize * 1.625 * 5, 240)
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [phase, goPrev, goNext, fontSize])
+  }, [phase, goPrev, goNext, fontSize, smoothScrollBy])
 
   // The chapter number to show on the generating tab
   const generatingTabLabel = generatingChapterNum ?? chapterIndex + 2

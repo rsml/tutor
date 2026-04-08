@@ -39,7 +39,7 @@ import { ReviewProgressPage } from '@src/pages/ReviewProgressPage'
 import { SkillDetailPage } from '@src/pages/SkillDetailPage'
 import { ProfileUpdatePage } from '@src/pages/ProfileUpdatePage'
 import { useBackgroundTasks } from '@src/hooks/useBackgroundTasks'
-import { store, useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize, selectLibraryFilters, selectLibrarySort, selectLibraryView, clearLibraryFilters, setLibraryFilters, selectFunctionModel, selectLastViewedBookId, setLastViewedBookId, DEFAULT_LIBRARY_FILTERS } from '@src/store'
+import { store, persistor, useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize, selectLibraryFilters, selectLibrarySort, selectLibraryView, clearLibraryFilters, setLibraryFilters, selectFunctionModel, selectLastViewedBookId, setLastViewedBookId, DEFAULT_LIBRARY_FILTERS } from '@src/store'
 import { PROVIDER_IDS } from '@src/lib/providers'
 import { apiUrl } from '@src/lib/api-base'
 import { previewEpub as previewEpubApi, confirmImport, type EpubPreview } from '@src/lib/api'
@@ -257,8 +257,21 @@ export default function App() {
     if (book) setView({ type: 'reading', book })
   }, [hasLoaded, apiBooks, lastViewedBookId])
 
+  // Safety-net: flush the redux-persist queue on page hide so nothing is lost on quit
+  useEffect(() => {
+    const flush = () => { persistor.flush().catch(() => {}) }
+    window.addEventListener('pagehide', flush)
+    window.addEventListener('beforeunload', flush)
+    return () => {
+      window.removeEventListener('pagehide', flush)
+      window.removeEventListener('beforeunload', flush)
+    }
+  }, [])
+
   const openBook = useCallback((book: Book) => {
     dispatch(setLastViewedBookId(book.id))
+    // Force an immediate persist write so a quick Cmd+Q can't race the debounced write
+    persistor.flush().catch(() => {})
     setView({ type: 'reading', book })
   }, [dispatch])
 
@@ -1340,7 +1353,12 @@ export default function App() {
     return (
       <ReaderPage
         book={view.book}
-        onBack={() => { dispatch(setLastViewedBookId(null)); fetchBooks(); setView({ type: 'library' }) }}
+        onBack={() => {
+          dispatch(setLastViewedBookId(null))
+          persistor.flush().catch(() => {})
+          fetchBooks()
+          setView({ type: 'library' })
+        }}
         onQuizReview={() => setView({ type: 'quiz-review', book: view.book })}
         onUpdateProfile={() => setView({ type: 'profile-update', bookId: view.book.id, bookTitle: view.book.title })}
       />
@@ -1393,7 +1411,7 @@ export default function App() {
           seriesName={view.seriesName}
           books={seriesBooks}
           readingPositions={readingPositions}
-          onBookClick={(book) => setView({ type: 'reading', book })}
+          onBookClick={(book) => openBook(book)}
           onBack={() => { fetchBooks(); setView({ type: 'library' }) }}
           onContextMenu={(book, e) => {
             if (apiBookIds.has(book.id)) {
@@ -1600,7 +1618,7 @@ export default function App() {
                 <BookListView
                   items={listItems}
                   isManual={isManual}
-                  onBookClick={(book) => setView({ type: 'reading', book })}
+                  onBookClick={(book) => openBook(book)}
                   onSeriesClick={(seriesName) => setView({ type: 'series', seriesName })}
                   onContextMenu={(book, e) => {
                     if (apiBookIds.has(book.id)) {
