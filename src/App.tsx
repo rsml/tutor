@@ -39,7 +39,7 @@ import { ReviewProgressPage } from '@src/pages/ReviewProgressPage'
 import { SkillDetailPage } from '@src/pages/SkillDetailPage'
 import { ProfileUpdatePage } from '@src/pages/ProfileUpdatePage'
 import { useBackgroundTasks } from '@src/hooks/useBackgroundTasks'
-import { store, useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize, selectLibraryFilters, selectLibrarySort, selectLibraryView, clearLibraryFilters, setLibraryFilters, selectFunctionModel, DEFAULT_LIBRARY_FILTERS } from '@src/store'
+import { store, useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize, selectLibraryFilters, selectLibrarySort, selectLibraryView, clearLibraryFilters, setLibraryFilters, selectFunctionModel, selectLastViewedBookId, setLastViewedBookId, DEFAULT_LIBRARY_FILTERS } from '@src/store'
 import { PROVIDER_IDS } from '@src/lib/providers'
 import { apiUrl } from '@src/lib/api-base'
 import { previewEpub as previewEpubApi, confirmImport, type EpubPreview } from '@src/lib/api'
@@ -115,6 +115,8 @@ export default function App() {
   const libraryFilters = useAppSelector(selectLibraryFilters)
   const librarySort = useAppSelector(selectLibrarySort)
   const libraryView = useAppSelector(selectLibraryView)
+  const lastViewedBookId = useAppSelector(selectLastViewedBookId)
+  const restoredOnceRef = useRef(false)
   const { provider: genProvider, model: genModel } = useAppSelector(selectFunctionModel('generation'))
   const { provider: quizProvider, model: quizModel } = useAppSelector(selectFunctionModel('quiz'))
 
@@ -245,6 +247,20 @@ export default function App() {
   useEffect(() => {
     fetchBooks()
   }, [fetchBooks])
+
+  // Resume last-viewed book on first load
+  useEffect(() => {
+    if (!hasLoaded || restoredOnceRef.current) return
+    restoredOnceRef.current = true
+    if (!lastViewedBookId) return
+    const book = apiBooks.find(b => b.id === lastViewedBookId)
+    if (book) setView({ type: 'reading', book })
+  }, [hasLoaded, apiBooks, lastViewedBookId])
+
+  const openBook = useCallback((book: Book) => {
+    dispatch(setLastViewedBookId(book.id))
+    setView({ type: 'reading', book })
+  }, [dispatch])
 
   // Full-text content search via backend
   useEffect(() => {
@@ -1324,7 +1340,7 @@ export default function App() {
     return (
       <ReaderPage
         book={view.book}
-        onBack={() => { fetchBooks(); setView({ type: 'library' }) }}
+        onBack={() => { dispatch(setLastViewedBookId(null)); fetchBooks(); setView({ type: 'library' }) }}
         onQuizReview={() => setView({ type: 'quiz-review', book: view.book })}
         onUpdateProfile={() => setView({ type: 'profile-update', bookId: view.book.id, bookTitle: view.book.title })}
       />
@@ -1719,7 +1735,7 @@ export default function App() {
                         coverUrl={book.hasCover ? apiUrl(`/api/books/${book.id}/cover?v=${book.coverUpdatedAt ?? ''}`) : undefined}
                         showTitleOnCover={book.showTitleOnCover}
                         imported={book.imported}
-                        onClick={() => setView({ type: 'reading', book })}
+                        onClick={() => openBook(book)}
                         onContextMenu={apiBookIds.has(book.id) ? (e) => {
                           e.preventDefault()
                           setContextMenu({ book, x: e.clientX, y: e.clientY })
@@ -1741,7 +1757,7 @@ export default function App() {
                         coverUrl={book.hasCover ? apiUrl(`/api/books/${book.id}/cover?v=${book.coverUpdatedAt ?? ''}`) : undefined}
                         showTitleOnCover={book.showTitleOnCover}
                         imported={book.imported}
-                        onClick={() => setView({ type: 'reading', book })}
+                        onClick={() => openBook(book)}
                         onContextMenu={apiBookIds.has(book.id) ? (e) => {
                           e.preventDefault()
                           setContextMenu({ book, x: e.clientX, y: e.clientY })

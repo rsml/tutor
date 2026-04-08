@@ -153,6 +153,8 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
 
   const scrollRef = useRef<HTMLElement>(null)
   const articleRef = useRef<HTMLElement>(null)
+  const tocNavRef = useRef<HTMLElement>(null)
+  const chapterTabRefs = useRef<(HTMLButtonElement | null)[]>([])
 
   // Text selection
   const { selectedText, selectionRect, clearSelection } = useTextSelection(articleRef)
@@ -486,7 +488,14 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     scrollRef.current?.scrollTo({ top: 0 })
   }, [chapterIndex, sectionIndex])
 
-  // Cmd+Left/Right keyboard navigation
+  // Center the active chapter tab in the TOC strip
+  useEffect(() => {
+    const btn = chapterTabRefs.current[chapterIndex]
+    if (!btn) return
+    btn.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
+  }, [chapterIndex, tocChapters.length])
+
+  // Keyboard navigation: arrows for sections/scrolling, Enter/Space for page-down
   useEffect(() => {
     if (phase !== 'reading') return
 
@@ -494,18 +503,31 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
       const tag = (e.target as HTMLElement)?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) return
 
-      if (e.metaKey && e.key === 'ArrowLeft') {
+      if (e.key === 'ArrowLeft') {
         e.preventDefault()
         goPrev()
-      } else if (e.metaKey && e.key === 'ArrowRight') {
+      } else if (e.key === 'ArrowRight') {
         e.preventDefault()
         goNext()
+      } else if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        const el = scrollRef.current
+        if (!el) return
+        el.scrollBy({ top: el.clientHeight * (2 / 3), behavior: 'smooth' })
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        const fiveLines = fontSize * 1.625 * 5
+        scrollRef.current?.scrollBy({ top: fiveLines, behavior: 'smooth' })
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        const fiveLines = fontSize * 1.625 * 5
+        scrollRef.current?.scrollBy({ top: -fiveLines, behavior: 'smooth' })
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [phase, goPrev, goNext])
+  }, [phase, goPrev, goNext, fontSize])
 
   // The chapter number to show on the generating tab
   const generatingTabLabel = generatingChapterNum ?? chapterIndex + 2
@@ -563,7 +585,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
           <div className="flex items-center justify-between">
-            <nav className="flex min-w-0 overflow-x-auto scrollbar-none">
+            <nav ref={tocNavRef} className="flex min-w-0 overflow-x-auto scrollbar-none">
               <button
                 onClick={() => setShowToc(true)}
                 className={cn(
@@ -585,6 +607,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
                 return (
                   <button
                     key={i}
+                    ref={el => { chapterTabRefs.current[i] = el }}
                     onClick={() => { if (phase === 'generating' || phase === 'generation-error') return; setShowToc(false); goToChapter(i, 0) }}
                     className={cn(
                       'relative shrink-0 whitespace-nowrap px-4 py-2 text-xs font-medium transition-colors',
@@ -703,6 +726,9 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
 
               {phase === 'reading' && !showToc && (
                 <div className="mx-auto px-8 pb-24" style={{ maxWidth: readingWidth }}>
+                  <div className="pt-2 text-xs text-content-muted">
+                    Chapter {chapterIndex + 1}
+                  </div>
                   {/* Section progress dots */}
                   {sections.length > 1 && (
                     <div className="flex items-center justify-center gap-1.5 py-1.5 border-b border-border-default/30">

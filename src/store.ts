@@ -157,6 +157,7 @@ export interface SettingsState {
   librarySort: LibrarySort
   libraryView: LibraryView
   libraryFilters: LibraryFilters
+  lastViewedBookId: string | null
 }
 
 const settingsSlice = createSlice({
@@ -179,6 +180,7 @@ const settingsSlice = createSlice({
     librarySort: { field: 'date', direction: 'desc' } as LibrarySort,
     libraryView: 'grid' as LibraryView,
     libraryFilters: { ...DEFAULT_LIBRARY_FILTERS },
+    lastViewedBookId: null,
   } as SettingsState,
   reducers: {
     setActiveProvider(state, action: PayloadAction<ProviderId>) {
@@ -230,6 +232,9 @@ const settingsSlice = createSlice({
     setModelAssignmentSeen(state, action: PayloadAction<boolean>) {
       state.modelAssignmentSeen = action.payload
     },
+    setLastViewedBookId(state, action: PayloadAction<string | null>) {
+      state.lastViewedBookId = action.payload
+    },
   },
 })
 
@@ -250,6 +255,7 @@ export const {
   setFunctionModel,
   clearFunctionModel,
   setModelAssignmentSeen,
+  setLastViewedBookId,
 } = settingsSlice.actions
 
 // Derived selectors — return active provider's key/model
@@ -271,6 +277,7 @@ export const selectLibrarySort = (state: RootState) => state.settings.librarySor
 export const selectLibraryView = (state: RootState) => state.settings.libraryView
 export const selectLibraryFilters = (state: RootState) => state.settings.libraryFilters
 export const selectModelAssignmentSeen = (state: RootState) => state.settings.modelAssignmentSeen
+export const selectLastViewedBookId = (state: RootState) => state.settings.lastViewedBookId ?? null
 export const selectFunctionModel = (group: AiFunctionGroup) => (state: RootState): { provider: ProviderId; model: string } => {
   const override = state.settings.functionModels?.[group]
   if (override) return override
