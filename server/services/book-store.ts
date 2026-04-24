@@ -9,6 +9,8 @@ import {
   FeedbackSchema,
   LearningProfileSchema,
   QuizSchema,
+  ChapterSummarySchema,
+  ReferenceManifestSchema,
   type BookMeta,
   type Toc,
   type Progress,
@@ -16,6 +18,8 @@ import {
   type Quiz,
   type LearningProfile,
   type ChapterProgress,
+  type ChapterSummary,
+  type ReferenceManifest,
 } from '../schemas.js'
 import { getDataDir } from '../../lib/data-dir.js'
 
@@ -429,4 +433,100 @@ export async function getAllFeedback(bookId: string): Promise<Feedback[]> {
   }
 
   return feedbacks
+}
+
+// --- Brief ---
+
+export async function saveBrief(bookId: string, content: string): Promise<void> {
+  const dir = bookDir(bookId)
+  await mkdir(dir, { recursive: true })
+  const dest = join(dir, 'brief.md')
+  const tmp = dest + '.tmp'
+  await writeFile(tmp, content, 'utf-8')
+  await rename(tmp, dest)
+}
+
+export async function getBrief(bookId: string): Promise<string> {
+  return readFile(join(bookDir(bookId), 'brief.md'), 'utf-8')
+}
+
+// --- Summaries ---
+
+export async function saveSummary(bookId: string, chapterNum: number, summary: ChapterSummary): Promise<void> {
+  ChapterSummarySchema.parse(summary)
+  const dir = join(bookDir(bookId), 'summaries')
+  await mkdir(dir, { recursive: true })
+  const padded = String(chapterNum).padStart(2, '0')
+  await writeYaml(join(dir, `${padded}.yml`), summary)
+}
+
+export async function getSummary(bookId: string, chapterNum: number): Promise<ChapterSummary> {
+  const padded = String(chapterNum).padStart(2, '0')
+  return readYaml(join(bookDir(bookId), 'summaries', `${padded}.yml`), ChapterSummarySchema)
+}
+
+export async function getAllSummaries(bookId: string): Promise<ChapterSummary[]> {
+  const summariesDir = join(bookDir(bookId), 'summaries')
+  if (!existsSync(summariesDir)) return []
+
+  const entries = await readdir(summariesDir)
+  const summaries: ChapterSummary[] = []
+
+  for (const entry of entries.filter(e => e.endsWith('.yml')).sort()) {
+    try {
+      const s = await readYaml(join(summariesDir, entry), ChapterSummarySchema)
+      summaries.push(s)
+    } catch {
+      // Skip invalid summary files
+    }
+  }
+
+  return summaries
+}
+
+// --- References ---
+
+/** Validates that a reference name contains only alphanumeric characters and hyphens (no path traversal). */
+function validateReferenceName(name: string): void {
+  if (!/^[a-zA-Z0-9-]+$/.test(name)) {
+    throw new Error(`Invalid reference name: "${name}". Only alphanumeric characters and hyphens are allowed.`)
+  }
+}
+
+export async function saveReference(bookId: string, name: string, content: string): Promise<void> {
+  validateReferenceName(name)
+  const dir = join(bookDir(bookId), 'references')
+  await mkdir(dir, { recursive: true })
+
+  // Write content file atomically
+  const dest = join(dir, `${name}.md`)
+  const tmp = dest + '.tmp'
+  await writeFile(tmp, content, 'utf-8')
+  await rename(tmp, dest)
+
+  // Update manifest: read existing, upsert entry, write back
+  const manifestPath = join(dir, 'manifest.yml')
+  const manifest: ReferenceManifest = existsSync(manifestPath)
+    ? await readYaml(manifestPath, ReferenceManifestSchema)
+    : []
+
+  const idx = manifest.findIndex(e => e.name === name)
+  if (idx >= 0) {
+    manifest[idx] = { ...manifest[idx], name }
+  } else {
+    manifest.push({ name })
+  }
+
+  await writeYaml(manifestPath, manifest)
+}
+
+export async function getReference(bookId: string, name: string): Promise<string> {
+  validateReferenceName(name)
+  return readFile(join(bookDir(bookId), 'references', `${name}.md`), 'utf-8')
+}
+
+export async function listReferences(bookId: string): Promise<ReferenceManifest> {
+  const manifestPath = join(bookDir(bookId), 'references', 'manifest.yml')
+  if (!existsSync(manifestPath)) return []
+  return readYaml(manifestPath, ReferenceManifestSchema)
 }

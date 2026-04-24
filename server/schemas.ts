@@ -151,6 +151,27 @@ export type QuizQuestion = z.infer<typeof QuizQuestionSchema>
 export type Quiz = z.infer<typeof QuizSchema>
 export type Feedback = z.infer<typeof FeedbackSchema>
 
+// --- Chapter Summaries ---
+
+export const ChapterSummarySchema = z.object({
+  summary: z.string(),
+  keyPoints: z.array(z.string()),
+})
+export type ChapterSummary = z.infer<typeof ChapterSummarySchema>
+
+// --- References ---
+
+export const ReferenceEntrySchema = z.object({
+  name: z.string(),
+  url: z.string().optional(),
+  heading: z.string().optional(),
+  tokenEstimate: z.number().int().optional(),
+})
+export type ReferenceEntry = z.infer<typeof ReferenceEntrySchema>
+
+export const ReferenceManifestSchema = z.array(ReferenceEntrySchema)
+export type ReferenceManifest = z.infer<typeof ReferenceManifestSchema>
+
 // --- Request Body Schemas ---
 
 export const ProviderSchema = z.enum(['anthropic', 'openai', 'google'])
