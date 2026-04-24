@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { toast } from '@src/lib/toast'
-import { Sparkles, Loader2, TrendingUp, Puzzle, Dices } from 'lucide-react'
+import { Sparkles, Loader2, TrendingUp, Puzzle, Dices, Terminal } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import {
   Dialog,
@@ -19,7 +19,8 @@ import {
 } from '@src/components/ui/dropdown-menu'
 import { TickSlider } from '@src/components/ui/tick-slider'
 import { useAppSelector, selectFunctionModel, selectHasApiKey, selectDefaultChapterCount } from '@src/store'
-import { apiUrl } from '@src/lib/api-base'
+import { apiUrl, getApiPort } from '@src/lib/api-base'
+import { generateMcpConfig } from '@src/lib/mcp-config'
 import { cn } from '@src/lib/utils'
 import { store } from '@src/store'
 
@@ -653,6 +654,37 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
     setReasoning(null)
   }
 
+  const handleAgenticCreate = async () => {
+    if (!topic.trim()) return
+    try {
+      const res = await fetch(apiUrl('/api/books/create-skeleton'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: topic.trim(),
+          prompt: `${topic.trim()}${details.trim() ? `\n\n${details.trim()}` : ''}`,
+          totalChapters: chapterCount,
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to create book skeleton')
+      const data = await res.json()
+
+      const { command } = generateMcpConfig(getApiPort())
+      await navigator.clipboard.writeText(command)
+
+      onOpenChange(false)
+      setTopic('')
+      setDetails('')
+      setReasoning(null)
+      toast.success(
+        `Book "${data.title}" created. Claude Code command copied to clipboard — paste it in your terminal.`,
+        { duration: 8000 },
+      )
+    } catch (err) {
+      toast.error('Failed: ' + (err instanceof Error ? err.message : 'Unknown error'))
+    }
+  }
+
   const handleSuggestDetails = async () => {
     if (!hasApiKey || suggestingDetails || !topic.trim()) return
     setSuggestingDetails(true)
@@ -847,7 +879,17 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
         </div>
 
         </ScrollableDialogBody>
-        <ScrollableDialogFooter className="justify-end">
+        <ScrollableDialogFooter className="justify-between">
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={!topic.trim()}
+            onClick={handleAgenticCreate}
+            className="text-content-muted hover:text-content-primary gap-1.5"
+          >
+            <Terminal className="size-3.5" />
+            Claude Code
+          </Button>
           <Button
             variant="primary"
             size="lg"

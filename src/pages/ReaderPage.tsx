@@ -134,6 +134,28 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     return () => controller.abort()
   }, [book.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Poll for external chapter updates (e.g. from Claude Code via MCP)
+  // Active when book has ungenerated chapters and no in-app generation is running
+  useEffect(() => {
+    if (generatedUpTo >= book.totalChapters) return
+    if (phase === 'generating') return
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(apiUrl(`/api/books/${book.id}`))
+        if (!res.ok) return
+        const data = await res.json()
+        if (data.generatedUpTo > generatedUpTo) {
+          setGeneratedUpTo(data.generatedUpTo)
+        }
+      } catch {
+        // Ignore polling errors
+      }
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [book.id, book.totalChapters, generatedUpTo, phase])
+
   const {
     chapterIndex, sectionIndex, sections, currentSection,
     fullChapterContent, loading: chapterLoading,
