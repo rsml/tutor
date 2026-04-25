@@ -7,7 +7,14 @@ export interface McpLaunchConfig {
   command: string
 }
 
-export function generateMcpConfig(serverPort = 3147): McpLaunchConfig {
+export interface BookContext {
+  bookId: string
+  topic: string
+  details?: string
+  chapterCount: number
+}
+
+export function generateMcpConfig(serverPort = 3147, book?: BookContext): McpLaunchConfig {
   const config = {
     mcpServers: {
       tutor: {
@@ -21,7 +28,16 @@ export function generateMcpConfig(serverPort = 3147): McpLaunchConfig {
   }
 
   const configJson = JSON.stringify(config, null, 2)
-  const command = `claude --mcp-config <(echo '${JSON.stringify(config)}')`
+  const mcpFlag = `--mcp-config <(echo '${JSON.stringify(config)}')`
 
-  return { configJson, command }
+  if (book) {
+    const brief = book.details
+      ? `Topic: ${book.topic}\n\nDetails:\n${book.details}`
+      : `Topic: ${book.topic}`
+    const prompt = `Use /generate-book to generate book "${book.bookId}" (${book.chapterCount} chapters).\n\n${brief}`
+    const escapedPrompt = prompt.replace(/'/g, "'\\''")
+    return { configJson, command: `claude '${escapedPrompt}' ${mcpFlag}` }
+  }
+
+  return { configJson, command: `claude ${mcpFlag}` }
 }

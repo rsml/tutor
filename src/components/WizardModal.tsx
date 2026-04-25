@@ -590,6 +590,8 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
   const [editingCount, setEditingCount] = useState(false)
   const [editValue, setEditValue] = useState('')
   const [countError, setCountError] = useState('')
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [agenticCreating, setAgenticCreating] = useState(false)
   const { provider, model } = useAppSelector(selectFunctionModel('profile'))
   const hasApiKey = useAppSelector(selectHasApiKey)
 
@@ -598,6 +600,7 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
     if (open) {
       setChapterCount(defaultChapterCount)
       setEditingCount(false)
+      setShowAdvanced(false)
     }
   }, [open, defaultChapterCount])
 
@@ -655,7 +658,11 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
   }
 
   const handleAgenticCreate = async () => {
-    if (!topic.trim()) return
+    if (!topic.trim()) {
+      toast.error('Enter a topic first')
+      return
+    }
+    setAgenticCreating(true)
     try {
       const res = await fetch(apiUrl('/api/books/create-skeleton'), {
         method: 'POST',
@@ -669,19 +676,27 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
       if (!res.ok) throw new Error('Failed to create book skeleton')
       const data = await res.json()
 
-      const { command } = generateMcpConfig(getApiPort())
+      const { command } = generateMcpConfig(getApiPort(), {
+        bookId: data.bookId,
+        topic: topic.trim(),
+        details: details.trim() || undefined,
+        chapterCount,
+      })
       await navigator.clipboard.writeText(command)
 
       onOpenChange(false)
       setTopic('')
       setDetails('')
       setReasoning(null)
+      setShowAdvanced(false)
       toast.success(
-        `Book "${data.title}" created. Claude Code command copied to clipboard — paste it in your terminal.`,
+        `Book "${data.title}" created. Command copied — paste in your terminal to start generation.`,
         { duration: 8000 },
       )
     } catch (err) {
       toast.error('Failed: ' + (err instanceof Error ? err.message : 'Unknown error'))
+    } finally {
+      setAgenticCreating(false)
     }
   }
 
@@ -878,18 +893,42 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
           </div>
         </div>
 
+          {/* Advanced options */}
+          <div className="grid gap-2.5 pt-1">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={showAdvanced}
+                onChange={e => setShowAdvanced(e.target.checked)}
+                className="size-3.5 rounded accent-[oklch(0.55_0.20_285)]"
+              />
+              <span className="text-sm text-content-muted">Advanced</span>
+            </label>
+
+            {showAdvanced && (
+              <div className="rounded-lg border border-border-default/50 bg-surface-muted/30 px-3 py-3 space-y-2.5">
+                <p className="text-xs text-content-muted leading-relaxed">
+                  Generate this book using Claude Code in your terminal.
+                  Creates a skeleton and copies the launch command to your clipboard.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={agenticCreating}
+                  onClick={handleAgenticCreate}
+                  className="w-full gap-1.5"
+                >
+                  {agenticCreating
+                    ? <Loader2 className="size-3.5 animate-spin" />
+                    : <Terminal className="size-3.5" />}
+                  {agenticCreating ? 'Creating...' : 'Generate in Terminal'}
+                </Button>
+              </div>
+            )}
+          </div>
+
         </ScrollableDialogBody>
-        <ScrollableDialogFooter className="justify-between">
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!topic.trim()}
-            onClick={handleAgenticCreate}
-            className="text-content-muted hover:text-content-primary gap-1.5"
-          >
-            <Terminal className="size-3.5" />
-            Claude Code
-          </Button>
+        <ScrollableDialogFooter>
           <Button
             variant="primary"
             size="lg"
