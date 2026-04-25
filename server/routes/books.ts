@@ -1638,6 +1638,25 @@ ${profileContext || 'No profile available.'}
     },
   )
 
+  fastify.put<{ Params: { id: string }; Body: unknown }>(
+    '/api/books/:id/toc',
+    { schema: { params: bookIdSchema } },
+    async (request, reply) => {
+      const body = z.object({
+        chapters: z.array(z.object({
+          title: z.string(),
+          description: z.string(),
+        })),
+      }).parse(request.body)
+      const meta = await store.getBook(request.params.id)
+      meta.totalChapters = body.chapters.length
+      meta.updatedAt = new Date().toISOString()
+      await store.saveBook(meta)
+      await store.saveToc(request.params.id, { chapters: body.chapters })
+      return { ok: true }
+    },
+  )
+
   const bookRefSchema = {
     type: 'object' as const,
     properties: {
