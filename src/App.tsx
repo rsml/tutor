@@ -1599,6 +1599,7 @@ export default function App() {
                     seriesName: book.series,
                     bookCount: seriesBooks.length,
                     books: seriesBooks.map(b => {
+                      if (b.status === 'complete') return { book: b, chaptersRead: b.totalChapters }
                       const pos = readingPositions[b.id]
                       return { book: b, chaptersRead: pos != null ? pos.chapter + 1 : b.chaptersRead }
                     }),
@@ -1608,7 +1609,7 @@ export default function App() {
                   listItems.push({
                     type: 'book',
                     book,
-                    chaptersRead: pos != null ? pos.chapter + 1 : book.chaptersRead,
+                    chaptersRead: book.status === 'complete' ? book.totalChapters : (pos != null ? pos.chapter + 1 : book.chaptersRead),
                   })
                 }
               }
@@ -1692,6 +1693,7 @@ export default function App() {
                   const seriesBooks = filteredBooks.filter(b => b.series === book.series)
                   const totalChapters = seriesBooks.reduce((s, b) => s + b.totalChapters, 0)
                   const chaptersRead = seriesBooks.reduce((s, b) => {
+                    if (b.status === 'complete') return s + b.totalChapters
                     const pos = readingPositions[b.id]
                     return s + (pos != null ? pos.chapter + 1 : b.chaptersRead)
                   }, 0)
@@ -1732,9 +1734,9 @@ export default function App() {
                   }
                 } else {
                   const pos = readingPositions[book.id]
-                  const chaptersRead = pos != null
-                    ? pos.chapter + 1
-                    : book.chaptersRead
+                  const chaptersRead = book.status === 'complete'
+                    ? book.totalChapters
+                    : pos != null ? pos.chapter + 1 : book.chaptersRead
                   gridItemIds.push(book.id)
 
                   if (isManual) {
@@ -1748,8 +1750,6 @@ export default function App() {
                         totalChapters={book.totalChapters}
                         status={book.status}
                         rating={book.rating}
-                        finalQuizScore={book.finalQuizScore}
-                        finalQuizTotal={book.finalQuizTotal}
                         coverUrl={book.hasCover ? apiUrl(`/api/books/${book.id}/cover?v=${book.coverUpdatedAt ?? ''}`) : undefined}
                         showTitleOnCover={book.showTitleOnCover}
                         imported={book.imported}
@@ -1770,8 +1770,6 @@ export default function App() {
                         totalChapters={book.totalChapters}
                         status={book.status}
                         rating={book.rating}
-                        finalQuizScore={book.finalQuizScore}
-                        finalQuizTotal={book.finalQuizTotal}
                         coverUrl={book.hasCover ? apiUrl(`/api/books/${book.id}/cover?v=${book.coverUpdatedAt ?? ''}`) : undefined}
                         showTitleOnCover={book.showTitleOnCover}
                         imported={book.imported}

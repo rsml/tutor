@@ -11,8 +11,6 @@ interface SortableBookCardProps {
   totalChapters: number
   status?: string
   rating?: number
-  finalQuizScore?: number
-  finalQuizTotal?: number
   coverUrl?: string
   showTitleOnCover?: boolean
   imported?: boolean

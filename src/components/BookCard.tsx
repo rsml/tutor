@@ -17,8 +17,6 @@ interface BookCardProps {
   totalChapters: number
   status?: string
   rating?: number
-  finalQuizScore?: number
-  finalQuizTotal?: number
   coverUrl?: string
   showTitleOnCover?: boolean
   imported?: boolean
@@ -26,7 +24,7 @@ interface BookCardProps {
   onContextMenu?: (e: React.MouseEvent) => void
 }
 
-export function BookCard({ title, subtitle, chaptersRead, totalChapters, status, rating, finalQuizScore, finalQuizTotal, coverUrl, showTitleOnCover, imported, onClick, onContextMenu }: BookCardProps) {
+export function BookCard({ title, subtitle, chaptersRead, totalChapters, status, rating, coverUrl, showTitleOnCover, imported, onClick, onContextMenu }: BookCardProps) {
   const hue = stringToHue(title)
   const progress = totalChapters > 0 ? chaptersRead / totalChapters : 0
   const isGenerating = status === 'generating_toc' || status === 'generating'
@@ -125,11 +123,8 @@ export function BookCard({ title, subtitle, chaptersRead, totalChapters, status,
             : `${chaptersRead} of ${totalChapters} chapters`}
         </p>
         {rating != null && rating > 0 && (
-          <div className="mt-0.5 flex items-center gap-2">
+          <div className="mt-0.5">
             <StarRating value={rating} readonly size="sm" />
-            {finalQuizScore != null && finalQuizTotal != null && (
-              <span className="text-[0.75em] text-content-muted">{finalQuizScore}/{finalQuizTotal}</span>
-            )}
           </div>
         )}
       </div>

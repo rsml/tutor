@@ -18,7 +18,7 @@ import {
   DropdownMenuItem,
 } from '@src/components/ui/dropdown-menu'
 import { TickSlider } from '@src/components/ui/tick-slider'
-import { useAppSelector, selectFunctionModel, selectHasApiKey, selectDefaultChapterCount } from '@src/store'
+import { useAppSelector, useAppDispatch, selectFunctionModel, selectHasApiKey, selectDefaultChapterCount, selectAdvancedMode, setAdvancedMode } from '@src/store'
 import { apiUrl, getApiPort } from '@src/lib/api-base'
 import { generateMcpConfig } from '@src/lib/mcp-config'
 import { cn } from '@src/lib/utils'
@@ -585,12 +585,13 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
   const [reasoning, setReasoning] = useState<string | null>(null)
   const [generateCover, setGenerateCover] = useState(false)
   const [coverDescription, setCoverDescription] = useState('')
+  const dispatch = useAppDispatch()
   const defaultChapterCount = useAppSelector(selectDefaultChapterCount)
+  const advancedMode = useAppSelector(selectAdvancedMode)
   const [chapterCount, setChapterCount] = useState(defaultChapterCount)
   const [editingCount, setEditingCount] = useState(false)
   const [editValue, setEditValue] = useState('')
   const [countError, setCountError] = useState('')
-  const [showAdvanced, setShowAdvanced] = useState(false)
   const [agenticCreating, setAgenticCreating] = useState(false)
   const { provider, model } = useAppSelector(selectFunctionModel('profile'))
   const hasApiKey = useAppSelector(selectHasApiKey)
@@ -600,7 +601,6 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
     if (open) {
       setChapterCount(defaultChapterCount)
       setEditingCount(false)
-      setShowAdvanced(false)
     }
   }, [open, defaultChapterCount])
 
@@ -688,7 +688,6 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
       setTopic('')
       setDetails('')
       setReasoning(null)
-      setShowAdvanced(false)
       toast.success(
         `Book "${data.title}" created. Command copied — paste in your terminal to start generation.`,
         { duration: 8000 },
@@ -893,19 +892,22 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
           </div>
         </div>
 
-          {/* Advanced options */}
-          <div className="grid gap-2.5 pt-1">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={showAdvanced}
-                onChange={e => setShowAdvanced(e.target.checked)}
-                className="size-3.5 rounded accent-[oklch(0.55_0.20_285)]"
-              />
-              <span className="text-sm text-content-muted">Advanced</span>
+          {/* Advanced mode */}
+          <div className="grid gap-2.5 mt-4">
+            <label className="flex items-center justify-between cursor-pointer select-none">
+              <span className="text-sm text-content-muted">Advanced Mode</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={advancedMode}
+                onClick={() => dispatch(setAdvancedMode(!advancedMode))}
+                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${advancedMode ? 'bg-[oklch(0.55_0.20_285)]' : 'bg-white/15'}`}
+              >
+                <span className={`inline-block size-3.5 rounded-full bg-white shadow transition-transform ${advancedMode ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+              </button>
             </label>
 
-            {showAdvanced && (
+            {advancedMode && (
               <div className="rounded-lg border border-border-default/50 bg-surface-muted/30 px-3 py-3 space-y-2.5">
                 <p className="text-xs text-content-muted leading-relaxed">
                   Generate this book using Claude Code in your terminal.

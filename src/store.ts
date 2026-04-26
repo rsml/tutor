@@ -152,6 +152,7 @@ export interface SettingsState {
   readingWidth: number
   quizLength: number
   defaultChapterCount: number
+  advancedMode: boolean
   textureEnabled: boolean
   textureOpacity: number
   librarySort: LibrarySort
@@ -175,6 +176,7 @@ const settingsSlice = createSlice({
     readingWidth: 768,
     quizLength: 3,
     defaultChapterCount: 12,
+    advancedMode: false,
     textureEnabled: true,
     textureOpacity: 1,
     librarySort: { field: 'date', direction: 'desc' } as LibrarySort,
@@ -203,6 +205,9 @@ const settingsSlice = createSlice({
     },
     setDefaultChapterCount(state, action: PayloadAction<number>) {
       state.defaultChapterCount = action.payload
+    },
+    setAdvancedMode(state, action: PayloadAction<boolean>) {
+      state.advancedMode = action.payload
     },
     setTextureEnabled(state, action: PayloadAction<boolean>) {
       state.textureEnabled = action.payload
@@ -246,6 +251,7 @@ export const {
   setReadingWidth,
   setQuizLength,
   setDefaultChapterCount,
+  setAdvancedMode,
   setTextureEnabled,
   setTextureOpacity,
   setLibrarySort,
@@ -271,6 +277,7 @@ export const selectReadingWidth = (state: RootState) => {
 }
 export const selectQuizLength = (state: RootState) => state.settings.quizLength ?? 3
 export const selectDefaultChapterCount = (state: RootState) => state.settings.defaultChapterCount ?? 12
+export const selectAdvancedMode = (state: RootState) => state.settings.advancedMode ?? false
 export const selectTextureEnabled = (state: RootState) => state.settings.textureEnabled
 export const selectTextureOpacity = (state: RootState) => state.settings.textureOpacity
 export const selectLibrarySort = (state: RootState) => state.settings.librarySort

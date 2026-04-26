@@ -37,6 +37,7 @@ export function SeriesView({ seriesName, books, readingPositions, onBookClick, o
 
   const totalChapters = sortedBooks.reduce((sum, b) => sum + b.totalChapters, 0)
   const totalRead = sortedBooks.reduce((sum, b) => {
+    if (b.status === 'complete') return sum + b.totalChapters
     const pos = readingPositions[b.id]
     return sum + (pos != null ? pos.chapter + 1 : b.chaptersRead)
   }, 0)
@@ -80,9 +81,9 @@ export function SeriesView({ seriesName, books, readingPositions, onBookClick, o
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 lg:gap-8 xl:grid-cols-5">
             {sortedBooks.map((book) => {
               const pos = readingPositions[book.id]
-              const chaptersRead = pos != null
-                ? pos.chapter + 1
-                : book.chaptersRead
+              const chaptersRead = book.status === 'complete'
+                ? book.totalChapters
+                : pos != null ? pos.chapter + 1 : book.chaptersRead
               return (
                 <BookCard
                   key={book.id}
@@ -92,8 +93,6 @@ export function SeriesView({ seriesName, books, readingPositions, onBookClick, o
                   totalChapters={book.totalChapters}
                   status={book.status}
                   rating={book.rating}
-                  finalQuizScore={book.finalQuizScore}
-                  finalQuizTotal={book.finalQuizTotal}
                   coverUrl={book.hasCover ? apiUrl(`/api/books/${book.id}/cover?v=${book.coverUpdatedAt ?? ''}`) : undefined}
                   showTitleOnCover={book.showTitleOnCover}
                   onClick={() => onBookClick(book)}
