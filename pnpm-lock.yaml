@@ -50,6 +50,9 @@ importers:
       ai:
         specifier: ^6.0.116
         version: 6.0.116(zod@4.3.6)
+      bail:
+        specifier: ^2.0.2
+        version: 2.0.2
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -71,6 +74,9 @@ importers:
       epub2:
         specifier: ^3.0.2
         version: 3.0.2(ts-toolbelt@9.6.0)
+      extend:
+        specifier: ^3.0.2
+        version: 3.0.2
       fastify:
         specifier: ^5.8.1
         version: 5.8.1
@@ -140,6 +146,9 @@ importers:
       tailwind-merge:
         specifier: ^3.5.0
         version: 3.5.0
+      trough:
+        specifier: ^2.2.0
+        version: 2.2.0
       turndown:
         specifier: ^7.2.2
         version: 7.2.2
