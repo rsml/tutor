@@ -16,7 +16,11 @@ export default defineConfig({
             rollupOptions: {
               external: (id) => {
                 if (id.startsWith('node:')) return true
-                if (/^[a-z@]/.test(id) && !id.startsWith('.') && !id.startsWith('/')) return true
+                if (id === 'electron') return true
+                // Resolved at runtime via createRequire().resolve()
+                if (id === 'mermaid' || id.startsWith('mermaid/')) return true
+                // Bundle everything else — pnpm hoisting causes electron-builder
+                // to miss transitive deps in the asar
                 return false
               },
             },
