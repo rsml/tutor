@@ -16,8 +16,25 @@ export default defineConfig({
             rollupOptions: {
               external: (id) => {
                 if (id.startsWith('node:')) return true
-                if (/^[a-z@]/.test(id) && !id.startsWith('.') && !id.startsWith('/')) return true
-                return false
+                if (id.startsWith('.') || id.startsWith('/') || id.startsWith('#')) return false
+                // Bundle the unified/remark/rehype ecosystem — pure ESM with deep
+                // transitive deps that pnpm/electron-builder fails to resolve.
+                // Everything else stays external (resolves fine from node_modules).
+                const bundlePrefixes = [
+                  'unified', 'remark-', 'rehype-', 'mdast-', 'hast-', 'unist-',
+                  'micromark', 'estree-util-', 'vfile', 'character-entities',
+                ]
+                if (bundlePrefixes.some(p => id === p || id.startsWith(p))) return false
+                const bundleExact = [
+                  'bail', 'trough', 'devlop', 'ccount', 'zwitch', 'longest-streak',
+                  'markdown-table', 'trim-lines', 'property-information', 'web-namespaces',
+                  'comma-separated-tokens', 'space-separated-tokens', 'stringify-entities',
+                  'parse-entities', 'decode-named-character-reference', 'hastscript',
+                  'extend', 'is-plain-obj', 'escape-string-regexp', 'parse5',
+                  'html-void-elements', '@ungap/structured-clone', 'entities',
+                ]
+                if (bundleExact.some(p => id === p || id.startsWith(p + '/'))) return false
+                return true
               },
             },
           },

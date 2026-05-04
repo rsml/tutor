@@ -1333,7 +1333,11 @@ ${profileContext || 'No profile available.'}
         try {
           const { markdownToHtml } = await import('../services/markdown-html.js')
 
-          const epub = (await import('epub-gen-memory')).default
+          const epubMod = await import('epub-gen-memory') as { default: unknown }
+          // epub-gen-memory is CJS with __esModule — handle double-default
+          const epubDefault = epubMod.default as Record<string, unknown>
+          const epub = (typeof epubDefault === 'function' ? epubDefault : epubDefault.default) as
+            (options: Record<string, unknown>, content: Array<{ title: string; content: string }>) => Promise<Buffer>
           const { readFile: readFileAsync2 } = await import('node:fs/promises')
           const { createRequire } = await import('node:module')
 
@@ -1477,6 +1481,7 @@ ${profileContext || 'No profile available.'}
           taskManager.completeTask(task.id, { path: `/api/books/${bookId}/export-epub` })
         } catch (err) {
           if (task.abortController.signal.aborted) return
+          console.error('[epub-export] EPUB generation failed:', err)
           taskManager.failTask(task.id, err instanceof Error ? err.message : 'EPUB export failed')
         }
       })()
