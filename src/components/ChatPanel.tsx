@@ -12,13 +12,10 @@ interface ChatPanelProps {
   initialPrompt: string | null
   chatKey: number
   onMissingApiKey: () => void
-  pendingNewChat: { text: string; prompt: string } | null
-  onConfirmNewChat: () => void
-  onDismissNewChat: () => void
   bookId: string
 }
 
-export function ChatPanel({ open, onClose, selectedText, chapterContent, initialPrompt, chatKey, onMissingApiKey, pendingNewChat, onConfirmNewChat, onDismissNewChat, bookId }: ChatPanelProps) {
+export function ChatPanel({ open, onClose, selectedText, chapterContent, initialPrompt, chatKey, onMissingApiKey, bookId }: ChatPanelProps) {
   const dispatch = useAppDispatch()
   const hasApiKey = useAppSelector(selectHasApiKey)
   const { provider, model } = useAppSelector(selectFunctionModel('chat'))
@@ -193,32 +190,6 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
           <X className="size-4" />
         </button>
       </div>
-
-      {/* Pending new chat banner */}
-      {pendingNewChat && (
-        <div className="shrink-0 border-b border-border-default/50 bg-surface-raised/80 px-4 py-3">
-          <p className="text-xs text-content-secondary">
-            Start a new chat about different text?
-          </p>
-          <p className="mt-1 text-xs text-content-muted line-clamp-2 italic">
-            &ldquo;{pendingNewChat.text.slice(0, 100)}{pendingNewChat.text.length > 100 ? '...' : ''}&rdquo;
-          </p>
-          <div className="mt-2 flex gap-2">
-            <button
-              onClick={onConfirmNewChat}
-              className="rounded-md bg-[oklch(0.55_0.20_285)] px-3 py-1 text-xs font-medium text-white"
-            >
-              New Chat
-            </button>
-            <button
-              onClick={onDismissNewChat}
-              className="rounded-md px-3 py-1 text-xs font-medium text-content-muted hover:text-content-primary"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">

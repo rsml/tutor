@@ -9,7 +9,7 @@ import { useTextSelection } from '@src/hooks/useTextSelection'
 import { useSectionNavigation } from '@src/hooks/useSectionNavigation'
 import { useStreamingContent } from '@src/hooks/useStreamingContent'
 import { parseSSEStream } from '@src/lib/parse-sse-stream'
-import { store, useAppDispatch, useAppSelector, setChapterFeedback, setChapterQuizResult, recordQuizAttempt, selectFontSize, selectReadingWidth, selectQuizLength, selectFunctionModel, selectChatMessages } from '@src/store'
+import { store, useAppDispatch, useAppSelector, setChapterFeedback, setChapterQuizResult, recordQuizAttempt, selectFontSize, selectReadingWidth, selectQuizLength, selectFunctionModel } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
 import { cn } from '@src/lib/utils'
 import { SafeMarkdown } from '@src/components/SafeMarkdown'
@@ -37,7 +37,6 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
   const dispatch = useAppDispatch()
   const fontSize = useAppSelector(selectFontSize)
   const readingWidth = useAppSelector(selectReadingWidth)
-  const chatMessages = useAppSelector(selectChatMessages(book.id))
 
   const [phase, setPhase] = useState<Phase>('reading')
   const [generatedUpTo, setGeneratedUpTo] = useState(book.totalChapters)
@@ -216,46 +215,17 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
   const [chatPrompt, setChatPrompt] = useState<string | null>(null)
   const [chatKey, setChatKey] = useState(0)
   const [missingKeyAlert, setMissingKeyAlert] = useState(false)
-  const [pendingChatAction, setPendingChatAction] = useState<{ text: string; prompt: string } | null>(null)
-
   const handleSelectionAction = useCallback((prompt: string) => {
-    if (chatOpen) {
-      setPendingChatAction({ text: selectedText, prompt })
-      clearSelection()
-    } else {
-      if (chatMessages.length > 0) {
-        // Existing chat — open panel and ask before replacing
-        setChatSelectedText('')
-        setChatPrompt(null)
-        setChatOpen(true)
-        setPendingChatAction({ text: selectedText, prompt })
-      } else {
-        // No history — open and send immediately
-        setChatSelectedText(selectedText)
-        setChatPrompt(prompt)
-        setChatOpen(true)
-      }
-      clearSelection()
-    }
-  }, [selectedText, clearSelection, chatOpen, chatMessages.length])
-
-  const handleConfirmNewChat = useCallback(() => {
-    if (!pendingChatAction) return
-    setChatSelectedText(pendingChatAction.text)
-    setChatPrompt(pendingChatAction.prompt)
+    setChatSelectedText(selectedText)
+    setChatPrompt(prompt)
     setChatKey(k => k + 1)
     setChatOpen(true)
-    setPendingChatAction(null)
-  }, [pendingChatAction])
-
-  const handleDismissPending = useCallback(() => {
-    setPendingChatAction(null)
-  }, [])
+    clearSelection()
+  }, [selectedText, clearSelection])
 
   const handleCloseChat = useCallback(() => {
     setChatOpen(false)
     setChatPrompt(null)
-    setPendingChatAction(null)
   }, [])
 
   const syncChapterCompleted = useCallback((chapNum: number) => {
@@ -1073,9 +1043,6 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
           initialPrompt={chatPrompt}
           chatKey={chatKey}
           onMissingApiKey={() => setMissingKeyAlert(true)}
-          pendingNewChat={pendingChatAction}
-          onConfirmNewChat={handleConfirmNewChat}
-          onDismissNewChat={handleDismissPending}
           bookId={book.id}
         />
       </div>

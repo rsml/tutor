@@ -223,6 +223,11 @@ export async function saveChapterProgress(
   await writeYaml(join(bookDir(bookId), 'progress.yml'), current)
 }
 
+export async function getChaptersRead(bookId: string): Promise<number> {
+  const progress = await getProgress(bookId)
+  return Object.values(progress.chapters).filter(ch => ch.completed).length
+}
+
 // --- Feedback ---
 
 export async function getFeedback(bookId: string, chapterNum: number): Promise<Feedback> {

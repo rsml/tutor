@@ -231,6 +231,7 @@ export async function bookRoutes(fastify: FastifyInstance) {
           hasCover: await store.hasCover(b.id),
           showTitleOnCover: (b as Record<string, unknown>).showTitleOnCover ?? false,
           coverUpdatedAt: (await store.getCoverMtime(b.id))?.toISOString() ?? null,
+          chaptersRead: await store.getChaptersRead(b.id),
         }
       } catch (err) {
         console.error(`[GET /api/books] Failed to augment book "${b.id}":`, err)
@@ -239,6 +240,7 @@ export async function bookRoutes(fastify: FastifyInstance) {
           hasCover: false,
           showTitleOnCover: false,
           coverUpdatedAt: null,
+          chaptersRead: 0,
         }
       }
     }))

@@ -209,12 +209,12 @@ export default function App() {
         setApiBooks(prev => {
           // Preserve optimistic generating books not yet on server
           const generatingBooks = prev.filter(b => (b.status === 'generating' || b.status === 'generating_toc') && !books.some((sb: { id: string }) => sb.id === b.id))
-          const serverBooks = books.map((b: { id: string; title: string; subtitle?: string; prompt?: string; totalChapters: number; generatedUpTo: number; status?: string; rating?: number; finalQuizScore?: number; finalQuizTotal?: number; hasCover?: boolean; showTitleOnCover?: boolean; coverUpdatedAt?: string | null; createdAt: string; tags: string[]; series?: string; seriesOrder?: number; sortOrder?: number; imported?: boolean }) => ({
+          const serverBooks = books.map((b: { id: string; title: string; subtitle?: string; prompt?: string; totalChapters: number; generatedUpTo: number; status?: string; rating?: number; finalQuizScore?: number; finalQuizTotal?: number; hasCover?: boolean; showTitleOnCover?: boolean; coverUpdatedAt?: string | null; createdAt: string; tags: string[]; series?: string; seriesOrder?: number; sortOrder?: number; imported?: boolean; chaptersRead?: number }) => ({
             id: b.id,
             title: b.title,
             subtitle: b.subtitle,
             prompt: b.prompt,
-            chaptersRead: 0,
+            chaptersRead: b.chaptersRead ?? 0,
             totalChapters: b.totalChapters,
             generatedUpTo: b.generatedUpTo ?? 0,
             status: b.status,
@@ -1601,7 +1601,7 @@ export default function App() {
                     books: seriesBooks.map(b => {
                       if (b.status === 'complete') return { book: b, chaptersRead: b.totalChapters }
                       const pos = readingPositions[b.id]
-                      return { book: b, chaptersRead: pos != null ? pos.chapter + 1 : b.chaptersRead }
+                      return { book: b, chaptersRead: Math.max(b.chaptersRead, pos != null ? pos.chapter + 1 : 0) }
                     }),
                   })
                 } else {
@@ -1609,7 +1609,7 @@ export default function App() {
                   listItems.push({
                     type: 'book',
                     book,
-                    chaptersRead: book.status === 'complete' ? book.totalChapters : (pos != null ? pos.chapter + 1 : book.chaptersRead),
+                    chaptersRead: book.status === 'complete' ? book.totalChapters : Math.max(book.chaptersRead, pos != null ? pos.chapter + 1 : 0),
                   })
                 }
               }
@@ -1663,7 +1663,7 @@ export default function App() {
                         const book = filteredBooks.find(b => b.id === activeDragId)
                         if (!book) return null
                         const pos = readingPositions[book.id]
-                        const chaptersRead = pos != null ? pos.chapter + 1 : book.chaptersRead
+                        const chaptersRead = Math.max(book.chaptersRead, pos != null ? pos.chapter + 1 : 0)
                         return (
                           <div className="bg-surface-raised rounded-lg shadow-lg ring-1 ring-border-focus/30">
                             <BookListRow book={book} chaptersRead={chaptersRead} onClick={() => {}} />
@@ -1695,7 +1695,7 @@ export default function App() {
                   const chaptersRead = seriesBooks.reduce((s, b) => {
                     if (b.status === 'complete') return s + b.totalChapters
                     const pos = readingPositions[b.id]
-                    return s + (pos != null ? pos.chapter + 1 : b.chaptersRead)
+                    return s + Math.max(b.chaptersRead, pos != null ? pos.chapter + 1 : 0)
                   }, 0)
 
                   const itemId = `series-${book.series}`
@@ -1736,7 +1736,7 @@ export default function App() {
                   const pos = readingPositions[book.id]
                   const chaptersRead = book.status === 'complete'
                     ? book.totalChapters
-                    : pos != null ? pos.chapter + 1 : book.chaptersRead
+                    : Math.max(book.chaptersRead, pos != null ? pos.chapter + 1 : 0)
                   gridItemIds.push(book.id)
 
                   if (isManual) {
