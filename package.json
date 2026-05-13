@@ -19,7 +19,7 @@
     "lint:fix": "eslint --fix src/ server/ electron/ lib/",
     "release": "scripts/release.sh",
     "mcp:dev": "tsx server/mcp-server.ts",
-    "dev.talk": "marp --theme talks/tutor-product-meetup/theme.css -s talks/tutor-product-meetup/deck.md",
+    "dev.talk": "marp --theme talks/tutor-product-meetup/theme.css --html -w talks/tutor-product-meetup/deck.md -p",
     "build.talk": "marp --theme talks/tutor-product-meetup/theme.css --bespoke.progress --html talks/tutor-product-meetup/deck.md -o talks/tutor-product-meetup/dist/index.html"
   },
   "license": "GPL-3.0",
