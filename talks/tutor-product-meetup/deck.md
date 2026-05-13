@@ -34,9 +34,9 @@ LIVE DEMO (3-4 min) — do the demo directly from the app, no slides needed.
 
 <div style="text-align: center; margin-top: 120px;">
 
-<p style="font-size: 48pt; color: #a0a0a0; margin-bottom: 40px;">Here's twelve things I learned</p>
+<p style="font-size: 48pt; color: #a0a0a0;">Twelve insights that are useful</p>
 
-<p style="font-size: 48pt; color: #a0a0a0;">building that</p>
+<p style="font-size: 48pt; color: #a0a0a0;">as you build your AI products</p>
 
 </div>
 
