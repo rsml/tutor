@@ -29,6 +29,94 @@ LIVE DEMO (3-4 min) — do the demo directly from the app, no slides needed.
 
 ---
 
+<!-- HOW I BUILT THIS -->
+
+<p style="font-size: 72pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">30 hours. One person. Claude Code.</p>
+
+<p style="font-size: 42pt; color: #a0a0a0;">20,000 lines of TypeScript. Production desktop app.</p>
+
+<!--
+"That app you just saw — 30 hours of actual work. One developer. AI did the rest.
+
+20,000 lines of TypeScript. Electron desktop app. Streaming AI, EPUB export,
+adaptive quizzes, inline chat, AI-generated covers. Shipped to GitHub releases."
+-->
+
+---
+
+<!-- HOW I BUILT THIS — the tools -->
+
+<p style="font-size: 72pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">How?</p>
+
+<div style="text-align: left; margin: 60px auto 0; max-width: 1300px;">
+
+<p style="font-size: 42pt; margin-bottom: 0.9em;"><span style="color: #eb9b41; font-weight: 700;">CLAUDE.md</span> taught AI how my project works</p>
+<p style="font-size: 42pt; margin-bottom: 0.9em;"><span style="color: #eb9b41; font-weight: 700;">Skills</span> gave it reusable workflows — design, grilling, TDD</p>
+<p style="font-size: 42pt; margin-bottom: 0.9em;"><span style="color: #eb9b41; font-weight: 700;">MCP server</span> let AI agents check their own work</p>
+<p style="font-size: 42pt; margin-bottom: 0.9em;"><span style="color: #eb9b41; font-weight: 700;">Prompts in git</span> — version-controlled, reviewable, diffable</p>
+
+</div>
+
+<!--
+"CLAUDE.md is a file that teaches AI how your project works — architecture,
+conventions, file structure. Every AI session starts with full context.
+
+Skills are reusable AI workflows. Frontend-design for polished UI.
+Grill-me to stress-test plans before building. TDD to write tests first.
+
+The app has an MCP server with 25 tools. AI agents can generate books,
+query state, and verify their own output — programmatically.
+
+And the prompts live in git. Markdown files. Reviewable. Diffable.
+Not hidden in code strings."
+-->
+
+---
+
+<!-- HOW I BUILT THIS — standing on giants -->
+
+<p style="font-size: 72pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">Standing on giants</p>
+
+<div style="text-align: left; margin: 60px auto 0; max-width: 1300px;">
+
+<p style="font-size: 42pt; margin-bottom: 0.9em;"><span style="color: #eb9b41; font-weight: 700;">Mermaid</span> for diagrams, <span style="color: #eb9b41; font-weight: 700;">KaTeX</span> for math</p>
+<p style="font-size: 42pt; margin-bottom: 0.9em;"><span style="color: #eb9b41; font-weight: 700;">Electron</span> turned a web app into a desktop app</p>
+<p style="font-size: 42pt; margin-bottom: 0.9em;"><span style="color: #eb9b41; font-weight: 700;">Vercel AI SDK</span> for multi-provider AI</p>
+<p style="font-size: 42pt; margin-bottom: 0.9em;"><span style="color: #eb9b41; font-weight: 700;">GitHub</span> for versioning, releases, collaboration</p>
+
+</div>
+
+<!--
+"I didn't build renderers. Mermaid draws diagrams. KaTeX renders math.
+Electron wraps a web app into a native desktop app — macOS, Linux, Windows.
+
+Vercel AI SDK gives me one interface to Anthropic, OpenAI, and Google.
+GitHub handles versions, releases, and the open source community.
+
+The 30 hours was product work, not infrastructure work."
+-->
+
+---
+
+<!-- EVEN THIS TALK -->
+
+<p style="font-size: 72pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">Even this talk</p>
+
+<p style="font-size: 42pt; color: #a0a0a0;">was built with Claude Code, grill-me, and brainstorming skills</p>
+
+<!--
+"This presentation. The one you're watching right now.
+I used grill-me to stress-test the talk structure.
+Brainstorming to explore 60 concepts and prune to 12.
+Claude Code wrote every slide.
+
+The tools that built the product built the talk about the product."
+
+Pause. Let the meta land. Then transition.
+-->
+
+---
+
 <div style="text-align: center; margin-top: 120px;">
 
 <p style="font-size: 72pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">12 useful insights</p>
@@ -38,7 +126,7 @@ LIVE DEMO (3-4 min) — do the demo directly from the app, no slides needed.
 </div>
 
 <!--
-Casual transition from the demo into the principles.
+Casual transition into the principles.
 -->
 
 ---
