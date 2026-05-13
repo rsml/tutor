@@ -44,31 +44,84 @@ adaptive quizzes, inline chat, AI-generated covers. Shipped to GitHub releases."
 
 ---
 
-<!-- HOW I BUILT THIS — the tools -->
+<!-- CLAUDE.md -->
 
-<p style="font-size: 72pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">How?</p>
+<p style="font-size: 72pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">CLAUDE.md</p>
+
+<p style="font-size: 42pt; color: #a0a0a0;">A file that teaches AI how your project works</p>
+
+<!--
+"Every AI session starts by reading this file. It describes the architecture,
+the conventions, the file structure, the design decisions.
+
+It's like onboarding docs — but for your AI development partner.
+Without it, every session starts from scratch. With it, the AI
+already knows how your project works before you type a word."
+-->
+
+---
+
+<!-- SKILLS -->
+
+<p style="font-size: 72pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">Skills</p>
+
+<p style="font-size: 42pt; color: #a0a0a0;">Reusable AI workflows you can invoke by name</p>
 
 <div style="text-align: left; margin: 60px auto 0; max-width: 1300px;">
 
-<p style="font-size: 42pt; margin-bottom: 0.9em;"><span style="color: #eb9b41; font-weight: 700;">CLAUDE.md</span> taught AI how my project works</p>
-<p style="font-size: 42pt; margin-bottom: 0.9em;"><span style="color: #eb9b41; font-weight: 700;">Skills</span> gave it reusable workflows — design, grilling, TDD</p>
-<p style="font-size: 42pt; margin-bottom: 0.9em;"><span style="color: #eb9b41; font-weight: 700;">MCP server</span> let AI agents check their own work</p>
-<p style="font-size: 42pt; margin-bottom: 0.9em;"><span style="color: #eb9b41; font-weight: 700;">Prompts in git</span> — version-controlled, reviewable, diffable</p>
+<p style="font-size: 38pt; margin-bottom: 0.7em;"><span style="color: #eb9b41; font-weight: 700;">/frontend-design</span> — polished UI from a description</p>
+<p style="font-size: 38pt; margin-bottom: 0.7em;"><span style="color: #eb9b41; font-weight: 700;">/grill-me</span> — stress-test plans before building</p>
+<p style="font-size: 38pt; margin-bottom: 0.7em;"><span style="color: #eb9b41; font-weight: 700;">/tdd</span> — write the test first, then the code</p>
+<p style="font-size: 38pt; margin-bottom: 0.7em;"><span style="color: #eb9b41; font-weight: 700;">/brainstorming</span> — explore 60 ideas, prune to 12</p>
 
 </div>
 
 <!--
-"CLAUDE.md is a file that teaches AI how your project works — architecture,
-conventions, file structure. Every AI session starts with full context.
+"Skills are like saved workflows. You type /grill-me and the AI
+interrogates your plan until every gap is found.
 
-Skills are reusable AI workflows. Frontend-design for polished UI.
-Grill-me to stress-test plans before building. TDD to write tests first.
+/frontend-design generates production-quality UI from a description.
+/tdd writes the test first, then the implementation.
+/brainstorming explores dozens of ideas and narrows them down.
 
-The app has an MCP server with 25 tools. AI agents can generate books,
-query state, and verify their own output — programmatically.
+These aren't prompts — they're repeatable processes."
+-->
 
-And the prompts live in git. Markdown files. Reviewable. Diffable.
-Not hidden in code strings."
+---
+
+<!-- MCP SERVER -->
+
+<p style="font-size: 72pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">MCP Server</p>
+
+<p style="font-size: 42pt; color: #a0a0a0;">25 tools that let AI agents check their own work</p>
+
+<!--
+"The app has a Model Context Protocol server built in.
+25 tools — create books, save chapters, query state, read feedback.
+
+AI agents can generate a chapter, then query the API to verify
+what they just wrote. They can check if the quiz makes sense
+against the chapter content. They can inspect the whole book state.
+
+It's not 'generate and hope.' It's 'generate, verify, fix.'"
+-->
+
+---
+
+<!-- PROMPTS IN GIT -->
+
+<p style="font-size: 72pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">Prompts in git</p>
+
+<p style="font-size: 42pt; color: #a0a0a0;">Version-controlled. Reviewable. Diffable.</p>
+
+<!--
+"The AI prompts live in the repo as markdown files.
+generate-toc.md. generate-chapter.md. generate-quiz.md.
+
+You can diff them. Review them in a PR. Roll them back.
+Not buried in code strings. Not hidden behind an API.
+
+When the output gets better, you can see exactly which prompt change did it."
 -->
 
 ---
@@ -507,14 +560,19 @@ Skip them and you have a demo."
 
 ---
 
-<div style="text-align: center; margin-top: 160px;">
+<div style="text-align: center; margin-top: 40px;">
 
 <p style="font-size: 96pt; font-weight: 700; color: #eb9b41;">Thanks</p>
 
-<p style="font-size: 42pt; color: #a0a0a0; margin-top: 60px;">rossmiller.dev/tutor</p>
+<p style="font-size: 42pt; color: #a0a0a0; margin-top: 40px;">rossmiller.dev/tutor</p>
+
+<!-- Replace with QR code linking to the talk / slides / repo -->
+<img src="images/qr-placeholder.png" style="width: 360px; height: 360px; margin-top: 40px; border-radius: 12px; background: #fafafa;" alt="QR code" />
+
+<p style="font-size: 28pt; color: #a0a0a0; margin-top: 20px;">Scan for slides &amp; source</p>
 
 </div>
 
 <!--
-Leave up during Q&A.
+Leave up during Q&A. Replace qr-placeholder.png with a real QR code.
 -->
