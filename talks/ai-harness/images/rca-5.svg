@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <style>
+      .why-label    { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 44px; fill: #eb9b41; font-weight: 700; dominant-baseline: middle; }
+      .answer-text  { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 38px; fill: #fafafa; font-weight: 400; dominant-baseline: middle; }
+      .fixed-label  { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 44px; fill: #22c55e; font-weight: 700; dominant-baseline: middle; }
+      .fixed-text   { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 36px; fill: #6ee7b7; font-weight: 400; dominant-baseline: middle; }
+      .na-label     { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 44px; fill: #a0a0a0; font-weight: 700; dominant-baseline: middle; }
+      .na-text      { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 34px; fill: #888; font-style: italic; dominant-baseline: middle; }
+    </style>
+  </defs>
+
+  <rect width="1920" height="1080" fill="#0a0a0a"/>
+
+  <!-- Row 1 — Why? -->
+  <rect x="260" y="165" width="1400" height="130" rx="14" fill="#141414" stroke="#eb9b41" stroke-width="3"/>
+  <text x="310" y="230" class="why-label">Why?</text>
+  <text x="480" y="230" class="answer-text">API keys leaked on GitHub</text>
+
+  <!-- Row 2 — N/A (not fixable) -->
+  <rect x="260" y="320" width="1400" height="130" rx="14" fill="#1a1814" stroke="#6b6352" stroke-width="3"/>
+  <text x="310" y="385" class="na-label">N/A</text>
+  <text x="480" y="385" class="na-text">Developer knew it was a mistake — accidents happen</text>
+
+  <!-- Row 3 — FIXED -->
+  <rect x="260" y="475" width="1400" height="130" rx="14" fill="#0a1f0a" stroke="#22c55e" stroke-width="3"/>
+  <text x="310" y="540" class="fixed-label">Fixed</text>
+  <text x="480" y="540" class="fixed-text">.env added to .gitignore</text>
+
+  <!-- Row 4 — FIXED -->
+  <rect x="260" y="630" width="1400" height="130" rx="14" fill="#0a1f0a" stroke="#22c55e" stroke-width="3"/>
+  <text x="310" y="695" class="fixed-label">Fixed</text>
+  <text x="480" y="695" class="fixed-text">New enforcement script to prevent committed secrets</text>
+
+  <!-- Row 5 — FIXED -->
+  <rect x="260" y="785" width="1400" height="130" rx="14" fill="#0a1f0a" stroke="#22c55e" stroke-width="3"/>
+  <text x="310" y="850" class="fixed-label">Fixed</text>
+  <text x="480" y="850" class="fixed-text">Added policy for secret scanning on every push</text>
+
+</svg>

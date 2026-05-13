@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" font-family="'Inter', 'Helvetica Neue', Arial, sans-serif">
+  <!-- Background -->
+  <rect width="1920" height="1080" fill="#0a0a0a"/>
+
+  <!-- ── DISC 1 (top, narrowest): Root Cause Analysis ── -->
+  <rect x="480" y="75" width="960" height="170" rx="24" fill="#141414" stroke="#eb9b41" stroke-width="3"/>
+  <text x="960" y="135" font-size="40" fill="#8a8a8a" text-anchor="middle" font-family="'JetBrains Mono', monospace">WHEN IT BREAKS</text>
+  <text x="960" y="210" font-size="60" fill="#fafafa" font-weight="700" text-anchor="middle">Root Cause Analysis</text>
+
+  <!-- ── DISC 2: Enforcement Scripts ── -->
+  <rect x="400" y="265" width="1120" height="170" rx="24" fill="#141414" stroke="#eb9b41" stroke-width="3"/>
+  <text x="960" y="325" font-size="40" fill="#8a8a8a" text-anchor="middle" font-family="'JetBrains Mono', monospace">BEFORE YOU MERGE</text>
+  <text x="960" y="400" font-size="60" fill="#fafafa" font-weight="700" text-anchor="middle">Enforcement Scripts</text>
+
+  <!-- ── DISC 3: Type Safety ── -->
+  <rect x="320" y="455" width="1280" height="170" rx="24" fill="#141414" stroke="#eb9b41" stroke-width="3"/>
+  <text x="960" y="515" font-size="40" fill="#8a8a8a" text-anchor="middle" font-family="'JetBrains Mono', monospace">WHILE YOU CODE</text>
+  <text x="960" y="590" font-size="60" fill="#fafafa" font-weight="700" text-anchor="middle">Type Safety</text>
+
+  <!-- ── DISC 4: Deep Think ── -->
+  <rect x="240" y="645" width="1440" height="170" rx="24" fill="#141414" stroke="#eb9b41" stroke-width="3"/>
+  <text x="960" y="705" font-size="40" fill="#8a8a8a" text-anchor="middle" font-family="'JetBrains Mono', monospace">BEFORE YOU CODE</text>
+  <text x="960" y="780" font-size="60" fill="#fafafa" font-weight="700" text-anchor="middle">Deep Think</text>
+
+  <!-- ── DISC 5 (bottom, widest): Axioms ── -->
+  <rect x="160" y="835" width="1600" height="170" rx="24" fill="#141414" stroke="#eb9b41" stroke-width="3"/>
+  <text x="960" y="895" font-size="40" fill="#8a8a8a" text-anchor="middle" font-family="'JetBrains Mono', monospace">WHAT WE BELIEVE</text>
+  <text x="960" y="970" font-size="60" fill="#fafafa" font-weight="700" text-anchor="middle">Axioms</text>
+</svg>
