@@ -7,10 +7,12 @@ html: true
 
 <!-- _style: "section { padding: 0; justify-content: flex-start; }" -->
 
-<!-- PLACEHOLDER: Replace with a striking hero image — something about learning, books, or craft -->
+<!-- IMAGE: Replace — hero image evoking learning, books, or craft -->
 ![bg](https://picsum.photos/seed/design-loop/1920/1080)
 
 <h1 style="width: 100%; text-shadow: 0 4px 24px rgba(0,0,0,0.8), 0 2px 8px rgba(0,0,0,0.6);">Design the Loop</h1>
+
+<p style="position: absolute; bottom: 40px; right: 60px; font-size: 24pt; color: rgba(255,200,100,0.7); text-shadow: 0 2px 8px rgba(0,0,0,0.8);">IMAGE: Hero — learning, books, or craft</p>
 
 <!--
 Let it breathe. Then:
@@ -49,9 +51,12 @@ If demo breaks, advance through the next three fallback slides.
 ---
 
 <!-- FALLBACK: Library -->
-<!-- SCREENSHOT: Tutor library page — 4-5 books with AI-generated covers, progress bars -->
+
+<!-- _style: "section { padding: 0; justify-content: flex-start; }" -->
 
 ![bg contain](https://picsum.photos/seed/library/1920/1080)
+
+<p style="position: absolute; bottom: 40px; right: 60px; font-size: 24pt; color: rgba(255,200,100,0.7); background: rgba(0,0,0,0.6); padding: 8px 16px; border-radius: 8px;">SCREENSHOT: Library — books with AI covers and progress bars</p>
 
 <!--
 Fallback. "Here's the library. Each book was generated for this reader,
@@ -61,9 +66,12 @@ with an AI cover and a progress bar."
 ---
 
 <!-- FALLBACK: Reader + Inline Chat -->
-<!-- SCREENSHOT: Chapter open with inline chat panel slid out on a selected sentence -->
+
+<!-- _style: "section { padding: 0; justify-content: flex-start; }" -->
 
 ![bg contain](https://picsum.photos/seed/reader/1920/1080)
+
+<p style="position: absolute; bottom: 40px; right: 60px; font-size: 24pt; color: rgba(255,200,100,0.7); background: rgba(0,0,0,0.6); padding: 8px 16px; border-radius: 8px;">SCREENSHOT: Reader with inline chat panel slid out</p>
 
 <!--
 Fallback. "Click any sentence and a chat panel explains it.
@@ -73,9 +81,12 @@ Dismiss it and you're right back where you were."
 ---
 
 <!-- FALLBACK: Quiz + Feedback -->
-<!-- SCREENSHOT: Quiz panel with a question + feedback form below -->
+
+<!-- _style: "section { padding: 0; justify-content: flex-start; }" -->
 
 ![bg contain](https://picsum.photos/seed/quiz/1920/1080)
+
+<p style="position: absolute; bottom: 40px; right: 60px; font-size: 24pt; color: rgba(255,200,100,0.7); background: rgba(0,0,0,0.6); padding: 8px 16px; border-radius: 8px;">SCREENSHOT: Quiz panel and feedback form</p>
 
 <!--
 Fallback. "After each chapter: a quiz. Then a feedback form.
@@ -88,11 +99,11 @@ These aren't afterthoughts — they're the most important features in the produc
 
 <div style="text-align: center; margin-top: 80px;">
 
-<p style="font-size: 52pt; color: #a0a0a0; margin-bottom: 60px;">That app works because of</p>
+<p style="font-size: 44pt; color: #a0a0a0; margin-bottom: 60px;">That app works because of</p>
 
 <p style="font-size: 96pt; font-weight: 700; color: #eb9b41;">12 decisions</p>
 
-<p style="font-size: 52pt; color: #a0a0a0; margin-top: 60px;">that apply to any AI product</p>
+<p style="font-size: 44pt; color: #a0a0a0; margin-top: 60px;">that apply to any AI product</p>
 
 </div>
 
@@ -110,10 +121,12 @@ And every one of them applies to whatever you're building."
 
 <!-- _style: "section { padding: 0; justify-content: flex-start; }" -->
 
-<!-- PLACEHOLDER: Replace with an image evoking bedrock, blueprint, or foundation -->
+<!-- IMAGE: Replace — bedrock, blueprint, or architectural foundation -->
 ![bg](https://picsum.photos/seed/bedrock/1920/1080)
 
 <h1 style="width: 100%; text-shadow: 0 4px 24px rgba(0,0,0,0.8), 0 2px 8px rgba(0,0,0,0.6);">Foundations</h1>
+
+<p style="position: absolute; bottom: 40px; right: 60px; font-size: 24pt; color: rgba(255,200,100,0.7); text-shadow: 0 2px 8px rgba(0,0,0,0.8);">IMAGE: Bedrock, blueprint, or foundation</p>
 
 <!--
 "Three decisions you make before anyone touches a keyboard."
@@ -123,11 +136,11 @@ And every one of them applies to whatever you're building."
 
 <!-- PRINCIPLE 1 -->
 
-<p style="font-size: 44pt; color: #a0a0a0; margin-bottom: 40px;">Foundations</p>
+<p style="font-size: 38pt; color: #a0a0a0; margin-bottom: 20px;">Foundations</p>
 
-<p style="font-size: 80pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">Product first, AI second</p>
+## Product first, AI second
 
-<p style="font-size: 42pt; color: #a0a0a0;">Remove the AI. Does your product still make sense?</p>
+<p style="font-size: 48pt; color: #a0a0a0; margin-top: 80px;">Remove the AI. Does your product still make sense?</p>
 
 <!--
 "Tutor is a learning app. Books, chapters, quizzes, progress tracking.
@@ -144,16 +157,25 @@ all of that has value on its own. AI makes it magical. The product makes it usef
 
 <!-- PRINCIPLE 2 -->
 
-<p style="font-size: 44pt; color: #a0a0a0; margin-bottom: 40px;">Foundations</p>
+<!-- _style: "section { padding: 0; justify-content: flex-start; }" -->
 
-<p style="font-size: 80pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">Steal from something ancient</p>
+<!-- IMAGE: Replace — ancient books, library, something timeless -->
+![bg](https://picsum.photos/seed/ancient-books/1920/1080)
 
-<p style="font-size: 42pt; color: #a0a0a0;">Books. Chapters. Quizzes. Table of contents.</p>
+<div style="width: 100%; padding: 60px 80px;">
+<p style="font-size: 38pt; color: #a0a0a0; margin-bottom: 20px; text-shadow: 0 2px 8px rgba(0,0,0,0.8);">Foundations</p>
+
+<h2 style="text-shadow: 0 4px 24px rgba(0,0,0,0.8), 0 2px 8px rgba(0,0,0,0.6);">Steal from something ancient</h2>
+
+<p style="font-size: 48pt; color: #a0a0a0; margin-top: 80px; text-shadow: 0 2px 8px rgba(0,0,0,0.8);">Meet your users where they already are</p>
+</div>
+
+<p style="position: absolute; bottom: 40px; right: 60px; font-size: 24pt; color: rgba(255,200,100,0.7); text-shadow: 0 2px 8px rgba(0,0,0,0.8);">IMAGE: Ancient books, library, something timeless</p>
 
 <!--
-"Humans have used this format for centuries.
+"Books. Chapters. Quizzes. Table of contents.
+Humans have used this format for centuries.
 Nobody needs a tutorial to use Tutor.
-You know what a chapter is. You know what a quiz is.
 
 The technology is radical. The interaction model is ancient.
 That's why it works — zero learning curve.
@@ -166,11 +188,11 @@ The best AI products feel familiar on the outside and magical on the inside."
 
 <!-- PRINCIPLE 3 -->
 
-<p style="font-size: 44pt; color: #a0a0a0; margin-bottom: 40px;">Foundations</p>
+<p style="font-size: 38pt; color: #a0a0a0; margin-bottom: 20px;">Foundations</p>
 
-<p style="font-size: 80pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">Your format is your best prompt</p>
+## Your format is your best prompt
 
-<p style="font-size: 42pt; color: #a0a0a0;">Structure does more than instructions</p>
+<p style="font-size: 48pt; color: #a0a0a0; margin-top: 80px;">Product design beats prompt engineering</p>
 
 <!--
 "'Write me a book about economics' — you get generic filler.
@@ -195,10 +217,12 @@ You don't need better prompts. You need better product design."
 
 <!-- _style: "section { padding: 0; justify-content: flex-start; }" -->
 
-<!-- PLACEHOLDER: Replace with a first-light / dawn / threshold image -->
+<!-- IMAGE: Replace — doorway, threshold, first light -->
 ![bg](https://picsum.photos/seed/threshold/1920/1080)
 
 <h1 style="width: 100%; text-shadow: 0 4px 24px rgba(0,0,0,0.8), 0 2px 8px rgba(0,0,0,0.6);">The First Experience</h1>
+
+<p style="position: absolute; bottom: 40px; right: 60px; font-size: 24pt; color: rgba(255,200,100,0.7); text-shadow: 0 2px 8px rgba(0,0,0,0.8);">IMAGE: Doorway, threshold, or first light</p>
 
 <!--
 "What happens when someone opens your product for the first time."
@@ -208,11 +232,11 @@ You don't need better prompts. You need better product design."
 
 <!-- PRINCIPLE 4 -->
 
-<p style="font-size: 44pt; color: #a0a0a0; margin-bottom: 40px;">The First Experience</p>
+<p style="font-size: 38pt; color: #a0a0a0; margin-bottom: 20px;">The First Experience</p>
 
-<p style="font-size: 80pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">Steer before it's expensive</p>
+## Steer before it's expensive
 
-<p style="font-size: 42pt; color: #a0a0a0;">Put the gate where a small correction prevents a large waste</p>
+<p style="font-size: 48pt; color: #a0a0a0; margin-top: 80px;">Let users course-correct before you spend the compute</p>
 
 <!--
 "You create a book. The AI generates a table of contents.
@@ -230,9 +254,13 @@ Where's the highest-leverage moment in your product for the user to say
 
 ---
 
-<!-- SCREENSHOT: TOC approval step in the wizard — showing editable, reorderable chapter list -->
+<!-- TOC screenshot -->
+
+<!-- _style: "section { padding: 0; justify-content: flex-start; }" -->
 
 ![bg contain](https://picsum.photos/seed/toc/1920/1080)
+
+<p style="position: absolute; bottom: 40px; right: 60px; font-size: 24pt; color: rgba(255,200,100,0.7); background: rgba(0,0,0,0.6); padding: 8px 16px; border-radius: 8px;">SCREENSHOT: TOC approval — editable, reorderable chapter list</p>
 
 <!--
 Show the TOC screen. "30 seconds here saves hours of wasted generation."
@@ -242,11 +270,11 @@ Show the TOC screen. "30 seconds here saves hours of wasted generation."
 
 <!-- PRINCIPLE 5 -->
 
-<p style="font-size: 44pt; color: #a0a0a0; margin-bottom: 40px;">The First Experience</p>
+<p style="font-size: 38pt; color: #a0a0a0; margin-bottom: 20px;">The First Experience</p>
 
-<p style="font-size: 80pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">Generate late, not early</p>
+## Generate late, not early
 
-<p style="font-size: 42pt; color: #a0a0a0;">Early generation locks in ignorance</p>
+<p style="font-size: 48pt; color: #a0a0a0; margin-top: 80px;">The later you generate, the more you know about your user</p>
 
 <!--
 "Chapter 8 doesn't exist until you finish chapter 7.
@@ -265,11 +293,20 @@ But early generation locks in ignorance. Late generation captures learning."
 
 <!-- PRINCIPLE 6 -->
 
-<p style="font-size: 44pt; color: #a0a0a0; margin-bottom: 40px;">The First Experience</p>
+<!-- _style: "section { padding: 0; justify-content: flex-start; }" -->
 
-<p style="font-size: 80pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">Make things, not responses</p>
+<!-- IMAGE: Replace — something tangible, a physical object, a book on a shelf -->
+![bg](https://picsum.photos/seed/artifact/1920/1080)
 
-<p style="font-size: 42pt; color: #a0a0a0;">Artifacts create ownership</p>
+<div style="width: 100%; padding: 60px 80px;">
+<p style="font-size: 38pt; color: #a0a0a0; margin-bottom: 20px; text-shadow: 0 2px 8px rgba(0,0,0,0.8);">The First Experience</p>
+
+<h2 style="text-shadow: 0 4px 24px rgba(0,0,0,0.8), 0 2px 8px rgba(0,0,0,0.6);">Make things, not responses</h2>
+
+<p style="font-size: 48pt; color: #a0a0a0; margin-top: 80px; text-shadow: 0 2px 8px rgba(0,0,0,0.8);">Give users something they'd call "mine"</p>
+</div>
+
+<p style="position: absolute; bottom: 40px; right: 60px; font-size: 24pt; color: rgba(255,200,100,0.7); text-shadow: 0 2px 8px rgba(0,0,0,0.8);">IMAGE: Something tangible — book on a shelf, physical object</p>
 
 <!--
 "A chat response is ephemeral. Close the tab, it's gone.
@@ -293,10 +330,12 @@ a line that most AI products never reach."
 
 <!-- _style: "section { padding: 0; justify-content: flex-start; }" -->
 
-<!-- PLACEHOLDER: Replace with an image evoking cycles, feedback, or spirals -->
+<!-- IMAGE: Replace — cycles, spiral, feedback loop, gears -->
 ![bg](https://picsum.photos/seed/spiral/1920/1080)
 
 <h1 style="width: 100%; text-shadow: 0 4px 24px rgba(0,0,0,0.8), 0 2px 8px rgba(0,0,0,0.6);">The Loop</h1>
+
+<p style="position: absolute; bottom: 40px; right: 60px; font-size: 24pt; color: rgba(255,200,100,0.7); text-shadow: 0 2px 8px rgba(0,0,0,0.8);">IMAGE: Cycles, spiral, or feedback loop</p>
 
 <!--
 "This is the core of the talk. The thing that makes everything else matter."
@@ -306,11 +345,11 @@ a line that most AI products never reach."
 
 <!-- PRINCIPLE 7 -->
 
-<p style="font-size: 44pt; color: #a0a0a0; margin-bottom: 40px;">The Loop</p>
+<p style="font-size: 38pt; color: #a0a0a0; margin-bottom: 20px;">The Loop</p>
 
-<p style="font-size: 80pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">Make them work for it</p>
+## Make them work for it
 
-<p style="font-size: 42pt; color: #a0a0a0;">Friction is the feature</p>
+<p style="font-size: 48pt; color: #a0a0a0; margin-top: 80px;">Wrong answers are your most valuable signal</p>
 
 <!--
 "After every chapter: a quiz. Three questions.
@@ -331,11 +370,11 @@ This one treats it as a gift. The friction is the feature."
 
 <!-- PRINCIPLE 8 -->
 
-<p style="font-size: 44pt; color: #a0a0a0; margin-bottom: 40px;">The Loop</p>
+<p style="font-size: 38pt; color: #a0a0a0; margin-bottom: 20px;">The Loop</p>
 
-<p style="font-size: 80pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">Watch hands, not mouths</p>
+## Watch hands, not mouths
 
-<p style="font-size: 42pt; color: #a0a0a0;">Behavior tells you what feedback forms can't</p>
+<p style="font-size: 48pt; color: #a0a0a0; margin-top: 80px;">What users do tells you more than what they say</p>
 
 <!--
 "Which sentences did they click for help?
@@ -357,11 +396,11 @@ What behaviors in your product reveal what your users would never say?"
 
 <!-- PRINCIPLE 9 -->
 
-<p style="font-size: 44pt; color: #a0a0a0; margin-bottom: 40px;">The Loop</p>
+<p style="font-size: 38pt; color: #a0a0a0; margin-bottom: 20px;">The Loop</p>
 
-<p style="font-size: 80pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">Close the loop</p>
+## Close the loop
 
-<p style="font-size: 42pt; color: #a0a0a0;">Every output feeds the next input</p>
+<p style="font-size: 48pt; color: #a0a0a0; margin-top: 80px;">Feed every interaction back into the next one</p>
 
 <!--
 "This is the payoff. This is why the quiz exists.
@@ -384,12 +423,12 @@ Nobody can replicate the accumulated understanding of your user."
 ---
 
 <!-- LOOP DIAGRAM -->
-<!-- PLACEHOLDER: Create a clean circular diagram —
-     Read → Quiz → Feedback → Generate → Read
-     Each arrow labeled with the signal it carries.
-     White on dark. Minimal. Iconic. -->
 
-![bg contain](images/placeholder-loop-diagram.svg)
+<!-- _style: "section { padding: 0; justify-content: flex-start; }" -->
+
+![bg contain](https://picsum.photos/seed/loop-diagram/1920/1080)
+
+<p style="position: absolute; bottom: 40px; right: 60px; font-size: 24pt; color: rgba(255,200,100,0.7); background: rgba(0,0,0,0.6); padding: 8px 16px; border-radius: 8px;">DIAGRAM: Circular loop — Read &rarr; Quiz &rarr; Feedback &rarr; Generate &rarr; Read</p>
 
 <!--
 Let the visual do the work. Pause.
@@ -404,10 +443,12 @@ Let the visual do the work. Pause.
 
 <!-- _style: "section { padding: 0; justify-content: flex-start; }" -->
 
-<!-- PLACEHOLDER: Replace with an image evoking time, growth, compounding — roots, rings, horizon -->
+<!-- IMAGE: Replace — time, growth, compounding — tree rings, roots, horizon -->
 ![bg](https://picsum.photos/seed/horizon/1920/1080)
 
 <h1 style="width: 100%; text-shadow: 0 4px 24px rgba(0,0,0,0.8), 0 2px 8px rgba(0,0,0,0.6);">The Long Game</h1>
+
+<p style="position: absolute; bottom: 40px; right: 60px; font-size: 24pt; color: rgba(255,200,100,0.7); text-shadow: 0 2px 8px rgba(0,0,0,0.8);">IMAGE: Time, growth — tree rings, roots, or horizon</p>
 
 <!--
 "What happens over weeks and months. What compounds and becomes yours."
@@ -417,11 +458,11 @@ Let the visual do the work. Pause.
 
 <!-- PRINCIPLE 10 -->
 
-<p style="font-size: 44pt; color: #a0a0a0; margin-bottom: 40px;">The Long Game</p>
+<p style="font-size: 38pt; color: #a0a0a0; margin-bottom: 20px;">The Long Game</p>
 
-<p style="font-size: 80pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">Adapt, don't just personalize</p>
+## Adapt, don't just personalize
 
-<p style="font-size: 42pt; color: #a0a0a0;">Personalization is a settings page. Adaptation is a feedback loop.</p>
+<p style="font-size: 48pt; color: #a0a0a0; margin-top: 80px;">Settings pages are static. Feedback loops are alive.</p>
 
 <!--
 "Personalized: 'you said you like visual examples.' That's a settings page.
@@ -444,11 +485,20 @@ That's not personalization. That's a relationship."
 
 <!-- PRINCIPLE 11 -->
 
-<p style="font-size: 44pt; color: #a0a0a0; margin-bottom: 40px;">The Long Game</p>
+<!-- _style: "section { padding: 0; justify-content: flex-start; }" -->
 
-<p style="font-size: 80pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">Help where the confusion is</p>
+<!-- IMAGE: Replace — someone pointing at something specific, magnifying glass, close-up -->
+![bg](https://picsum.photos/seed/focus/1920/1080)
 
-<p style="font-size: 42pt; color: #a0a0a0;">Not in a chatbot. At the point of need.</p>
+<div style="width: 100%; padding: 60px 80px;">
+<p style="font-size: 38pt; color: #a0a0a0; margin-bottom: 20px; text-shadow: 0 2px 8px rgba(0,0,0,0.8);">The Long Game</p>
+
+<h2 style="text-shadow: 0 4px 24px rgba(0,0,0,0.8), 0 2px 8px rgba(0,0,0,0.6);">Help where the confusion is</h2>
+
+<p style="font-size: 48pt; color: #a0a0a0; margin-top: 80px; text-shadow: 0 2px 8px rgba(0,0,0,0.8);">Don't send users to a chatbot. Go to them.</p>
+</div>
+
+<p style="position: absolute; bottom: 40px; right: 60px; font-size: 24pt; color: rgba(255,200,100,0.7); text-shadow: 0 2px 8px rgba(0,0,0,0.8);">IMAGE: Focus, pointing, magnifying glass</p>
 
 <!--
 "You're reading. A sentence doesn't click.
@@ -471,11 +521,20 @@ Can you put help right there — pre-loaded with what they need?"
 
 <!-- PRINCIPLE 12 -->
 
-<p style="font-size: 44pt; color: #a0a0a0; margin-bottom: 40px;">The Long Game</p>
+<!-- _style: "section { padding: 0; justify-content: flex-start; }" -->
 
-<p style="font-size: 80pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">Give control to earn trust</p>
+<!-- IMAGE: Replace — open door, keys, unlocked gate -->
+![bg](https://picsum.photos/seed/open-door/1920/1080)
 
-<p style="font-size: 42pt; color: #a0a0a0;">The product that lets you leave is the one you stay with</p>
+<div style="width: 100%; padding: 60px 80px;">
+<p style="font-size: 38pt; color: #a0a0a0; margin-bottom: 20px; text-shadow: 0 2px 8px rgba(0,0,0,0.8);">The Long Game</p>
+
+<h2 style="text-shadow: 0 4px 24px rgba(0,0,0,0.8), 0 2px 8px rgba(0,0,0,0.6);">Give control to earn trust</h2>
+
+<p style="font-size: 48pt; color: #a0a0a0; margin-top: 80px; text-shadow: 0 2px 8px rgba(0,0,0,0.8);">Let users leave and they'll stay</p>
+</div>
+
+<p style="position: absolute; bottom: 40px; right: 60px; font-size: 24pt; color: rgba(255,200,100,0.7); text-shadow: 0 2px 8px rgba(0,0,0,0.8);">IMAGE: Open door, keys, or unlocked gate</p>
 
 <!--
 "Bring your own API key. Choose your model. Your books live on your machine.
@@ -500,7 +559,7 @@ What control could you give your users that would make them trust you more?"
 
 <div style="text-align: center; margin-top: 60px;">
 
-<p style="font-size: 52pt; color: #a0a0a0; margin-bottom: 60px;">The one thing</p>
+<p style="font-size: 44pt; color: #a0a0a0; margin-bottom: 60px;">The one thing</p>
 
 <p style="font-size: 80pt; font-weight: 700; color: #eb9b41; line-height: 1.3; margin-bottom: 40px;">Anyone can call the API</p>
 
