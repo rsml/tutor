@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" font-family="'JetBrains Mono', 'Fira Code', 'Menlo', monospace">
+  <!-- Background -->
+  <rect width="1920" height="1080" fill="#0a0a0a"/>
+
+  <!-- File header -->
+  <rect x="120" y="90" width="1680" height="100" rx="10" fill="#161616" stroke="#2a2a2a" stroke-width="2"/>
+  <text x="170" y="155" font-size="48" fill="#8a8a8a">api/patients.ts</text>
+
+  <!-- ── Context line ── -->
+  <text x="280" y="310" font-size="54" fill="#d4d4d4">async function getPatient(id) {</text>
+
+  <!-- ── Context line ── -->
+  <text x="340" y="400" font-size="54" fill="#d4d4d4">const patient = await db.get(id);</text>
+
+  <!-- ── Removed line ── -->
+  <rect x="120" y="445" width="1680" height="96" fill="#2d0e0e" rx="4"/>
+  <text x="200" y="510" font-size="54" fill="#ef4444">-</text>
+  <text x="340" y="510" font-size="54" fill="#ffb0b0">throw new Error("Patient not found");</text>
+
+  <!-- ── Added line ── -->
+  <rect x="120" y="555" width="1680" height="96" fill="#0e2d1e" rx="4"/>
+  <text x="200" y="620" font-size="54" fill="#22c55e">+</text>
+  <text x="340" y="620" font-size="54" fill="#aff5b4">throw new Error(`${patient.name} not found`);</text>
+
+  <!-- ── Context line ── -->
+  <text x="280" y="735" font-size="54" fill="#d4d4d4">}</text>
+
+  <!-- Divider -->
+  <line x1="120" y1="830" x2="1800" y2="830" stroke="#2a2a2a" stroke-width="2"/>
+
+  <!-- PR approval footer -->
+  <text x="170" y="940" font-size="48" fill="#22c55e">✓</text>
+  <text x="230" y="940" font-size="48" fill="#fafafa">Approved &#183; Merged to production</text>
+</svg>

@@ -140,7 +140,7 @@ This is an Electron app using `vite-plugin-electron`. Three modes exist with dif
 - **Address**: Always use `127.0.0.1` (not `localhost`) for server communication — avoids IPv6 mismatch on macOS
 - **CORS**: Server must accept `Origin: null` (file:// protocol) and any `localhost`/`127.0.0.1` origin — enforced in `server/index.ts:isAllowedOrigin()`
 - **CSP**: Both `index.html` meta tag and `electron/main.ts` header must allow `http://localhost:*` AND `http://127.0.0.1:*` in `connect-src`
-- **pnpm + electron-builder**: `.npmrc` requires `node-linker=hoisted` — pnpm's default symlink strategy breaks electron-builder's dependency resolution. If a transitive dep is missing from the packaged app, add it explicitly to `dependencies` in `package.json`.
+- **pnpm + electron-builder**: `.npmrc` requires `node-linker=hoisted`. The electron build bundles the unified/remark/rehype ecosystem into `dist-electron/` (via rollup) since electron-builder can't resolve their deep transitive deps. The bundle list is in `vite.config.ts` `external()`. CJS packages (fastify, etc.) stay external — if a CJS transitive dep is missing, add it to `package.json` `dependencies` (e.g., `json-schema-ref-resolver` for fastify). For CJS packages imported dynamically, handle the double-default: `mod.default?.default ?? mod.default` (see `epub-gen-memory` import in `books.ts`).
 - **Never modify `index.html` or `package.json` to match build output** — `dist/` is the build target, source files must keep source references (`/src/main.tsx`)
 
 ## Development
