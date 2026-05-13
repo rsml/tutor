@@ -247,9 +247,9 @@ That's why it works — zero learning curve."
 
 <p style="position: absolute; top: 40px; left: 60px; font-size: 24pt; color: rgba(250,250,250,0.3);">Foundations</p>
 
-## Your format is your best prompt
+## The narrower the task, the better the output
 
-<p style="font-size: 48pt; color: #a0a0a0; margin-top: 80px;">Product design beats prompt engineering</p>
+<p style="font-size: 48pt; color: #a0a0a0; margin-top: 80px;">"Write a book" fails. "Write this chapter for this person" works.</p>
 
 <!--
 "'Write me a book about economics' — generic filler.
