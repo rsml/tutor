@@ -155,7 +155,7 @@ The 30 hours was product work, not infrastructure work."
 
 <p style="font-size: 72pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">Even this talk</p>
 
-<p style="font-size: 42pt; color: #a0a0a0;">was built with Claude Code, grill-me, and brainstorming skills</p>
+<p style="font-size: 42pt; color: #a0a0a0;">Claude Code + Marp + /grill-me + /brainstorming</p>
 
 <!--
 "This presentation. The one you're watching right now.
