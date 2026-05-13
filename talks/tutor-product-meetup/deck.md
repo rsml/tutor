@@ -132,10 +132,10 @@ When the output gets better, you can see exactly which prompt change did it."
 
 <div style="text-align: left; margin: 60px auto 0; max-width: 1300px;">
 
-<p style="font-size: 42pt; margin-bottom: 0.9em;"><span style="color: #eb9b41; font-weight: 700;">Mermaid</span> for diagrams, <span style="color: #eb9b41; font-weight: 700;">KaTeX</span> for math</p>
+<p style="font-size: 42pt; margin-bottom: 0.9em;"><span style="color: #eb9b41; font-weight: 700;">GitHub</span> for versioning and releases</p>
 <p style="font-size: 42pt; margin-bottom: 0.9em;"><span style="color: #eb9b41; font-weight: 700;">Electron</span> turned a web app into a desktop app</p>
+<p style="font-size: 42pt; margin-bottom: 0.9em;"><span style="color: #eb9b41; font-weight: 700;">Mermaid</span> for diagrams, <span style="color: #eb9b41; font-weight: 700;">KaTeX</span> for math</p>
 <p style="font-size: 42pt; margin-bottom: 0.9em;"><span style="color: #eb9b41; font-weight: 700;">Vercel AI SDK</span> for multi-provider AI</p>
-<p style="font-size: 42pt; margin-bottom: 0.9em;"><span style="color: #eb9b41; font-weight: 700;">GitHub</span> for versioning, releases, collaboration</p>
 
 </div>
 
