@@ -125,24 +125,6 @@ It's not 'generate and hope.' It's 'generate, verify, fix.'"
 
 ---
 
-<!-- PROMPTS IN GIT -->
-
-<p style="font-size: 72pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">Prompts in git</p>
-
-<p style="font-size: 42pt; color: #a0a0a0;">Version-controlled. Reviewable. Diffable.</p>
-
-<!--
-"The AI prompts live in the repo as markdown files.
-generate-toc.md. generate-chapter.md. generate-quiz.md.
-
-You can diff them. Review them in a PR. Roll them back.
-Not buried in code strings. Not hidden behind an API.
-
-When the output gets better, you can see exactly which prompt change did it."
--->
-
----
-
 <!-- HOW I BUILT THIS — standing on giants -->
 
 <p style="font-size: 72pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">Standing on giants</p>
