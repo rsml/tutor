@@ -80,7 +80,7 @@ already knows how your project works before you type a word."
 
 <!-- SKILLS -->
 
-<p style="font-size: 72pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">Skills</p>
+<p style="font-size: 72pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">Claude Code Skills</p>
 
 <p style="font-size: 42pt; color: #a0a0a0;">Reusable AI workflows you can invoke by name</p>
 
