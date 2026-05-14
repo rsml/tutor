@@ -29,6 +29,20 @@ LIVE DEMO (3-4 min) — do the demo directly from the app, no slides needed.
 
 ---
 
+<!-- 30 HOURS -->
+
+<p style="font-size: 72pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">30 hours. One person.</p>
+
+<p style="font-size: 42pt; color: #a0a0a0;">20,000 lines of TypeScript. Production desktop app.</p>
+
+<!--
+"30 hours of actual work. One developer.
+20,000 lines of TypeScript. Electron desktop app.
+Streaming AI, EPUB export, adaptive quizzes, inline chat, AI-generated covers."
+-->
+
+---
+
 <!-- CLAUDE CODE -->
 
 <p style="font-size: 72pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">Claude Code</p>
@@ -43,20 +57,6 @@ in your actual repo, with full control over every decision.
 That matters because AI products have a lot of moving parts —
 streaming, state machines, background generation, EPUB export.
 You need to be in the code, not above it."
--->
-
----
-
-<!-- 30 HOURS -->
-
-<p style="font-size: 72pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">30 hours. One person.</p>
-
-<p style="font-size: 42pt; color: #a0a0a0;">20,000 lines of TypeScript. Production desktop app.</p>
-
-<!--
-"30 hours of actual work. One developer. Claude Code.
-20,000 lines of TypeScript. Electron desktop app.
-Streaming AI, EPUB export, adaptive quizzes, inline chat, AI-generated covers."
 -->
 
 ---
