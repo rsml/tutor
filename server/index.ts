@@ -7,6 +7,7 @@ import { profileRoutes } from './routes/profile.js'
 import { taskRoutes } from './routes/tasks.js'
 import { coverRoutes } from './routes/covers.js'
 import { importRoutes } from './routes/import.js'
+import { modelsRoutes } from './routes/models.js'
 import { recoverStuckBooks } from './services/book-store.js'
 
 const ALLOWED_ORIGINS = [
@@ -108,6 +109,7 @@ export async function startServer(port = 3147, host = '127.0.0.1') {
   await fastify.register(taskRoutes)
   await fastify.register(coverRoutes)
   await fastify.register(importRoutes)
+  await fastify.register(modelsRoutes)
 
   // Global error handler — clean 404 for ENOENT, no path leak
   fastify.setErrorHandler((error: Error & { code?: string; statusCode?: number }, request, reply) => {

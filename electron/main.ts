@@ -194,9 +194,49 @@ ipcMain.handle('apiKey:remove', async (_event, provider?: string) => {
   }
 })
 
+// One-time migration: encrypt any plaintext keys from server-side api-keys.json
+// into per-provider .enc files via safeStorage. Only runs in the packaged app
+// (dev/preview use a different safeStorage identity, so encrypting there would
+// produce .enc files the production app can't decrypt). Verifies each
+// encrypted file decrypts back to the original before considering the key
+// migrated, and only deletes the plaintext file once every key migrated cleanly.
+async function migrateLegacyPlaintextKeys() {
+  if (!app.isPackaged) return
+  const plaintextFile = path.join(dataDir, 'api-keys.json')
+  if (!existsSync(plaintextFile)) return
+  if (!safeStorage.isEncryptionAvailable()) return
+  try {
+    const raw = await readFile(plaintextFile, 'utf-8')
+    const parsed = JSON.parse(raw)
+    if (typeof parsed !== 'object' || parsed === null) return
+    await ensureDataDir()
+    let allMigrated = true
+    for (const provider of VALID_PROVIDERS) {
+      const key = parsed[provider]
+      if (typeof key !== 'string' || key.length === 0) continue
+      const target = apiKeyFile(provider)
+      if (existsSync(target)) continue // already encrypted — don't overwrite
+      const encrypted = safeStorage.encryptString(key)
+      await writeFile(target, encrypted)
+      // Verify roundtrip before treating this key as safely migrated
+      try {
+        const verify = await readFile(target)
+        if (safeStorage.decryptString(verify) !== key) throw new Error('verify mismatch')
+      } catch {
+        await rm(target).catch(() => {})
+        allMigrated = false
+      }
+    }
+    if (allMigrated) await rm(plaintextFile)
+  } catch {
+    // Migration failed — leave the plaintext file alone so we can retry next launch
+  }
+}
+
 let apiPort = 0
 
 app.whenReady().then(async () => {
+  await migrateLegacyPlaintextKeys()
   // Start the embedded API server on a random free port (localhost only — no firewall prompt)
   const server = await startServer(0, '127.0.0.1')
   const addr = server.server.address()

@@ -1,10 +1,11 @@
 import type { FastifyInstance } from 'fastify'
 import { readFile } from 'node:fs/promises'
 import { ZodError, z } from 'zod'
-import { generateImage, generateObject } from 'ai'
+import { generateObject } from 'ai'
 import * as store from '../services/book-store.js'
-import { createImageModelClient, createModelClient } from '../services/model-client.js'
+import { createModelClient } from '../services/model-client.js'
 import * as taskManager from '../services/task-manager.js'
+import { generateImageWithFallback } from '../services/image-generation.js'
 import { GenerateCoverBodySchema, UploadCoverBodySchema, SuggestCoverPromptBodySchema } from '../schemas.js'
 
 const bookIdSchema = {
@@ -48,21 +49,12 @@ export async function coverRoutes(fastify: FastifyInstance) {
       // Fire-and-forget — run in background
       ;(async () => {
         try {
-          const imageModel = createImageModelClient(body.provider, body.model)
-          const isGoogle = body.provider === 'google'
-
-          const result = await generateImage({
-            model: imageModel,
+          const image = await generateImageWithFallback({
+            provider: body.provider,
+            preferredModel: body.model,
             prompt: body.prompt,
-            ...(isGoogle
-              ? { aspectRatio: '9:16' }
-              : { size: '1024x1792' }),
-            abortSignal: task.abortController.signal,
+            signal: task.abortController.signal,
           })
-
-          const image = result.image
-          const imageData = Buffer.from(image.base64, 'base64')
-          const mediaType = image.mediaType ?? 'image/png'
 
           // Safety guard: don't overwrite a cover that was set after this task started
           const existingMtime = await store.getCoverMtime(bookId)
@@ -71,7 +63,7 @@ export async function coverRoutes(fastify: FastifyInstance) {
             return
           }
 
-          await store.saveCover(bookId, imageData, mediaType)
+          await store.saveCover(bookId, image.data, image.mediaType)
           taskManager.completeTask(task.id)
         } catch (err) {
           if (task.abortController.signal.aborted) {

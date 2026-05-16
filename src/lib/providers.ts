@@ -65,8 +65,8 @@ export const FUNCTION_GROUPS: { id: AiFunctionGroup; label: string; description:
 
 export const IMAGE_MODELS: Partial<Record<ProviderId, ModelOption[]>> = {
   openai: [
-    { value: 'dall-e-3', label: 'DALL-E 3' },
     { value: 'gpt-image-1', label: 'GPT Image 1' },
+    { value: 'dall-e-3', label: 'DALL-E 3 (legacy)' },
   ],
   google: [
     { value: 'imagen-4.0-generate-001', label: 'Imagen 4.0' },

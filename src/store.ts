@@ -2,7 +2,7 @@ import { combineReducers, configureStore, createSlice, type PayloadAction } from
 import { useDispatch, useSelector } from 'react-redux'
 import { persistStore, persistReducer, createTransform, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER } from 'redux-persist'
 import storage from 'redux-persist/lib/storage'
-import type { ProviderId, AiFunctionGroup } from '@src/lib/providers'
+import type { ProviderId, AiFunctionGroup, ModelOption } from '@src/lib/providers'
 import { IMAGE_MODELS } from '@src/lib/providers'
 import quizHistoryReducer from '@src/store/quizHistorySlice'
 import chatHistoryReducer from '@src/store/chatHistorySlice'
@@ -368,6 +368,42 @@ export const selectBackgroundTasks = (state: RootState) => state.backgroundTasks
 export const selectRunningTasks = (state: RootState) =>
   Object.values(state.backgroundTasks.tasks).filter(t => t.status === 'running')
 
+// --- Provider Models (auto-detected from upstream /v1/models) ---
+
+export interface ProviderModelList {
+  status: 'idle' | 'loading' | 'success' | 'error'
+  chat: ModelOption[]
+  image: ModelOption[]
+  fetchedAt?: number
+}
+
+const initialProviderModels: ProviderModelList = { status: 'idle', chat: [], image: [] }
+
+const providerModelsSlice = createSlice({
+  name: 'providerModels',
+  initialState: {} as Partial<Record<ProviderId, ProviderModelList>>,
+  reducers: {
+    providerModelsLoading: (state, action: { payload: ProviderId }) => {
+      state[action.payload] = { ...(state[action.payload] ?? initialProviderModels), status: 'loading' }
+    },
+    providerModelsSuccess: (state, action: { payload: { provider: ProviderId; chat: ModelOption[]; image: ModelOption[] } }) => {
+      state[action.payload.provider] = {
+        status: 'success',
+        chat: action.payload.chat,
+        image: action.payload.image,
+        fetchedAt: Date.now(),
+      }
+    },
+    providerModelsError: (state, action: { payload: ProviderId }) => {
+      state[action.payload] = { ...(state[action.payload] ?? initialProviderModels), status: 'error' }
+    },
+  },
+})
+
+export const { providerModelsLoading, providerModelsSuccess, providerModelsError } = providerModelsSlice.actions
+export const selectProviderModels = (provider: ProviderId) => (state: RootState): ProviderModelList =>
+  state.providerModels[provider] ?? initialProviderModels
+
 const rootReducer = combineReducers({
   readingProgress: readingProgressSlice.reducer,
   settings: settingsSlice.reducer,
@@ -375,6 +411,7 @@ const rootReducer = combineReducers({
   quizHistory: quizHistoryReducer,
   chatHistory: chatHistoryReducer,
   backgroundTasks: backgroundTasksSlice.reducer,
+  providerModels: providerModelsSlice.reducer,
 })
 
 // Use Electron IPC storage when available, otherwise fall back to localStorage
