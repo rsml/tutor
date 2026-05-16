@@ -31,9 +31,9 @@ LIVE DEMO (3-4 min) — do the demo directly from the app, no slides needed.
 
 <!-- 30 HOURS -->
 
-<p style="font-size: 72pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">30 hours. One person.</p>
+<p style="font-size: 72pt; font-weight: 700; color: #eb9b41; margin-bottom: 0.3em;">Approximately 30 hours</p>
 
-<p style="font-size: 42pt; color: #a0a0a0;">20,000 lines of TypeScript. Production desktop app.</p>
+<p style="font-size: 42pt; color: #a0a0a0;">20,000 lines of TypeScript</p>
 
 <!--
 "30 hours of actual work. One developer.
