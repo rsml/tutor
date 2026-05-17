@@ -42,7 +42,7 @@ import { ReviewProgressPage } from '@src/pages/ReviewProgressPage'
 import { SkillDetailPage } from '@src/pages/SkillDetailPage'
 import { ProfileUpdatePage } from '@src/pages/ProfileUpdatePage'
 import { useBackgroundTasks } from '@src/hooks/useBackgroundTasks'
-import { store, persistor, useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize, selectLibraryFilters, selectLibrarySort, selectLibraryView, clearLibraryFilters, setLibraryFilters, selectFunctionModel, selectLastViewedBookId, setLastViewedBookId, DEFAULT_LIBRARY_FILTERS } from '@src/store'
+import { store, persistor, useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize, selectLibraryFilters, selectLibrarySort, selectLibraryView, clearLibraryFilters, setLibraryFilters, selectFunctionModel, selectLastViewedBookId, setLastViewedBookId, selectRunningTasks, DEFAULT_LIBRARY_FILTERS } from '@src/store'
 import { PROVIDER_IDS } from '@src/lib/providers'
 import { apiUrl } from '@src/lib/api-base'
 import { previewEpub as previewEpubApi, confirmImport, type EpubPreview } from '@src/lib/api'
@@ -74,12 +74,26 @@ interface Book {
 type View =
   | { type: 'library' }
   | { type: 'creating'; topic: string; details: string; chapterCount: number }
+  | { type: 'resuming'; bookId: string }
   | { type: 'reading'; book: Book }
   | { type: 'quiz-review'; book: Book }
   | { type: 'review-progress' }
   | { type: 'skill-detail'; skillName: string }
   | { type: 'profile-update'; bookId: string; bookTitle: string }
   | { type: 'series'; seriesName: string }
+
+// Friendly verbs for the quit-confirmation dialog. Keep aligned with the
+// labels used in BackgroundTasksFooter so users see the same wording.
+function taskBusyLabel(type: string): string {
+  switch (type) {
+    case 'generate-all': return 'Generating chapters'
+    case 'generate-epub': return 'Exporting EPUB'
+    case 'generate-cover': return 'Generating cover'
+    case 'install-audiobook': return 'Setting up narration'
+    case 'generate-audiobook': return 'Generating audiobook'
+    default: return type
+  }
+}
 
 export default function App() {
   const [view, setView] = useState<View>({ type: 'library' })
@@ -281,7 +295,11 @@ export default function App() {
     dispatch(setLastViewedBookId(book.id))
     // Force an immediate persist write so a quick Cmd+Q can't race the debounced write
     persistor.flush().catch(() => {})
-    setView({ type: 'reading', book })
+    if (book.status === 'toc_review') {
+      setView({ type: 'resuming', bookId: book.id })
+    } else {
+      setView({ type: 'reading', book })
+    }
   }, [dispatch])
 
   // Full-text content search via backend
@@ -328,6 +346,22 @@ export default function App() {
         if (book) setAudiobookVoiceModal({ book, mode: 'firstTime' })
       }
     },
+    onAudiobookTaskFailed: (taskType, bookId) => {
+      // Install failure: drop the pending-book pointer so a retry doesn't
+      // chain into the voice modal for a long-stale book id.
+      if (taskType === 'install-audiobook' && pendingAudiobookForBookId) {
+        setPendingAudiobookForBookId(null)
+      }
+      // Generate failure: invalidate the exists-cache so the next menu open
+      // re-fetches and shows the correct entry (Generate vs Play+Regen).
+      if (taskType === 'generate-audiobook') {
+        setAudiobookExists(prev => {
+          const next = new Map(prev)
+          next.delete(bookId)
+          return next
+        })
+      }
+    },
   })
 
   // Poll for status updates when any book is generating
@@ -338,6 +372,35 @@ export default function App() {
     const interval = setInterval(fetchBooks, 1000)
     return () => clearInterval(interval)
   }, [apiBooks, fetchBooks])
+
+  // Push running-task state to the Electron main process so the window close
+  // handler can prompt before quitting and accidentally killing a long
+  // generation. Also wires a web-side beforeunload as a backstop.
+  const runningTasks = useAppSelector(selectRunningTasks)
+  const streamingBookIds = apiBooks.filter(b => b.status === 'generating_toc' || b.status === 'generating').map(b => b.id)
+  useEffect(() => {
+    const labels = runningTasks.map(t => `${taskBusyLabel(t.type)} — ${t.bookTitle}`)
+    // Streaming TOC/chapter writes aren't task-manager tasks; surface them
+    // alongside so the user sees a complete picture.
+    for (const bid of streamingBookIds) {
+      const book = apiBooks.find(b => b.id === bid)
+      const title = book?.title ?? bid
+      labels.push(book?.status === 'generating_toc'
+        ? `Generating table of contents — ${title}`
+        : `Generating chapter — ${title}`,
+      )
+    }
+    const count = labels.length
+    void window.electronAPI?.setBusyState?.(count, labels)
+
+    if (count === 0) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [runningTasks, streamingBookIds, apiBooks])
 
   const [pendingCoverPrompt, setPendingCoverPrompt] = useState<string | null>(null)
 
@@ -1168,7 +1231,7 @@ export default function App() {
         <Download className="size-3.5 text-content-muted shrink-0" />
         Export EPUB
       </button>
-      {contextMenu.book.status !== 'complete' ? (
+      {contextMenu.book.generatedUpTo < contextMenu.book.totalChapters ? (
         <button
           disabled
           className="flex flex-col items-start gap-0 w-full px-3 py-1.5 text-left text-sm text-content-primary disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
@@ -1177,7 +1240,7 @@ export default function App() {
             <Headphones className="size-3.5 text-content-muted shrink-0" />
             Generate audiobook
           </div>
-          <span className="ml-5 pl-0.5 text-xs text-content-muted">Book is still being generated</span>
+          <span className="ml-5 pl-0.5 text-xs text-content-muted">Finish generating chapters first</span>
         </button>
       ) : audiobookExists.get(contextMenu.book.id) === true ? (
         <>
@@ -1545,12 +1608,24 @@ export default function App() {
   if (view.type === 'creating') {
     return (
       <CreationView
+        mode="create"
         topic={view.topic}
         details={view.details}
         chapterCount={view.chapterCount}
         onComplete={handleCreationComplete}
         onCancel={handleCreationCancel}
         onBookCreated={handleBookCreated}
+      />
+    )
+  }
+
+  if (view.type === 'resuming') {
+    return (
+      <CreationView
+        mode="resume"
+        bookId={view.bookId}
+        onComplete={handleCreationComplete}
+        onCancel={handleCreationCancel}
       />
     )
   }
