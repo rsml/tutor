@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Settings, Sun, Moon, Monitor, Type, Layers, Check, CheckCircle2, User, BarChart3, Sliders, MoveHorizontal, ListOrdered, BookOpen, Headphones } from 'lucide-react'
+import { Settings, Sun, Moon, Monitor, Type, Layers, Check, CheckCircle2, User, BarChart3, Sliders, MoveHorizontal, ListOrdered, BookOpen, Headphones, Trash2 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import {
   Dialog,
@@ -92,7 +92,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
   const [audiobookSettingsOpen, setAudiobookSettingsOpen] = useState(false)
   const [internalDialogOpen, setInternalDialogOpen] = useState(false)
   const [dialogProvider, setDialogProvider] = useState<ProviderId>(activeProvider)
-  const [keyInput, setKeyInput] = useState('')
+  const [keyInputs, setKeyInputs] = useState<Partial<Record<ProviderId, string>>>({})
   const [profileConfigured, setProfileConfigured] = useState<boolean | null>(null)
 
   // Check if learning profile has been set up
@@ -128,49 +128,55 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
   useEffect(() => {
     if (apiKeyDialogOpen) {
       setDialogProvider(activeProvider)
-      setKeyInput('')
+      setKeyInputs({})
     }
   }, [apiKeyDialogOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const openDialog = () => {
     setDialogProvider(activeProvider)
-    setKeyInput('')
+    setKeyInputs({})
     setDialogOpen(true)
   }
 
   const handleSelectDialogProvider = (id: ProviderId) => {
     setDialogProvider(id)
-    setKeyInput('')
   }
 
+  const pendingProviders = PROVIDER_IDS.filter(id => (keyInputs[id] ?? '').trim() !== '')
+  const hasPendingChanges = pendingProviders.length > 0
+
   const handleSave = async () => {
-    const trimmed = keyInput.trim()
-    if (trimmed) {
-      await window.electronAPI?.saveApiKey(trimmed, dialogProvider)
+    for (const provider of pendingProviders) {
+      const trimmed = (keyInputs[provider] ?? '').trim()
+      await window.electronAPI?.saveApiKey(trimmed, provider)
       try {
         await fetch(apiUrl('/api/settings/api-key'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ provider: dialogProvider, apiKey: trimmed }),
+          body: JSON.stringify({ provider, apiKey: trimmed }),
         })
       } catch { /* server may not be ready */ }
+      dispatch(setProviderApiKey({ provider, apiKey: trimmed }))
     }
-    dispatch(setProviderApiKey({ provider: dialogProvider, apiKey: trimmed || null }))
+    setKeyInputs({})
     setDialogOpen(false)
   }
 
-  const handleRemove = async () => {
-    await window.electronAPI?.removeApiKey(dialogProvider)
+  const handleRemove = async (provider: ProviderId) => {
+    await window.electronAPI?.removeApiKey(provider)
     try {
       await fetch(apiUrl('/api/settings/api-key'), {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: dialogProvider }),
+        body: JSON.stringify({ provider }),
       })
     } catch { /* server may not be ready */ }
-    dispatch(setProviderApiKey({ provider: dialogProvider, apiKey: null }))
-    setKeyInput('')
-    setDialogOpen(false)
+    dispatch(setProviderApiKey({ provider, apiKey: null }))
+    setKeyInputs(prev => {
+      const next = { ...prev }
+      delete next[provider]
+      return next
+    })
   }
 
   const activeDef = PROVIDERS[activeProvider]
@@ -483,25 +489,32 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
               <label htmlFor="api-key" className="text-sm font-medium text-content-primary">
                 API Key
               </label>
-              <input
-                id="api-key"
-                type="password"
-                value={keyInput}
-                onChange={e => setKeyInput(e.target.value)}
-                placeholder={providers[dialogProvider]?.apiKey ? 'Key saved (enter new to replace)' : dialogDef.placeholder}
-                className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 font-mono text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
-              />
+              <div className="relative">
+                <input
+                  id="api-key"
+                  type="password"
+                  value={keyInputs[dialogProvider] ?? ''}
+                  onChange={e => setKeyInputs(prev => ({ ...prev, [dialogProvider]: e.target.value }))}
+                  placeholder={dialogConfig?.apiKey ? 'Key saved (enter new to replace)' : dialogDef.placeholder}
+                  className={`h-9 w-full rounded-lg border border-border-default bg-surface-raised px-3 ${dialogConfig?.apiKey ? 'pr-9' : ''} font-mono text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20`}
+                />
+                {dialogConfig?.apiKey && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemove(dialogProvider)}
+                    aria-label={`Remove ${dialogDef.name} API key`}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center size-6 rounded-md text-content-muted hover:text-status-danger hover:bg-surface-muted transition-colors"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
           <DialogFooter>
-            {dialogConfig?.apiKey && (
-              <Button variant="destructive" onClick={handleRemove}>
-                Remove Key
-              </Button>
-            )}
-            <Button onClick={handleSave} disabled={!keyInput.trim()}>
-              {dialogConfig?.apiKey ? 'Update' : 'Save'}
+            <Button onClick={handleSave}>
+              {hasPendingChanges ? 'Save' : 'Done'}
             </Button>
           </DialogFooter>
         </DialogContent>
