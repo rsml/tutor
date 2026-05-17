@@ -7,7 +7,7 @@ import { useStreamingContent } from '@src/hooks/useStreamingContent'
 import { parseSSEStream } from '@src/lib/parse-sse-stream'
 import { apiUrl } from '@src/lib/api-base'
 
-type Phase = 'toc' | 'chapter' | 'done' | 'error'
+type Phase = 'toc' | 'awaiting_approval' | 'revising' | 'starting' | 'done' | 'error'
 
 interface CreationViewProps {
   topic: string
@@ -29,6 +29,7 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
   const [activeTab, setActiveTab] = useState<'toc' | 'chapter'>('toc')
   const [bookId, setBookId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
 
   const tocScrollRef = useRef<HTMLDivElement>(null)
   const chapterScrollRef = useRef<HTMLDivElement>(null)
@@ -37,7 +38,9 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
   const toc = useStreamingContent()
   const chapter = useStreamingContent()
 
-  const startChapterGeneration = useCallback(async (id: string) => {
+  const handleGenerateChapter1 = useCallback(async (id: string) => {
+    setPhase('starting')
+    setActiveTab('chapter')
     try {
       const res = await fetch(apiUrl(`/api/books/${id}/start`), {
         method: 'POST',
@@ -112,10 +115,8 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
             case 'toc_done': {
               toc.flushNow()
               setBookId(event.bookId)
-              setPhase('chapter')
-              setActiveTab('chapter')
-              // Kick off chapter 1 generation via the new endpoint
-              startChapterGeneration(event.bookId)
+              setPhase('awaiting_approval')
+              // No automatic startChapterGeneration anymore.
               break
             }
 
@@ -134,7 +135,7 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
       setError('Generation failed: ' + (err instanceof Error ? err.message : 'Unknown error'))
       setPhase('error')
     }
-  }, [hasApiKey, model, provider, quizModel, quizProvider, quizLength, chapterCount, topic, details, toc, onBookCreated, startChapterGeneration])
+  }, [hasApiKey, model, provider, quizModel, quizProvider, quizLength, chapterCount, topic, details, toc, onBookCreated])
 
   useEffect(() => {
     if (!startedRef.current) {
@@ -143,7 +144,7 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
     }
   }, [startGeneration])
 
-  const isGenerating = phase === 'toc' || phase === 'chapter'
+  const isGenerating = phase === 'toc' || phase === 'starting' || phase === 'revising'
 
   return (
     <div className="flex h-screen flex-col text-content-primary">
@@ -187,7 +188,7 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
           {activeTab === 'chapter' && (
             <span className="absolute bottom-0 inset-x-2 h-0.5 rounded-full bg-[oklch(0.55_0.20_285)]" />
           )}
-          {phase === 'chapter' && (
+          {phase === 'starting' && (
             <Loader2 className="ml-1.5 inline size-3 animate-spin text-content-muted" />
           )}
         </button>
@@ -263,21 +264,55 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
           <p className="mr-auto text-sm text-status-error">{error}</p>
         )}
 
-        <Button
-          size="lg"
-          disabled={isGenerating}
-          onClick={() => bookId && onComplete(bookId)}
-          className="bg-[oklch(0.55_0.20_285)] text-white font-semibold hover:bg-[oklch(0.50_0.22_285)]"
-        >
-          {isGenerating ? (
-            <>
-              <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
-              Generating...
-            </>
-          ) : (
-            'Start Book'
-          )}
-        </Button>
+        {phase === 'toc' && (
+          <Button size="lg" disabled>
+            <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
+            Generating…
+          </Button>
+        )}
+
+        {phase === 'awaiting_approval' && (
+          <>
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => setFeedbackOpen(true)}
+            >
+              Provide Feedback
+            </Button>
+            <Button
+              size="lg"
+              onClick={() => bookId && handleGenerateChapter1(bookId)}
+              className="bg-[oklch(0.55_0.20_285)] text-white font-semibold hover:bg-[oklch(0.50_0.22_285)]"
+            >
+              Generate Chapter 1 →
+            </Button>
+          </>
+        )}
+
+        {phase === 'starting' && (
+          <Button size="lg" disabled>
+            <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
+            Generating Chapter 1…
+          </Button>
+        )}
+
+        {phase === 'revising' && (
+          <Button size="lg" disabled>
+            <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
+            Revising…
+          </Button>
+        )}
+
+        {phase === 'done' && (
+          <Button
+            size="lg"
+            onClick={() => bookId && onComplete(bookId)}
+            className="bg-[oklch(0.55_0.20_285)] text-white font-semibold hover:bg-[oklch(0.50_0.22_285)]"
+          >
+            Start Book
+          </Button>
+        )}
       </div>
     </div>
   )
