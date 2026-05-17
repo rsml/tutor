@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Headphones, X } from 'lucide-react'
 import { apiUrl } from '@src/lib/api-base'
 import { cn } from '@src/lib/utils'
@@ -10,16 +10,44 @@ interface Props {
   /** Audiobook generatedAt — drives cache-busting so re-narrating a
    *  chapter doesn't serve the browser's stale MP3 from the prior run. */
   generatedAt?: string
+  /** Chapter offset within the unified audiobook (seconds). The button
+   *  seeks the audio element to this position on load. */
+  startSec?: number
+  /** Chapter length (seconds). The button auto-pauses when playback
+   *  passes the chapter boundary so listening to chapter 2 doesn't
+   *  silently bleed into chapter 3. */
+  durationSec?: number
   available: boolean
 }
 
-export function ChapterListenButton({ bookId, chapterNum, voiceName, generatedAt, available }: Props) {
-  const [open, setOpen] = useState(false)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
+function formatTime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
 
-  // Auto-pause if the chapter changes under us. Capture the ref into a local
-  // so the cleanup function still sees the audio element that was current
-  // when this effect last ran, not whatever the ref points to later.
+export function ChapterListenButton({
+  bookId,
+  chapterNum,
+  voiceName,
+  generatedAt,
+  startSec = 0,
+  durationSec,
+  available,
+}: Props) {
+  const [open, setOpen] = useState(false)
+  const [chapterTime, setChapterTime] = useState(0)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const startSecRef = useRef(startSec)
+  startSecRef.current = startSec
+  const endSec = durationSec != null ? startSec + durationSec : undefined
+  const endSecRef = useRef(endSec)
+  endSecRef.current = endSec
+
+  // Auto-pause and tear down on chapter change. Capture the ref into a
+  // local so the cleanup function still sees the audio element that was
+  // current when this effect last ran.
   useEffect(() => {
     const a = audioRef.current
     return () => {
@@ -30,7 +58,34 @@ export function ChapterListenButton({ bookId, chapterNum, voiceName, generatedAt
     }
   }, [chapterNum])
 
+  // Seek to the chapter offset once metadata is available. Without this,
+  // playback starts at the file's 0:00 (i.e., chapter 1) regardless of
+  // which chapter the user opened.
+  const handleLoadedMetadata = useCallback(() => {
+    const a = audioRef.current
+    if (!a) return
+    if (startSecRef.current > 0) {
+      a.currentTime = startSecRef.current
+    }
+  }, [])
+
+  // While playing, expose chapter-local time and pause at the chapter
+  // boundary so chapters don't bleed into one another.
+  const handleTimeUpdate = useCallback(() => {
+    const a = audioRef.current
+    if (!a) return
+    const local = a.currentTime - startSecRef.current
+    setChapterTime(local < 0 ? 0 : local)
+    if (endSecRef.current != null && a.currentTime >= endSecRef.current) {
+      a.pause()
+      a.currentTime = endSecRef.current
+    }
+  }, [])
+
   if (!available) return null
+
+  const src = apiUrl(`/api/books/${bookId}/audiobook/file${generatedAt ? `?v=${encodeURIComponent(generatedAt)}` : ''}`)
+  const totalLabel = durationSec != null ? formatTime(durationSec) : '—'
 
   return (
     <>
@@ -51,9 +106,9 @@ export function ChapterListenButton({ bookId, chapterNum, voiceName, generatedAt
           <div className="mb-2 flex items-start justify-between">
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-content-primary">Chapter {chapterNum}</p>
-              {voiceName && (
-                <p className="text-xs text-content-muted">Narrated by {voiceName}</p>
-              )}
+              <p className="text-xs text-content-muted">
+                {voiceName ? `Narrated by ${voiceName} · ` : ''}{formatTime(chapterTime)} / {totalLabel}
+              </p>
             </div>
             <button
               onClick={() => setOpen(false)}
@@ -69,7 +124,9 @@ export function ChapterListenButton({ bookId, chapterNum, voiceName, generatedAt
             preload="auto"
             crossOrigin="anonymous"
             className="w-full"
-            src={apiUrl(`/api/books/${bookId}/chapters/${chapterNum}/audio${generatedAt ? `?v=${encodeURIComponent(generatedAt)}` : ''}`)}
+            src={src}
+            onLoadedMetadata={handleLoadedMetadata}
+            onTimeUpdate={handleTimeUpdate}
           />
         </div>
       )}

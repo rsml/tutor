@@ -655,8 +655,16 @@ export function audiobookExists(bookId: string): boolean {
   return existsSync(audiobookPath(bookId))
 }
 
-export function chapterAudioExists(bookId: string, chapterNum: number): boolean {
-  return existsSync(chapterAudioPath(bookId, chapterNum))
+/**
+ * True iff this chapter's audio is available for playback. Reads the
+ * manifest (the source of truth post the architecture change away from
+ * per-chapter MP3 files); falls back to the legacy on-disk MP3 file for
+ * audiobooks generated before that change.
+ */
+export async function chapterAudioExists(bookId: string, chapterNum: number): Promise<boolean> {
+  if (existsSync(chapterAudioPath(bookId, chapterNum))) return true
+  const manifest = await getAudiobookManifest(bookId)
+  return !!manifest?.chapters.some(c => c.num === chapterNum)
 }
 
 export async function getAudiobookManifest(bookId: string): Promise<AudiobookManifest | null> {

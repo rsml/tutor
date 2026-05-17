@@ -23,7 +23,6 @@ export interface GenerateAudiobookOpts {
 }
 
 const MANIFEST_VERSION = 1
-const MP3_BITRATE = '96k'
 const M4B_BITRATE = '64k'
 
 // Run ffmpeg with the configured binary, surfacing stderr on non-zero exit.
@@ -198,34 +197,13 @@ export async function generateAudiobook(
 
       if (abortSignal.aborted) throw new Error('Audiobook generation aborted')
 
-      // Per-chapter MP3 (96 kbps). This is what the per-chapter Listen button
-      // streams. We write to the final mp3 path directly (with a .tmp swap).
-      const mp3Path = store.chapterAudioPath(bookId, n)
-      const mp3Tmp = mp3Path + '.tmp'
-      tmpFilesToClean.push(mp3Tmp)
-      // -f mp3 is required because the tmp path ends in ".mp3.tmp" — ffmpeg
-      // infers container format from the output extension and would otherwise
-      // fail with "Unable to choose an output format for ...mp3.tmp".
-      await runFfmpeg(
-        [
-          '-y',
-          '-hide_banner',
-          '-loglevel', 'error',
-          '-i', wavPath,
-          '-c:a', 'libmp3lame',
-          '-b:a', MP3_BITRATE,
-          '-ac', '1',
-          '-ar', '22050',
-          '-f', 'mp3',
-          mp3Tmp,
-        ],
-        abortSignal,
-      )
-      await rename(mp3Tmp, mp3Path)
-
-      // Mark this chapter as audio-ready so the UI's Listen button can light
-      // up before the full M4B stitch completes. Re-read meta in case it
-      // changed (e.g., user edited tags concurrently).
+      // Mark this chapter as audio-ready. Per-chapter playback comes from
+      // the unified M4B with currentTime seek (one source of truth), so we
+      // intentionally don't write a separate MP3 per chapter -- the M4B
+      // exposes the same audio with proper duration/seek metadata that
+      // libmp3lame's ABR output doesn't reliably advertise to browsers.
+      // The flag still lights up the per-chapter Listen button progressively;
+      // the audio source switches once the M4B stitch completes.
       const meta = await store.getBook(bookId)
       if (!meta.audioGeneratedChapters.includes(n)) {
         meta.audioGeneratedChapters = [...meta.audioGeneratedChapters, n]
@@ -319,8 +297,18 @@ export async function generateAudiobook(
       }
       args.push(
         '-metadata', `title=${finalMeta.title}`,
+        '-metadata', `album=${finalMeta.title}`,
         '-metadata', 'artist=Tutor',
+        '-metadata', 'album_artist=Tutor',
         '-metadata', 'genre=Audiobook',
+        // media_type=2 = "Audiobook" iTunes stik value. Without it, Apple
+        // Books treats the file as music and won't show chapter navigation
+        // the way it does for native audiobooks.
+        '-metadata', 'media_type=2',
+        // +faststart moves the moov atom to the front of the file so
+        // streaming clients (the in-app <audio> element, Apple Books)
+        // can begin playback before the whole file downloads.
+        '-movflags', '+faststart',
         '-f', 'mp4',
         m4bTmp,
       )

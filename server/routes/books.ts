@@ -1677,8 +1677,7 @@ ${profileContext || 'No profile available.'}
     { schema: { params: bookIdSchema } },
     async (request, reply) => {
       const bookId = request.params.id
-      const { existsSync } = await import('node:fs')
-      const { createReadStream } = await import('node:fs')
+      const { existsSync, createReadStream } = await import('node:fs')
       const { stat: fsStat } = await import('node:fs/promises')
 
       const path = store.audiobookPath(bookId)
@@ -1687,51 +1686,23 @@ ${profileContext || 'No profile available.'}
       }
       const meta = await store.getBook(bookId)
       const fileStat = await fsStat(path)
-      const stream = createReadStream(path)
-      reply
-        .type('audio/mp4')
-        .header('Content-Length', String(fileStat.size))
-        .header(
-          'Content-Disposition',
-          `inline; filename="${encodeURIComponent(meta.title)}.m4b"`,
-        )
-        .send(stream)
-    },
-  )
-
-  // GET /api/books/:id/chapters/:num/audio — per-chapter MP3 with HTTP Range
-  fastify.get<{ Params: { id: string; num: string } }>(
-    '/api/books/:id/chapters/:num/audio',
-    { schema: { params: bookChapterSchema } },
-    async (request, reply) => {
-      const bookId = request.params.id
-      const num = parseInt(request.params.num, 10)
-      const { existsSync, createReadStream } = await import('node:fs')
-      const { stat: fsStat } = await import('node:fs/promises')
-
-      const path = store.chapterAudioPath(bookId, num)
-      if (!existsSync(path)) {
-        return reply.status(404).send({ error: 'Chapter audio not found' })
-      }
-
-      const fileStat = await fsStat(path)
-      // Tie the ETag to mtime so re-narrating a chapter invalidates the
-      // browser cache automatically without needing a query-string bust.
       const etag = `"${fileStat.size.toString(16)}-${fileStat.mtimeMs.toString(36)}"`
+      const disposition = `inline; filename="${encodeURIComponent(meta.title)}.m4b"`
+      const cors = (r: typeof reply) => r
+        .header('Cache-Control', 'no-cache')
+        .header('ETag', etag)
+        .header('Content-Disposition', disposition)
+        .header('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges, ETag')
+
       const range = request.headers.range
       if (!range) {
-        // Full file — let the client buffer.
-        reply
-          .type('audio/mpeg')
+        cors(reply)
+          .type('audio/mp4')
           .header('Content-Length', String(fileStat.size))
           .header('Accept-Ranges', 'bytes')
-          .header('Cache-Control', 'no-cache')
-          .header('ETag', etag)
           .send(createReadStream(path))
         return
       }
-
-      // "bytes=START-END" or "bytes=START-"
       const match = /^bytes=(\d+)-(\d+)?$/.exec(range)
       if (!match) {
         return reply.status(416).send({ error: 'Invalid Range header' })
@@ -1742,14 +1713,73 @@ ${profileContext || 'No profile available.'}
         reply.header('Content-Range', `bytes */${fileStat.size}`)
         return reply.status(416).send({ error: 'Range not satisfiable' })
       }
-      reply
-        .status(206)
-        .type('audio/mpeg')
+      cors(reply.status(206))
+        .type('audio/mp4')
         .header('Content-Length', String(end - start + 1))
         .header('Content-Range', `bytes ${start}-${end}/${fileStat.size}`)
         .header('Accept-Ranges', 'bytes')
+        .send(createReadStream(path, { start, end }))
+    },
+  )
+
+  // GET /api/books/:id/chapters/:num/audio — chapter audio with HTTP Range.
+  //
+  // New audiobooks: the chapter plays from the unified M4B (one source of
+  // truth, proper duration/seek metadata that lame ABR MP3 lacks); the
+  // client seeks to chapter start.
+  //
+  // Legacy audiobooks generated before that change still have per-chapter
+  // MP3 files on disk; we fall back to those for compatibility.
+  fastify.get<{ Params: { id: string; num: string } }>(
+    '/api/books/:id/chapters/:num/audio',
+    { schema: { params: bookChapterSchema } },
+    async (request, reply) => {
+      const bookId = request.params.id
+      const num = parseInt(request.params.num, 10)
+      const { existsSync, createReadStream } = await import('node:fs')
+      const { stat: fsStat } = await import('node:fs/promises')
+
+      const legacyMp3 = store.chapterAudioPath(bookId, num)
+      const useLegacyMp3 = existsSync(legacyMp3)
+      const path = useLegacyMp3 ? legacyMp3 : store.audiobookPath(bookId)
+      const contentType = useLegacyMp3 ? 'audio/mpeg' : 'audio/mp4'
+
+      if (!existsSync(path)) {
+        return reply.status(404).send({ error: 'Chapter audio not found' })
+      }
+
+      const fileStat = await fsStat(path)
+      const etag = `"${fileStat.size.toString(16)}-${fileStat.mtimeMs.toString(36)}"`
+      const range = request.headers.range
+      // Expose headers so cross-origin <audio> elements can read media metadata.
+      const cors = (r: typeof reply) => r
         .header('Cache-Control', 'no-cache')
         .header('ETag', etag)
+        .header('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges, ETag')
+
+      if (!range) {
+        cors(reply)
+          .type(contentType)
+          .header('Content-Length', String(fileStat.size))
+          .header('Accept-Ranges', 'bytes')
+          .send(createReadStream(path))
+        return
+      }
+      const match = /^bytes=(\d+)-(\d+)?$/.exec(range)
+      if (!match) {
+        return reply.status(416).send({ error: 'Invalid Range header' })
+      }
+      const start = parseInt(match[1], 10)
+      const end = match[2] ? parseInt(match[2], 10) : fileStat.size - 1
+      if (start >= fileStat.size || end >= fileStat.size || start > end) {
+        reply.header('Content-Range', `bytes */${fileStat.size}`)
+        return reply.status(416).send({ error: 'Range not satisfiable' })
+      }
+      cors(reply.status(206))
+        .type(contentType)
+        .header('Content-Length', String(end - start + 1))
+        .header('Content-Range', `bytes ${start}-${end}/${fileStat.size}`)
+        .header('Accept-Ranges', 'bytes')
         .send(createReadStream(path, { start, end }))
     },
   )
@@ -1761,7 +1791,7 @@ ${profileContext || 'No profile available.'}
     async (request) => {
       const bookId = request.params.id
       const num = parseInt(request.params.num, 10)
-      return { exists: store.chapterAudioExists(bookId, num) }
+      return { exists: await store.chapterAudioExists(bookId, num) }
     },
   )
 

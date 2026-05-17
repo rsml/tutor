@@ -200,6 +200,9 @@ describe('audiobook-generator', () => {
     await seedBook()
 
     // Pre-seed a stale M4B and audio dir so we can confirm they get wiped.
+    // The per-chapter MP3 represents a legacy audiobook from before we
+    // dropped duplicate-file generation; deleteAudiobookArtifacts wipes
+    // the whole audio dir so it must be gone after a fresh generation.
     await mkdir(store.audioDir(testMeta.id), { recursive: true })
     const staleMp3 = store.chapterAudioPath(testMeta.id, 1)
     const staleM4b = store.audiobookPath(testMeta.id)
@@ -214,10 +217,9 @@ describe('audiobook-generator', () => {
       task.abortController.signal,
     )
 
-    // Old "STALE" content must be gone; mp3 should now contain our mocked output.
-    const newMp3 = await readFile(staleMp3, 'utf-8')
-    expect(newMp3).not.toBe('STALE')
-    // M4B should be regenerated (mock writes 'fake-output')
+    // Stale per-chapter MP3 must be gone (we don't write them anymore).
+    expect(existsSync(staleMp3)).toBe(false)
+    // M4B should be regenerated.
     expect(existsSync(staleM4b)).toBe(true)
     const m4bContent = await readFile(staleM4b, 'utf-8')
     expect(m4bContent).not.toBe('STALE')

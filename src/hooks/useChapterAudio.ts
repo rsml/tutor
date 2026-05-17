@@ -5,7 +5,12 @@ import { useAppSelector, selectRunningTasks } from '@src/store'
 interface AudiobookStatus {
   exists: boolean
   generatedChapters: number[]
-  manifest: { voice: string; speed: number; generatedAt: string } | null
+  manifest: {
+    voice: string
+    speed: number
+    generatedAt: string
+    chapters: Array<{ num: number; title: string; startSec: number; durationSec: number }>
+  } | null
 }
 
 // Shared lookup so every chapter button doesn't fire its own HTTP call.

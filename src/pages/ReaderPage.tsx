@@ -736,6 +736,8 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
             chapterNum={currentChapterNum}
             voiceName={voiceName}
             generatedAt={audiobookStatus?.manifest?.generatedAt}
+            startSec={audiobookStatus?.manifest?.chapters.find(c => c.num === currentChapterNum)?.startSec}
+            durationSec={audiobookStatus?.manifest?.chapters.find(c => c.num === currentChapterNum)?.durationSec}
             available={hasAudio(currentChapterNum)}
           />
         )}
