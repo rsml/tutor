@@ -1495,7 +1495,7 @@ git status
 
 - **Pre-commit hook:** lefthook runs typecheck on every commit. If a commit fails because of type errors, fix the errors and re-commit; do NOT bypass with `--no-verify`.
 
-- **`useStreamingContent` reset:** Task 9 step 3 asks you to add a `reset` to the hook. If the hook's internals don't easily support it, an alternative is to keep two separate streaming buffers (one for the original TOC, one for the revised stream) and swap which is rendered. Either approach is fine.
+- **`useStreamingContent` reset:** Task 9 step 3 just verifies `reset()` exists — it already does. The handler uses `toc.flushNow()` then `toc.reset()` to clear the displayed content before the revised stream replaces it.
 
 - **`POST /api/books` event shape:** After Task 6, this endpoint emits `book_created`, `toc`, `toc_done`, `done`. No more `chapter`, `skills_classified`, or `quiz_*` events from this endpoint — those now come from `/start`.
 
