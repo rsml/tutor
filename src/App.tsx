@@ -145,48 +145,63 @@ export default function App() {
   const { provider: quizProvider, model: quizModel } = useAppSelector(selectFunctionModel('quiz'))
 
   useEffect(() => {
+    const populated = new Set<string>()
+    const loadPromises: Promise<void>[] = []
+
     if (window.electronAPI) {
       // Load API keys from secure storage and POST to server
       for (const provider of PROVIDER_IDS) {
-        window.electronAPI.loadApiKey(provider).then(async key => {
+        loadPromises.push(
+          window.electronAPI.loadApiKey(provider).then(async key => {
+            if (key) {
+              try {
+                await fetch(apiUrl('/api/settings/api-key'), {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ provider, apiKey: key }),
+                })
+              } catch { /* server may not be ready */ }
+              dispatch(setProviderApiKey({ provider, apiKey: key }))
+              populated.add(provider)
+            }
+          }).catch(() => {})
+        )
+      }
+      // Also try loading legacy key (no provider suffix) into anthropic
+      loadPromises.push(
+        window.electronAPI.loadApiKey().then(async key => {
           if (key) {
             try {
               await fetch(apiUrl('/api/settings/api-key'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ provider, apiKey: key }),
+                body: JSON.stringify({ provider: 'anthropic', apiKey: key }),
               })
             } catch { /* server may not be ready */ }
-            dispatch(setProviderApiKey({ provider, apiKey: key }))
+            dispatch(setProviderApiKey({ provider: 'anthropic', apiKey: key }))
+            populated.add('anthropic')
           }
-        })
-      }
-      // Also try loading legacy key (no provider suffix) into anthropic
-      window.electronAPI.loadApiKey().then(async key => {
-        if (key) {
-          try {
-            await fetch(apiUrl('/api/settings/api-key'), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ provider: 'anthropic', apiKey: key }),
-            })
-          } catch { /* server may not be ready */ }
-          dispatch(setProviderApiKey({ provider: 'anthropic', apiKey: key }))
-        }
-      })
-    } else {
-      // Dev/web mode — check server for existing key status
+        }).catch(() => {})
+      )
+    }
+
+    // Belt-and-suspenders: after local IPC attempts (or if not in Electron),
+    // ask the server which providers it considers configured. If main.ts
+    // already posted a key whose .enc file the renderer's IPC couldn't read
+    // (race or transient IPC failure), this still surfaces it in Redux as
+    // 'configured' so the UI doesn't falsely show "no key".
+    Promise.all(loadPromises).then(() =>
       fetch(apiUrl('/api/settings/api-key-status'))
         .then(res => res.json())
         .then((status: Record<string, boolean>) => {
           for (const provider of PROVIDER_IDS) {
-            if (status[provider]) {
+            if (status[provider] && !populated.has(provider)) {
               dispatch(setProviderApiKey({ provider, apiKey: 'configured' }))
             }
           }
         })
         .catch(() => {})
-    }
+    )
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Health check — disable New Book when server is unreachable
@@ -658,7 +673,7 @@ export default function App() {
   }
 
   const handleDelete = async () => {
-    if (!deleteDialog || deleteDialog.input !== 'delete') return
+    if (!deleteDialog || deleteDialog.input.toLowerCase() !== 'delete') return
     setMutating(true)
     try {
       const res = await fetch(apiUrl(`/api/books/${deleteDialog.book.id}`), {
@@ -675,7 +690,7 @@ export default function App() {
   }
 
   const handleReset = async () => {
-    if (!resetDialog || resetDialog.input !== 'reset') return
+    if (!resetDialog || resetDialog.input.toLowerCase() !== 'reset') return
     setMutating(true)
     try {
       const res = await fetch(apiUrl(`/api/books/${resetDialog.book.id}/reset`), {
@@ -1255,7 +1270,7 @@ export default function App() {
         className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
       >
         <Zap className="size-3.5 text-content-muted shrink-0" />
-        Generate All
+        Generate All Chapters
       </button>
       <button
         onClick={() => {
@@ -1438,14 +1453,15 @@ export default function App() {
           <input
             value={deleteDialog?.input ?? ''}
             onChange={e => setDeleteDialog(prev => prev ? { ...prev, input: e.target.value } : null)}
-            onKeyDown={e => e.key === 'Enter' && deleteDialog?.input === 'delete' && handleDelete()}
+            onKeyDown={e => e.key === 'Enter' && deleteDialog?.input.toLowerCase() === 'delete' && handleDelete()}
             placeholder="delete"
             className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
             autoFocus
+            autoCapitalize="off"
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialog(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleteDialog?.input !== 'delete' || mutating}>OK</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleteDialog?.input.toLowerCase() !== 'delete' || mutating}>OK</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1461,14 +1477,15 @@ export default function App() {
           <input
             value={resetDialog?.input ?? ''}
             onChange={e => setResetDialog(prev => prev ? { ...prev, input: e.target.value } : null)}
-            onKeyDown={e => e.key === 'Enter' && resetDialog?.input === 'reset' && handleReset()}
+            onKeyDown={e => e.key === 'Enter' && resetDialog?.input.toLowerCase() === 'reset' && handleReset()}
             placeholder="reset"
             className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
             autoFocus
+            autoCapitalize="off"
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setResetDialog(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleReset} disabled={resetDialog?.input !== 'reset' || mutating}>OK</Button>
+            <Button variant="destructive" onClick={handleReset} disabled={resetDialog?.input.toLowerCase() !== 'reset' || mutating}>OK</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

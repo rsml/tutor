@@ -194,7 +194,23 @@ ipcMain.handle('storage:remove', async (_event, key: string) => {
 
 const VALID_PROVIDERS = ['anthropic', 'openai', 'google']
 
+// safeStorage's encryption key is bound to the Electron binary's signing identity,
+// which differs between packaged builds and unpackaged runs (dev/preview). Two
+// modes sharing one .enc file means each launch can't decrypt what the other
+// wrote — keys appear "reset" until re-entered, which then breaks the other
+// mode. Suffixing the filename by identity gives each mode its own slot so
+// neither clobbers the other.
+const SAFESTORAGE_IDENTITY = app.isPackaged ? 'packaged' : 'dev'
+
 function apiKeyFile(provider?: string): string {
+  if (provider && !VALID_PROVIDERS.includes(provider)) {
+    throw new Error('Invalid provider')
+  }
+  const suffix = provider ? `-${provider}` : ''
+  return path.join(dataDir, `api-key${suffix}.${SAFESTORAGE_IDENTITY}.enc`)
+}
+
+function legacyApiKeyFile(provider?: string): string {
   if (provider && !VALID_PROVIDERS.includes(provider)) {
     throw new Error('Invalid provider')
   }
@@ -202,27 +218,65 @@ function apiKeyFile(provider?: string): string {
   return path.join(dataDir, `api-key${suffix}.enc`)
 }
 
+async function loadApiKey(provider?: string): Promise<string | null> {
+  const file = apiKeyFile(provider)
+  const legacy = legacyApiKeyFile(provider)
+  if (existsSync(file)) {
+    try {
+      const encrypted = await readFile(file)
+      return safeStorage.decryptString(encrypted)
+    } catch (err) {
+      console.warn(`[apiKey] load(${provider ?? 'legacy'}) — decrypt of ${file} failed (identity=${SAFESTORAGE_IDENTITY}): ${(err as Error).message}. File preserved.`)
+      return null
+    }
+  }
+  // Fall back to legacy unsuffixed file written before the identity split.
+  // If decrypt succeeds with current identity, copy it forward and keep the
+  // legacy file in place so the *other* mode can still claim it later.
+  if (existsSync(legacy)) {
+    try {
+      const encrypted = await readFile(legacy)
+      const plaintext = safeStorage.decryptString(encrypted)
+      try {
+        await ensureDataDir()
+        const reEncrypted = safeStorage.encryptString(plaintext)
+        await writeFile(file, reEncrypted)
+        console.log(`[apiKey] load(${provider ?? 'legacy'}) — migrated legacy key into ${file}`)
+      } catch (err) {
+        console.warn(`[apiKey] load(${provider ?? 'legacy'}) — legacy decrypt OK but migration write failed: ${(err as Error).message}`)
+      }
+      return plaintext
+    } catch (err) {
+      console.warn(`[apiKey] load(${provider ?? 'legacy'}) — legacy file at ${legacy} unreadable by identity=${SAFESTORAGE_IDENTITY}: ${(err as Error).message}. File preserved.`)
+      return null
+    }
+  }
+  return null
+}
+
 ipcMain.handle('apiKey:save', async (_event, key: string, provider?: string) => {
   await ensureDataDir()
+  if (!safeStorage.isEncryptionAvailable()) {
+    console.warn(`[apiKey] save(${provider ?? 'legacy'}) — safeStorage unavailable, refusing to write`)
+    throw new Error('Secure storage unavailable on this system')
+  }
   const encrypted = safeStorage.encryptString(key)
   await writeFile(apiKeyFile(provider), encrypted)
+  console.log(`[apiKey] save(${provider ?? 'legacy'}) — wrote ${apiKeyFile(provider)}`)
 })
 
-ipcMain.handle('apiKey:load', async (_event, provider?: string) => {
-  const file = apiKeyFile(provider)
-  if (!existsSync(file)) return null
-  try {
-    const encrypted = await readFile(file)
-    return safeStorage.decryptString(encrypted)
-  } catch {
-    return null
-  }
-})
+ipcMain.handle('apiKey:load', async (_event, provider?: string) => loadApiKey(provider))
 
 ipcMain.handle('apiKey:remove', async (_event, provider?: string) => {
+  // Only delete the current-identity file. The legacy unsuffixed file may
+  // belong to the other mode (or be unreadable by us) — leave it alone so
+  // the other mode's data isn't collaterally trashed.
   const file = apiKeyFile(provider)
   if (existsSync(file)) {
     await rm(file)
+    console.log(`[apiKey] remove(${provider ?? 'legacy'}) — deleted ${file}`)
+  } else {
+    console.log(`[apiKey] remove(${provider ?? 'legacy'}) — no file at ${file}, nothing to delete`)
   }
 })
 
@@ -385,33 +439,37 @@ app.whenReady().then(async () => {
     }
   }
 
-  // POST all saved API keys to the server's key store
+  // POST all saved API keys to the server's key store. loadApiKey handles
+  // identity-suffix paths, legacy fallback, and migration; failures are
+  // logged but never delete the .enc file.
+  console.log(`[apiKey] startup — populating server keys (identity=${SAFESTORAGE_IDENTITY})`)
   for (const provider of VALID_PROVIDERS) {
-    const file = apiKeyFile(provider)
-    if (existsSync(file)) {
-      try {
-        const encrypted = await readFile(file)
-        const key = safeStorage.decryptString(encrypted)
-        await fetch(`http://127.0.0.1:${apiPort}/api/settings/api-key`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ provider, apiKey: key }),
-        })
-      } catch { /* ignore */ }
-    }
-  }
-  // Also try loading legacy keyFile (no provider suffix) as anthropic
-  const legacyFile = apiKeyFile()
-  if (existsSync(legacyFile)) {
+    const key = await loadApiKey(provider)
+    if (!key) continue
     try {
-      const encrypted = await readFile(legacyFile)
-      const key = safeStorage.decryptString(encrypted)
       await fetch(`http://127.0.0.1:${apiPort}/api/settings/api-key`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: 'anthropic', apiKey: key }),
+        body: JSON.stringify({ provider, apiKey: key }),
       })
-    } catch { /* ignore */ }
+      console.log(`[apiKey] startup — posted ${provider} key to server`)
+    } catch (err) {
+      console.warn(`[apiKey] startup — failed to POST ${provider} key: ${(err as Error).message}`)
+    }
+  }
+  // Also try loading the unsuffixed legacy file (no provider) as anthropic
+  const legacyAnthropic = await loadApiKey()
+  if (legacyAnthropic) {
+    try {
+      await fetch(`http://127.0.0.1:${apiPort}/api/settings/api-key`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: 'anthropic', apiKey: legacyAnthropic }),
+      })
+      console.log(`[apiKey] startup — posted legacy (no-provider) key to server as anthropic`)
+    } catch (err) {
+      console.warn(`[apiKey] startup — failed to POST legacy key: ${(err as Error).message}`)
+    }
   }
 
   // CSP enforcement

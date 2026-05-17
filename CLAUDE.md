@@ -162,6 +162,18 @@ pnpm dev:server        # Fastify standalone on port 3147
 - Tests colocated with source files (`*.test.ts`)
 - Path aliases: `@src/*` → `src/*`, `@server/*` → `server/*`
 
+## Domain & Architecture (Aspirational)
+
+The codebase is moving toward domain-driven design with ports-and-adapters separation. Apply these when adding or refactoring code; existing code does not all conform yet.
+
+- **Ubiquitous domain language**: `Book`, `Chapter`, `TOC`, `Feedback`, `Quiz`, `Progress`, `LearningProfile`, `Audiobook`. Use these names everywhere — schemas, services, components, prompts, UI copy. Don't invent synonyms.
+- **Pure domain core** in `server/schemas.ts` and any future domain modules — Zod types and pure functions only. No `fs`, `fetch`, AI SDK imports, or env vars inside the domain.
+- **Ports for every external dependency**: AI providers, filesystem persistence, audio synthesis, EPUB tooling, image generation, API key storage, background queues, Electron IPC, frontend → backend HTTP. Each gets a single named module that the rest of the app depends on by shape, not by SDK.
+- **Adapters do the I/O**: only the adapter touches the SDK, library, child process, or filesystem. Swappable and testable in isolation.
+- **Routes are thin**: parse input → call a port → return result. No business logic, no direct `fs` or SDK calls in `server/routes/*.ts`.
+- **Frontend goes through one client**: components import from `src/lib/api.ts`, not raw `fetch`. New endpoints get a function in the client.
+- **No new SDK sprinkling**: when adding a third-party SDK, wrap it behind a port first, then consume the port from services.
+
 ## UI / Frontend Design
 
 ### Desktop-First Design
