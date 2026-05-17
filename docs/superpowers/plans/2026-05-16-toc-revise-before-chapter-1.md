@@ -365,9 +365,13 @@ Write this chapter now.`,
 }
 ```
 
-- [ ] **Step 2: Replace the inline block in `POST /api/books` with a call to the helper**
+- [ ] **Step 2: Replace the inline blocks in `POST /api/books` with a call to the helper**
 
-Inside `POST /api/books`, after the `send({ type: 'toc_done', ... })` call (around line 999), delete everything from "Phase 2: Generate Chapter 1" through the existing `send({ type: 'done', bookId })` cleanup. Replace with:
+Inside `POST /api/books`:
+
+1. **Delete the skill classification block** (currently at lines 944-979 — the `tocSkills`/`chapterSkillMap` block). It's now inside the helper.
+2. **Change the `await store.saveToc(bookId, tocWithSkills)` line to `await store.saveToc(bookId, { chapters })`**. The `tocWithSkills` variable no longer exists once you delete step 1; we save chapters only, and the helper will overwrite `toc.yml` with the skill-enriched version when it runs immediately after.
+3. **After `send({ type: 'toc_done', ... })`**, delete everything from "Phase 2: Generate Chapter 1" through the existing final cleanup. Replace with:
 
 ```typescript
 await generateFirstChapterAndQuiz(bookId, send, {
@@ -384,7 +388,7 @@ send({ type: 'done', bookId })
 reply.raw.end()
 ```
 
-Also delete the now-duplicated skill classification block (lines 944-979) since it's inside the helper now.
+Note: this leaves a very brief intermediate state where `toc.yml` is written without skills before the helper rewrites it with skills milliseconds later. That's fine — no consumer reads `toc.yml` in that window.
 
 - [ ] **Step 3: Typecheck + manual smoke test**
 
@@ -912,11 +916,18 @@ case 'toc_done': {
 }
 ```
 
-- [ ] **Step 3: Add the two action buttons to the footer**
+- [ ] **Step 3: Replace the single `Start Book` button block with phase-driven conditional rendering**
 
-Find the existing footer JSX (around lines 224-251) and replace the single `Start Book` button block with conditional rendering:
+Find the existing footer JSX (around lines 224-251). Keep the existing `<button onClick={onCancel}>Cancel</button>` and the `{error && <p>}` error display unchanged. Replace only the `<Button>...Start Book...</Button>` block with:
 
 ```tsx
+{phase === 'toc' && (
+  <Button size="lg" disabled>
+    <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
+    Generating…
+  </Button>
+)}
+
 {phase === 'awaiting_approval' && (
   <>
     <Button
@@ -1169,21 +1180,9 @@ const handleRevise = useCallback(async (id: string, feedback: string) => {
 
 Import `toast` from `@src/lib/toast` (already used elsewhere — check `WizardModal.tsx` for the import path).
 
-- [ ] **Step 3: Add `reset()` to `useStreamingContent` hook if not present**
+- [ ] **Step 3: Verify `reset()` exists on `useStreamingContent`**
 
-Open `src/hooks/useStreamingContent.ts`. If it doesn't already expose a way to clear content, add one:
-
-```typescript
-// In useStreamingContent's return value:
-return {
-  content,
-  appendChunk,
-  flushNow,
-  reset: () => setContent(''),  // or whatever the internal state setter is named
-}
-```
-
-If the existing API already supports clearing via some other method, use that instead.
+The hook at `src/hooks/useStreamingContent.ts` already exposes `reset()` in its return tuple. Confirm by opening the file. No code change needed.
 
 - [ ] **Step 4: Smoke test**
 
@@ -1196,7 +1195,7 @@ Create a book. After TOC streams: click `Provide Feedback`, type "rename chapter
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/components/ReviseTocDialog.tsx src/components/CreationView.tsx src/hooks/useStreamingContent.ts
+git add src/components/ReviseTocDialog.tsx src/components/CreationView.tsx
 git commit -m "feat: add ReviseTocDialog for AI-mediated TOC iteration"
 ```
 
@@ -1369,7 +1368,11 @@ if (view.type === 'creating') {
 }
 ```
 
-- [ ] **Step 4: Smoke test**
+- [ ] **Step 4: Verify cancel-from-awaiting persists the book**
+
+The existing `handleCreationCancel` in `App.tsx` (~line 336-346) only auto-deletes books with status `generating_toc` or `generating`. A book in `toc_review` falls through that filter and persists — which is exactly the resume behavior we want. No change needed to the cancel handler.
+
+- [ ] **Step 5: Smoke test**
 
 ```bash
 pnpm electron:dev
@@ -1377,7 +1380,7 @@ pnpm electron:dev
 
 Create a book. After TOC appears with the two buttons, click Cancel. Confirm the book shows in the library. Click the book. Confirm CreationView reopens with the TOC visible and the two buttons. Click Provide Feedback, iterate. Click Generate Chapter 1, finish.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add src/App.tsx
@@ -1414,7 +1417,11 @@ Match whatever pattern is used for `'generating_toc'` and `'generating'`. Add a 
 
 Mirror the badge in the row variant.
 
-- [ ] **Step 4: Smoke test**
+- [ ] **Step 4: Verify the card is clickable for `toc_review` status**
+
+`BookCard.tsx` may have an `isGenerating` flag that disables `onClick` for in-flight statuses (`generating_toc`, `generating`). Confirm `toc_review` is NOT included in that disabled set — clicking a `toc_review` card must route to the resume view (Task 11). If the existing flag inadvertently disables clicks for any non-`reading` status, narrow it to just the two active-generation statuses.
+
+- [ ] **Step 5: Smoke test**
 
 ```bash
 pnpm electron:dev
@@ -1422,7 +1429,7 @@ pnpm electron:dev
 
 Create a book and cancel out at the awaiting-approval screen. In the library, confirm the badge appears. Click the card to confirm it routes back into CreationView.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add src/components/BookCard.tsx src/components/BookListRow.tsx
