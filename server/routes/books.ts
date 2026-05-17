@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyReply } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { streamText, generateObject } from 'ai'
 import { z } from 'zod'
@@ -220,6 +220,71 @@ async function validateChapterNum(bookId: string, num: number): Promise<void> {
 }
 
 const sanitizeFeedback = (s: string) => s.replace(/<\/?[^>]+>/g, '')
+
+// Serve a media file with HTTP Range support. Writes via reply.raw so
+// Fastify doesn't re-derive Content-Length from a stream (it ends up
+// at 0 for streams, breaking <audio> playback). Sets CORS expose
+// headers so cross-origin <audio> elements can read media metadata.
+async function sendMediaWithRange(
+  reply: FastifyReply,
+  rangeHeader: string | undefined,
+  filePath: string,
+  contentType: string,
+  opts: { disposition?: string } = {},
+): Promise<void> {
+  const { existsSync, createReadStream } = await import('node:fs')
+  const { stat: fsStat } = await import('node:fs/promises')
+
+  if (!existsSync(filePath)) {
+    reply.status(404).send({ error: 'File not found' })
+    return
+  }
+  const fileStat = await fsStat(filePath)
+  const etag = `"${fileStat.size.toString(16)}-${fileStat.mtimeMs.toString(36)}"`
+
+  let start = 0
+  let end = fileStat.size - 1
+  let status = 200
+  if (rangeHeader) {
+    const match = /^bytes=(\d+)-(\d+)?$/.exec(rangeHeader)
+    if (!match) {
+      reply.status(416).send({ error: 'Invalid Range header' })
+      return
+    }
+    start = parseInt(match[1], 10)
+    end = match[2] ? parseInt(match[2], 10) : fileStat.size - 1
+    if (start >= fileStat.size || end >= fileStat.size || start > end) {
+      reply.raw.setHeader('Content-Range', `bytes */${fileStat.size}`)
+      reply.status(416).send({ error: 'Range not satisfiable' })
+      return
+    }
+    status = 206
+  }
+
+  const length = end - start + 1
+  const headers: Record<string, string> = {
+    'Content-Type': contentType,
+    'Content-Length': String(length),
+    'Accept-Ranges': 'bytes',
+    'Cache-Control': 'no-cache',
+    ETag: etag,
+    'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges, ETag',
+  }
+  if (status === 206) {
+    headers['Content-Range'] = `bytes ${start}-${end}/${fileStat.size}`
+  }
+  if (opts.disposition) {
+    headers['Content-Disposition'] = opts.disposition
+  }
+
+  // reply.hijack() prevents Fastify from touching the response further;
+  // we own writeHead + pipe ourselves so the body actually flows.
+  reply.hijack()
+  reply.raw.writeHead(status, headers)
+  const stream = createReadStream(filePath, { start, end })
+  stream.on('error', () => { reply.raw.destroy() })
+  stream.pipe(reply.raw)
+}
 
 export async function bookRoutes(fastify: FastifyInstance) {
   fastify.get('/api/books', async () => {
@@ -1677,48 +1742,10 @@ ${profileContext || 'No profile available.'}
     { schema: { params: bookIdSchema } },
     async (request, reply) => {
       const bookId = request.params.id
-      const { existsSync, createReadStream } = await import('node:fs')
-      const { stat: fsStat } = await import('node:fs/promises')
-
       const path = store.audiobookPath(bookId)
-      if (!existsSync(path)) {
-        return reply.status(404).send({ error: 'Audiobook not found' })
-      }
       const meta = await store.getBook(bookId)
-      const fileStat = await fsStat(path)
-      const etag = `"${fileStat.size.toString(16)}-${fileStat.mtimeMs.toString(36)}"`
       const disposition = `inline; filename="${encodeURIComponent(meta.title)}.m4b"`
-      const cors = (r: typeof reply) => r
-        .header('Cache-Control', 'no-cache')
-        .header('ETag', etag)
-        .header('Content-Disposition', disposition)
-        .header('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges, ETag')
-
-      const range = request.headers.range
-      if (!range) {
-        cors(reply)
-          .type('audio/mp4')
-          .header('Content-Length', String(fileStat.size))
-          .header('Accept-Ranges', 'bytes')
-          .send(createReadStream(path))
-        return
-      }
-      const match = /^bytes=(\d+)-(\d+)?$/.exec(range)
-      if (!match) {
-        return reply.status(416).send({ error: 'Invalid Range header' })
-      }
-      const start = parseInt(match[1], 10)
-      const end = match[2] ? parseInt(match[2], 10) : fileStat.size - 1
-      if (start >= fileStat.size || end >= fileStat.size || start > end) {
-        reply.header('Content-Range', `bytes */${fileStat.size}`)
-        return reply.status(416).send({ error: 'Range not satisfiable' })
-      }
-      cors(reply.status(206))
-        .type('audio/mp4')
-        .header('Content-Length', String(end - start + 1))
-        .header('Content-Range', `bytes ${start}-${end}/${fileStat.size}`)
-        .header('Accept-Ranges', 'bytes')
-        .send(createReadStream(path, { start, end }))
+      await sendMediaWithRange(reply, request.headers.range, path, 'audio/mp4', { disposition })
     },
   )
 
@@ -1736,51 +1763,13 @@ ${profileContext || 'No profile available.'}
     async (request, reply) => {
       const bookId = request.params.id
       const num = parseInt(request.params.num, 10)
-      const { existsSync, createReadStream } = await import('node:fs')
-      const { stat: fsStat } = await import('node:fs/promises')
+      const { existsSync } = await import('node:fs')
 
       const legacyMp3 = store.chapterAudioPath(bookId, num)
       const useLegacyMp3 = existsSync(legacyMp3)
       const path = useLegacyMp3 ? legacyMp3 : store.audiobookPath(bookId)
       const contentType = useLegacyMp3 ? 'audio/mpeg' : 'audio/mp4'
-
-      if (!existsSync(path)) {
-        return reply.status(404).send({ error: 'Chapter audio not found' })
-      }
-
-      const fileStat = await fsStat(path)
-      const etag = `"${fileStat.size.toString(16)}-${fileStat.mtimeMs.toString(36)}"`
-      const range = request.headers.range
-      // Expose headers so cross-origin <audio> elements can read media metadata.
-      const cors = (r: typeof reply) => r
-        .header('Cache-Control', 'no-cache')
-        .header('ETag', etag)
-        .header('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges, ETag')
-
-      if (!range) {
-        cors(reply)
-          .type(contentType)
-          .header('Content-Length', String(fileStat.size))
-          .header('Accept-Ranges', 'bytes')
-          .send(createReadStream(path))
-        return
-      }
-      const match = /^bytes=(\d+)-(\d+)?$/.exec(range)
-      if (!match) {
-        return reply.status(416).send({ error: 'Invalid Range header' })
-      }
-      const start = parseInt(match[1], 10)
-      const end = match[2] ? parseInt(match[2], 10) : fileStat.size - 1
-      if (start >= fileStat.size || end >= fileStat.size || start > end) {
-        reply.header('Content-Range', `bytes */${fileStat.size}`)
-        return reply.status(416).send({ error: 'Range not satisfiable' })
-      }
-      cors(reply.status(206))
-        .type(contentType)
-        .header('Content-Length', String(end - start + 1))
-        .header('Content-Range', `bytes ${start}-${end}/${fileStat.size}`)
-        .header('Accept-Ranges', 'bytes')
-        .send(createReadStream(path, { start, end }))
+      await sendMediaWithRange(reply, request.headers.range, path, contentType)
     },
   )
 

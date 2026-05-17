@@ -479,7 +479,7 @@ app.whenReady().then(async () => {
         ...details.responseHeaders,
         'Content-Security-Policy': [
           `default-src 'self'; script-src 'self'${VITE_DEV_SERVER_URL ? " 'unsafe-inline'" : ''}; style-src 'self' 'unsafe-inline'; ` +
-          `connect-src 'self' http://127.0.0.1:* http://localhost:*${VITE_DEV_SERVER_URL ? ' ws://localhost:*' : ''}; img-src 'self' data: http://127.0.0.1:* http://localhost:*; font-src 'self';`,
+          `connect-src 'self' http://127.0.0.1:* http://localhost:*${VITE_DEV_SERVER_URL ? ' ws://localhost:*' : ''}; img-src 'self' data: http://127.0.0.1:* http://localhost:*; font-src 'self'; media-src 'self' blob: http://127.0.0.1:* http://localhost:*;`,
         ],
       },
     })
