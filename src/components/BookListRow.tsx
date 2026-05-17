@@ -69,9 +69,16 @@ export function BookListRow({ book, chaptersRead, onClick, onContextMenu, nested
     >
       {/* Title column — flex: 2 */}
       <div className="flex-[2] min-w-0">
-        <p className="truncate text-sm font-medium text-content-primary">
-          {book.title}
-        </p>
+        <div className="flex items-center gap-2 min-w-0">
+          <p className="truncate text-sm font-medium text-content-primary">
+            {book.title}
+          </p>
+          {book.status === 'toc_review' && (
+            <Badge variant="outline" className="shrink-0 text-xs h-5 px-1.5">
+              Awaiting approval
+            </Badge>
+          )}
+        </div>
         {book.subtitle && (
           <p className="truncate text-xs text-content-muted mt-0.5">
             {book.subtitle}
