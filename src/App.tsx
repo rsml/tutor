@@ -255,7 +255,14 @@ export default function App() {
     restoredOnceRef.current = true
     if (!lastViewedBookId) return
     const book = apiBooks.find(b => b.id === lastViewedBookId)
-    if (book) setView({ type: 'reading', book })
+    if (!book) return
+    // Mirror openBook: toc_review books go to the CreationView resume flow,
+    // not the reader (which has no Chapter 1 to render yet).
+    if (book.status === 'toc_review') {
+      setView({ type: 'resuming', bookId: book.id })
+    } else {
+      setView({ type: 'reading', book })
+    }
   }, [hasLoaded, apiBooks, lastViewedBookId])
 
   // Safety-net: flush the redux-persist queue on page hide so nothing is lost on quit
