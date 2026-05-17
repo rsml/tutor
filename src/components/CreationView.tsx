@@ -7,20 +7,37 @@ import { useAppSelector, selectHasApiKey, selectFunctionModel, selectFontSize, s
 import { useStreamingContent } from '@src/hooks/useStreamingContent'
 import { parseSSEStream } from '@src/lib/parse-sse-stream'
 import { apiUrl } from '@src/lib/api-base'
+import { formatTocAsMarkdown } from '@src/lib/format-toc'
 import { toast } from '@src/lib/toast'
 
 type Phase = 'toc' | 'awaiting_approval' | 'revising' | 'starting' | 'done' | 'error'
 
-interface CreationViewProps {
-  topic: string
-  details: string
-  chapterCount: number
-  onComplete: (bookId: string) => void
-  onCancel: () => void
-  onBookCreated?: (bookId: string, title: string, totalChapters?: number) => void
-}
+export type CreationViewProps =
+  | {
+      mode: 'create'
+      topic: string
+      details: string
+      chapterCount: number
+      onComplete: (bookId: string) => void
+      onCancel: () => void
+      onBookCreated?: (bookId: string, title: string, totalChapters?: number) => void
+    }
+  | {
+      mode: 'resume'
+      bookId: string
+      onComplete: (bookId: string) => void
+      onCancel: () => void
+    }
 
-export function CreationView({ topic, details, chapterCount, onComplete, onCancel, onBookCreated }: CreationViewProps) {
+export function CreationView(props: CreationViewProps) {
+  const { onComplete, onCancel } = props
+  // Mode-specific fields — only meaningful when mode === 'create'
+  const topic = props.mode === 'create' ? props.topic : ''
+  const details = props.mode === 'create' ? props.details : ''
+  const chapterCount = props.mode === 'create' ? props.chapterCount : 0
+  const onBookCreated = props.mode === 'create' ? props.onBookCreated : undefined
+  const resumeBookId = props.mode === 'resume' ? props.bookId : null
+
   const hasApiKey = useAppSelector(selectHasApiKey)
   const { provider, model } = useAppSelector(selectFunctionModel('generation'))
   const { provider: quizProvider, model: quizModel } = useAppSelector(selectFunctionModel('quiz'))
@@ -181,12 +198,42 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
     }
   }, [hasApiKey, model, provider, quizModel, quizProvider, quizLength, chapterCount, topic, details, toc, onBookCreated])
 
+  const resumeFromExisting = useCallback(async (id: string) => {
+    try {
+      const [bookRes, tocRes] = await Promise.all([
+        fetch(apiUrl(`/api/books/${id}`)),
+        fetch(apiUrl(`/api/books/${id}/toc`)),
+      ])
+      if (!bookRes.ok || !tocRes.ok) throw new Error('Failed to load book')
+      const book = await bookRes.json()
+      const tocData = await tocRes.json()
+
+      setBookId(id)
+      // Reconstruct the TOC markdown and put it into the streaming buffer
+      const md = formatTocAsMarkdown({
+        title: book.title,
+        subtitle: book.subtitle,
+        chapters: tocData.chapters,
+      })
+      toc.appendChunk(md)
+      toc.flushNow()
+      setPhase('awaiting_approval')
+    } catch (err) {
+      setError('Failed to resume: ' + (err instanceof Error ? err.message : 'Unknown error'))
+      setPhase('error')
+    }
+  }, [toc])
+
   useEffect(() => {
-    if (!startedRef.current) {
-      startedRef.current = true
+    if (startedRef.current) return
+    startedRef.current = true
+
+    if (resumeBookId) {
+      resumeFromExisting(resumeBookId)
+    } else {
       startGeneration()
     }
-  }, [startGeneration])
+  }, [startGeneration, resumeFromExisting, resumeBookId])
 
   return (
     <>

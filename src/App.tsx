@@ -1339,6 +1339,7 @@ export default function App() {
   if (view.type === 'creating') {
     return (
       <CreationView
+        mode="create"
         topic={view.topic}
         details={view.details}
         chapterCount={view.chapterCount}
