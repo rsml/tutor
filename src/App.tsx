@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useDeferredValue, useRef } from 'react'
 import { toast } from '@src/lib/toast'
-import { Plus, BookOpen, X, FileDown, Pencil, Star, Tags, Library, ClipboardCheck, Eye, Image, Zap, Download, Trash2 } from 'lucide-react'
+import { Plus, BookOpen, X, FileDown, Pencil, Star, Tags, Library, ClipboardCheck, Eye, Image, Zap, Download, Trash2, Headphones, Play } from 'lucide-react'
 import { DndContext, DragOverlay, closestCenter, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Button } from '@src/components/ui/button'
@@ -29,6 +29,9 @@ import { BackgroundTasksFooter } from '@src/components/BackgroundTasksFooter'
 import { EditTagsDialog } from '@src/components/EditTagsDialog'
 import { ImportPreviewDialog } from '@src/components/ImportPreviewDialog'
 import { SetSeriesDialog } from '@src/components/SetSeriesDialog'
+import { AudiobookDownloadModal } from '@src/components/AudiobookDownloadModal'
+import { AudiobookVoiceModal } from '@src/components/AudiobookVoiceModal'
+import { AudiobookRegenerateConfirmModal } from '@src/components/AudiobookRegenerateConfirmModal'
 import { SeriesStackCard } from '@src/components/SeriesStackCard'
 import { BookListView } from '@src/components/BookListView'
 import { BookListRow } from '@src/components/BookListRow'
@@ -93,6 +96,11 @@ export default function App() {
   const [generateAllModal, setGenerateAllModal] = useState<{ taskId: string; book: Book } | null>(null)
   const [editTagsDialog, setEditTagsDialog] = useState<{ book: Book } | null>(null)
   const [setSeriesDialog, setSetSeriesDialog] = useState<{ book: Book } | null>(null)
+  const [audiobookExists, setAudiobookExists] = useState<Map<string, boolean>>(new Map())
+  const [audiobookDownloadModal, setAudiobookDownloadModal] = useState<{ missingBytes: number } | null>(null)
+  const [audiobookVoiceModal, setAudiobookVoiceModal] = useState<{ book: Book; mode: 'firstTime' | 'normal' | 'regenerate' } | null>(null)
+  const [regenerateAudiobookConfirm, setRegenerateAudiobookConfirm] = useState<{ book: Book } | null>(null)
+  const [pendingAudiobookForBookId, setPendingAudiobookForBookId] = useState<string | null>(null)
   const [seriesContextMenu, setSeriesContextMenu] = useState<{ seriesName: string; books: Book[]; x: number; y: number } | null>(null)
   const [renameSeriesDialog, setRenameSeriesDialog] = useState<{ seriesName: string; books: Book[]; newName: string } | null>(null)
   const [mutating, setMutating] = useState(false)
@@ -300,7 +308,26 @@ export default function App() {
   const handleEpubExported = useCallback((bookId: string, bookTitle: string) => {
     downloadEpub({ id: bookId, title: bookTitle } as Book)
   }, [])
-  useBackgroundTasks({ onCoverGenerated: fetchBooks, onEpubExported: handleEpubExported, onGenerateAllCompleted: fetchBooks })
+  useBackgroundTasks({
+    onCoverGenerated: fetchBooks,
+    onEpubExported: handleEpubExported,
+    onGenerateAllCompleted: fetchBooks,
+    onAudiobookGenerated: (bookId, bookTitle) => {
+      setAudiobookExists(prev => {
+        const next = new Map(prev)
+        next.delete(bookId)
+        return next
+      })
+      toast.success(`Audiobook for "${bookTitle}" is ready! Use the right-click menu to reveal it in Finder.`, { duration: 8000 })
+    },
+    onAudiobookInstalled: () => {
+      if (pendingAudiobookForBookId) {
+        const book = apiBooks.find(b => b.id === pendingAudiobookForBookId)
+        setPendingAudiobookForBookId(null)
+        if (book) setAudiobookVoiceModal({ book, mode: 'firstTime' })
+      }
+    },
+  })
 
   // Poll for status updates when any book is generating
   useEffect(() => {
@@ -426,6 +453,61 @@ export default function App() {
       }
     } catch {
       toast.error('Failed to download EPUB')
+    }
+  }
+
+  const checkAudiobookExists = async (bookId: string) => {
+    if (audiobookExists.has(bookId)) return
+    try {
+      const res = await fetch(apiUrl(`/api/books/${bookId}/audiobook`))
+      if (!res.ok) return
+      const data = await res.json()
+      setAudiobookExists(prev => new Map(prev).set(bookId, data.exists))
+    } catch { /* swallow */ }
+  }
+
+  const handleGenerateAudiobook = async (book: Book) => {
+    try {
+      const statusRes = await fetch(apiUrl('/api/audiobook/status'))
+      if (!statusRes.ok) throw new Error('Failed to check audiobook engine status')
+      const status = await statusRes.json() as { installed: boolean; missing: { model: boolean; ffmpeg: boolean }; downloadSize: number }
+      if (status.installed) {
+        setAudiobookVoiceModal({ book, mode: 'normal' })
+      } else {
+        setPendingAudiobookForBookId(book.id)
+        setAudiobookDownloadModal({ missingBytes: status.downloadSize })
+      }
+    } catch (err) {
+      toast.error('Failed to check audiobook engine: ' + (err instanceof Error ? err.message : 'Unknown error'))
+    }
+  }
+
+  const handleConfirmDownload = async () => {
+    try {
+      const res = await fetch(apiUrl('/api/audiobook/install'), { method: 'POST' })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Install failed to start')
+      }
+      toast.success("Setting up narration… we'll let you know when it's ready.")
+      setAudiobookDownloadModal(null)
+    } catch (err) {
+      toast.error('Failed to start install: ' + (err instanceof Error ? err.message : 'Unknown error'))
+    }
+  }
+
+  const handlePlayAudiobook = async (book: Book) => {
+    try {
+      const res = await fetch(apiUrl(`/api/books/${book.id}/audiobook/reveal`), { method: 'POST' })
+      if (!res.ok) throw new Error('Audiobook not found')
+      const { path } = await res.json()
+      if (window.electronAPI?.showInFinder) {
+        await window.electronAPI.showInFinder(path)
+      } else {
+        toast.success(`Audiobook saved to: ${path}`)
+      }
+    } catch (err) {
+      toast.error('Failed to reveal audiobook: ' + (err instanceof Error ? err.message : 'Unknown error'))
     }
   }
 
@@ -1068,6 +1150,43 @@ export default function App() {
         <Download className="size-3.5 text-content-muted shrink-0" />
         Export EPUB
       </button>
+      {contextMenu.book.status !== 'complete' ? (
+        <button
+          disabled
+          className="flex flex-col items-start gap-0 w-full px-3 py-1.5 text-left text-sm text-content-primary disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+        >
+          <div className="flex items-center gap-2">
+            <Headphones className="size-3.5 text-content-muted shrink-0" />
+            Generate audiobook
+          </div>
+          <span className="ml-5 pl-0.5 text-xs text-content-muted">Book is still being generated</span>
+        </button>
+      ) : audiobookExists.get(contextMenu.book.id) === true ? (
+        <>
+          <button
+            onClick={() => { handlePlayAudiobook(contextMenu.book); setContextMenu(null) }}
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
+          >
+            <Play className="size-3.5 text-content-muted shrink-0" />
+            Play audiobook
+          </button>
+          <button
+            onClick={() => { setRegenerateAudiobookConfirm({ book: contextMenu.book }); setContextMenu(null) }}
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
+          >
+            <Headphones className="size-3.5 text-content-muted shrink-0" />
+            Generate new audiobook…
+          </button>
+        </>
+      ) : (
+        <button
+          onClick={() => { handleGenerateAudiobook(contextMenu.book); setContextMenu(null) }}
+          className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
+        >
+          <Headphones className="size-3.5 text-content-muted shrink-0" />
+          Generate audiobook
+        </button>
+      )}
       <div className="my-1 h-px bg-border-default/50" />
       {/* Danger group */}
       <button
@@ -1333,6 +1452,41 @@ export default function App() {
           totalChapters={generateAllModal.book.totalChapters}
         />
       )}
+
+      {/* Audiobook download modal */}
+      {audiobookDownloadModal && (
+        <AudiobookDownloadModal
+          open
+          onOpenChange={(open) => { if (!open) { setAudiobookDownloadModal(null); setPendingAudiobookForBookId(null) } }}
+          missingBytes={audiobookDownloadModal.missingBytes}
+          onConfirm={handleConfirmDownload}
+        />
+      )}
+
+      {/* Audiobook voice modal */}
+      {audiobookVoiceModal && (
+        <AudiobookVoiceModal
+          open
+          onOpenChange={(open) => { if (!open) setAudiobookVoiceModal(null) }}
+          bookId={audiobookVoiceModal.book.id}
+          bookTitle={audiobookVoiceModal.book.title}
+          mode={audiobookVoiceModal.mode}
+        />
+      )}
+
+      {/* Audiobook regenerate confirm modal */}
+      {regenerateAudiobookConfirm && (
+        <AudiobookRegenerateConfirmModal
+          open
+          onOpenChange={(open) => { if (!open) setRegenerateAudiobookConfirm(null) }}
+          bookTitle={regenerateAudiobookConfirm.book.title}
+          onConfirm={() => {
+            const book = regenerateAudiobookConfirm.book
+            setRegenerateAudiobookConfirm(null)
+            setAudiobookVoiceModal({ book, mode: 'regenerate' })
+          }}
+        />
+      )}
     </>
   )
 
@@ -1416,6 +1570,7 @@ export default function App() {
           onContextMenu={(book, e) => {
             if (apiBookIds.has(book.id)) {
               e.preventDefault()
+              checkAudiobookExists(book.id)
               setContextMenu({ book, x: e.clientX, y: e.clientY })
             }
           }}
@@ -1624,6 +1779,7 @@ export default function App() {
                   onContextMenu={(book, e) => {
                     if (apiBookIds.has(book.id)) {
                       e.preventDefault()
+                      checkAudiobookExists(book.id)
                       setContextMenu({ book, x: e.clientX, y: e.clientY })
                     }
                   }}
@@ -1756,6 +1912,7 @@ export default function App() {
                         onClick={() => openBook(book)}
                         onContextMenu={apiBookIds.has(book.id) ? (e) => {
                           e.preventDefault()
+                          checkAudiobookExists(book.id)
                           setContextMenu({ book, x: e.clientX, y: e.clientY })
                         } : undefined}
                       />
@@ -1776,6 +1933,7 @@ export default function App() {
                         onClick={() => openBook(book)}
                         onContextMenu={apiBookIds.has(book.id) ? (e) => {
                           e.preventDefault()
+                          checkAudiobookExists(book.id)
                           setContextMenu({ book, x: e.clientX, y: e.clientY })
                         } : undefined}
                       />
