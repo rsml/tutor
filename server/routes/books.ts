@@ -1758,8 +1758,11 @@ ${profileContext || 'No profile available.'}
     },
   )
 
-  // POST /api/books/:id/audiobook/reveal — hand the absolute path to the
-  // renderer so it can invoke the IPC reveal-in-finder handler.
+  // POST /api/books/:id/audiobook/reveal — reveal in Finder/Explorer.
+  // Spawns the OS reveal command directly from the server (which is the
+  // user's local machine) so we don't depend on Electron IPC being wired
+  // up correctly in the renderer. Returns { path, revealed } so the
+  // client can fall back if the OS-side reveal failed.
   fastify.post<{ Params: { id: string } }>(
     '/api/books/:id/audiobook/reveal',
     { schema: { params: bookIdSchema } },
@@ -1770,7 +1773,25 @@ ${profileContext || 'No profile available.'}
       if (!existsSync(path)) {
         return reply.status(404).send({ error: 'Audiobook not found' })
       }
-      return { path }
+      let revealed = false
+      try {
+        const { spawn } = await import('node:child_process')
+        if (process.platform === 'darwin') {
+          spawn('open', ['-R', path], { detached: true, stdio: 'ignore' }).unref()
+          revealed = true
+        } else if (process.platform === 'win32') {
+          spawn('explorer.exe', ['/select,', path], { detached: true, stdio: 'ignore' }).unref()
+          revealed = true
+        } else {
+          // Linux: xdg-open opens the parent folder (no native reveal-and-select).
+          const dir = path.substring(0, path.lastIndexOf('/'))
+          spawn('xdg-open', [dir], { detached: true, stdio: 'ignore' }).unref()
+          revealed = true
+        }
+      } catch {
+        // best-effort — client will fall back to clipboard / IPC / displaying the path
+      }
+      return { path, revealed }
     },
   )
 

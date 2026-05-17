@@ -352,20 +352,8 @@ export default function App() {
         action: {
           label: 'Show audiobook',
           onClick: () => {
-            void (async () => {
-              try {
-                const res = await fetch(apiUrl(`/api/books/${bookId}/audiobook/reveal`), { method: 'POST' })
-                if (!res.ok) throw new Error('not found')
-                const { path } = await res.json()
-                if (window.electronAPI?.showInFinder) {
-                  await window.electronAPI.showInFinder(path)
-                } else {
-                  toast.success(`Audiobook saved to: ${path}`)
-                }
-              } catch {
-                toast.error('Could not locate the audiobook file')
-              }
-            })()
+            const found = apiBooks.find(b => b.id === bookId)
+            if (found) void handleShowAudiobook(found)
           },
         },
       })
@@ -600,11 +588,24 @@ export default function App() {
     try {
       const res = await fetch(apiUrl(`/api/books/${book.id}/audiobook/reveal`), { method: 'POST' })
       if (!res.ok) throw new Error('Audiobook not found')
-      const { path } = await res.json()
+      const { path, revealed } = await res.json()
+      // Server-side reveal (open -R / explorer /select) is the primary path
+      // — works regardless of whether the renderer has Electron IPC wired.
+      if (revealed) return
+      // Backup: Electron IPC if we happen to be in the desktop app.
       if (window.electronAPI?.showInFinder) {
-        await window.electronAPI.showInFinder(path)
-      } else {
-        toast.success(`Audiobook saved to: ${path}`)
+        const ok = await window.electronAPI.showInFinder(path)
+        if (ok) return
+      }
+      // Last resort: copy path so the user can paste into Finder's Go-to.
+      try {
+        await navigator.clipboard.writeText(path)
+        toast.success('Audiobook path copied to clipboard', {
+          description: 'Open Finder → Go → Go to Folder (⌘⇧G), then paste.',
+          duration: 10000,
+        })
+      } catch {
+        toast.success(`Audiobook saved to: ${path}`, { duration: 12000 })
       }
     } catch (err) {
       toast.error('Failed to reveal audiobook: ' + (err instanceof Error ? err.message : 'Unknown error'))
