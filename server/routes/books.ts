@@ -17,6 +17,7 @@ import {
   RatingBodySchema,
   SuggestBookBodySchema,
   SuggestDetailsBodySchema,
+  ReviseTocBodySchema,
   StartBookBodySchema,
   TocBookSkillSchema,
   TocChapterSkillSchema,
@@ -1069,6 +1070,123 @@ ${profileContext ? `\nReader profile:\n${profileContext}\n\nTailor the book stru
 
     reply.raw.end()
   })
+
+  fastify.post<{ Params: { id: string }; Body: unknown }>(
+    '/api/books/:id/toc/revise',
+    { schema: { params: bookIdSchema }, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      let body: { feedback: string; model: string; provider?: string }
+      try {
+        body = ReviseTocBodySchema.parse(request.body)
+      } catch (err) {
+        if (err instanceof ZodError) {
+          return reply.status(400).send({ error: 'Invalid request', details: err.issues })
+        }
+        throw err
+      }
+
+      const bookId = request.params.id
+      const book = await store.getBook(bookId)
+
+      if (book.status !== 'toc_review') {
+        return reply.status(409).send({
+          error: 'Invalid status',
+          message: `Book must be in 'toc_review' status to revise; currently '${book.status}'`,
+          currentStatus: book.status,
+        })
+      }
+
+      const currentToc = await store.getToc(bookId)
+      if (currentToc.chapters.length === 0) {
+        return reply.status(400).send({ error: 'No existing TOC to revise' })
+      }
+
+      reply.raw.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      })
+
+      const send = (data: Record<string, unknown>) => {
+        reply.raw.write(`data: ${JSON.stringify(data)}\n\n`)
+      }
+
+      try {
+        const profileContext = await buildProfileContext()
+        const feedback = sanitizeFeedback(body.feedback)
+
+        const existingTocMarkdown = `# ${book.title}${book.subtitle ? `\n*${book.subtitle}*` : ''}\n\n${currentToc.chapters
+          .map((ch, i) => `${i + 1}. **${ch.title}** — ${ch.description}`)
+          .join('\n')}`
+
+        let revisedText = ''
+        const timeout = createTimeout()
+        const result = streamText({
+          model: createModelClient(body.provider ?? 'anthropic', body.model),
+          abortSignal: timeout.signal,
+          system: `You are revising an existing table of contents. Apply ONLY the reader's targeted changes. Every chapter the reader did not mention must be preserved EXACTLY — same title, same description, same position.
+
+Constraints:
+- The revised TOC must have exactly ${book.totalChapters} chapters, UNLESS the reader explicitly requested a different count in their feedback.
+- Preserve the title and subtitle UNLESS the reader asked to change them.
+- For any chapter the reader did not reference, output it verbatim — do not rephrase, restructure, or "improve" it.
+- Output in the same numbered markdown format as the existing TOC.
+${profileContext ? `\nReader profile:\n${profileContext}\n` : ''}
+Just output the title and table of contents, nothing else.`,
+          prompt: `Existing TOC:
+${existingTocMarkdown}
+
+Reader's requested changes:
+${feedback}`,
+        })
+
+        for await (const chunk of result.textStream) {
+          revisedText += chunk
+          send({ type: 'toc', text: chunk })
+        }
+        timeout.clear()
+
+        const parsed = parseTocFromMarkdown(revisedText)
+        if (parsed.chapters.length === 0) {
+          send({ type: 'error', message: "Couldn't parse the revised TOC — try rephrasing your feedback." })
+          reply.raw.end()
+          return
+        }
+
+        const chaptersFinal = truncateChapters(parsed.chapters, book.totalChapters)
+
+        // Persist — chapters only, no skills (deferred to /start)
+        await store.saveToc(bookId, { chapters: chaptersFinal })
+
+        // Update meta title/subtitle if the AI changed them
+        let metaChanged = false
+        if (parsed.title && parsed.title !== book.title) {
+          book.title = parsed.title
+          metaChanged = true
+        }
+        if (parsed.subtitle !== book.subtitle) {
+          book.subtitle = parsed.subtitle
+          metaChanged = true
+        }
+        if (metaChanged) {
+          book.updatedAt = new Date().toISOString()
+          await store.saveBook(book)
+        }
+
+        send({
+          type: 'toc_revised',
+          bookId,
+          title: book.title,
+          subtitle: book.subtitle,
+          totalChapters: chaptersFinal.length,
+        })
+      } catch (err) {
+        send({ type: 'error', message: err instanceof Error ? err.message : 'Unknown error' })
+      } finally {
+        reply.raw.end()
+      }
+    },
+  )
 
   fastify.post<{ Params: { id: string }; Body: unknown }>(
     '/api/books/:id/start',
