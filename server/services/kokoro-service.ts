@@ -2,7 +2,7 @@ import { join } from 'node:path'
 import os from 'node:os'
 import { existsSync } from 'node:fs'
 import { readFile, mkdir, rename } from 'node:fs/promises'
-import { KokoroTTS } from 'kokoro-js'
+import { KokoroTTS, TextSplitterStream } from 'kokoro-js'
 import { getDataDir } from '../../lib/data-dir.js'
 import {
   isInstalled as installerIsInstalled,
@@ -234,8 +234,15 @@ async function synthesizeFullText(
     let samplingRate = 24000
     // kokoro-js types voice as keyof typeof VOICES but accepts any string at
     // runtime via _validate_voice; we already validated against VOICE_NAMES.
+    // tts.stream(text) has a bug: it pushes text into an internal
+    // TextSplitterStream but never calls close(), so the async iterator
+    // waits forever once the splitter exhausts its initial buffer. Build
+    // and close the splitter ourselves to terminate cleanly.
+    const splitter = new TextSplitterStream()
+    splitter.push(text)
+    splitter.close()
     let i = 0
-    for await (const chunk of tts.stream(text, { voice: voiceId as never, speed })) {
+    for await (const chunk of tts.stream(splitter, { voice: voiceId as never, speed })) {
       if (signal?.aborted) throw new Error('Synthesis aborted')
       const audio = chunk.audio as unknown as RawAudioLike
       chunks.push(audio)

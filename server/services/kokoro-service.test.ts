@@ -28,10 +28,17 @@ class FakeRawAudio {
   }
 }
 
-type StreamFn = (text: string, opts: { voice?: string; speed?: number }) => AsyncGenerator<{ text: string; phonemes: string; audio: FakeRawAudio }, void, void>
-const streamMock = vi.fn<StreamFn>(async function* (text, opts) {
-  // Split into "sentences" on `. ` so tests can verify multi-chunk handling.
-  const parts = text.split(/(?<=\.)\s+/).filter(Boolean)
+// Service passes a TextSplitterStream (not a raw string) to work around
+// kokoro-js's never-close bug. The mock has to live inside vi.mock's
+// factory because vi.mock is hoisted above any top-level identifiers,
+// so reaching FakeSplitter/streamMock from the outer scope crashes.
+type SplitterLike = { push(text: string): void; close(): void; __parts: string[] }
+type StreamFn = (input: string | SplitterLike, opts: { voice?: string; speed?: number }) => AsyncGenerator<{ text: string; phonemes: string; audio: FakeRawAudio }, void, void>
+
+const streamMock = vi.fn<StreamFn>(async function* (input, opts) {
+  const parts = typeof input === 'string'
+    ? input.split(/(?<=\.)\s+/).filter(Boolean)
+    : input.__parts
   for (const part of parts) {
     yield {
       text: part,
@@ -44,11 +51,21 @@ type FromPretrainedFn = (id: string, opts?: unknown) => Promise<{ stream: Stream
 const fromPretrainedMock = vi.fn<FromPretrainedFn>(async () => ({
   stream: streamMock,
 }))
-vi.mock('kokoro-js', () => ({
-  KokoroTTS: {
-    from_pretrained: (id: string, opts?: unknown) => fromPretrainedMock(id, opts),
-  },
-}))
+vi.mock('kokoro-js', () => {
+  class FakeSplitter implements SplitterLike {
+    __parts: string[] = []
+    push(text: string): void {
+      this.__parts.push(...text.split(/(?<=\.)\s+/).filter(Boolean))
+    }
+    close(): void { /* noop */ }
+  }
+  return {
+    KokoroTTS: {
+      from_pretrained: (id: string, opts?: unknown) => fromPretrainedMock(id, opts),
+    },
+    TextSplitterStream: FakeSplitter,
+  }
+})
 
 vi.mock('@huggingface/transformers', () => ({
   env: { cacheDir: '', allowRemoteModels: true },
