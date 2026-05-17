@@ -338,13 +338,29 @@ export default function App() {
     setView({ type: 'library' })
   }
 
-  const handleCreationCancel = () => {
-    // Delete any partially-created book from the server
-    const creatingBook = apiBooks.find(b => b.status === 'generating_toc' || b.status === 'generating')
-    if (creatingBook) {
-      fetch(apiUrl(`/api/books/${creatingBook.id}`), { method: 'DELETE' }).catch(() => {})
-      // Remove optimistic book immediately so it doesn't persist as a phantom
-      setApiBooks(prev => prev.filter(b => b.id !== creatingBook.id))
+  const handleCreationCancel = async () => {
+    // Find the candidate book from local state — but local state can lag
+    // behind the server (the 1s polling stops once status flips to
+    // toc_review, so a book that just finished TOC generation may still
+    // appear as generating_toc locally). Re-check the server before
+    // deleting so we don't blow away a book that has already advanced
+    // out of the cancellable window.
+    const candidate = apiBooks.find(b => b.status === 'generating_toc' || b.status === 'generating')
+    if (candidate) {
+      try {
+        const res = await fetch(apiUrl(`/api/books/${candidate.id}`))
+        if (res.ok) {
+          const fresh = await res.json()
+          if (fresh.status === 'generating_toc' || fresh.status === 'generating') {
+            fetch(apiUrl(`/api/books/${candidate.id}`), { method: 'DELETE' }).catch(() => {})
+            // Remove optimistic book immediately so it doesn't persist as a phantom
+            setApiBooks(prev => prev.filter(b => b.id !== candidate.id))
+          }
+        }
+      } catch {
+        // If the status check fails, err on the side of NOT deleting —
+        // the user can clean up manually rather than lose work to a flaky network.
+      }
     }
     fetchBooks()
     setView({ type: 'library' })
