@@ -91,7 +91,11 @@ export function useBackgroundTasks({
             case 'task_error': {
               const task = store.getState().backgroundTasks.tasks[event.taskId]
               dispatch(taskFailed({ taskId: event.taskId, error: event.error }))
-              toast.error(taskErrorMessage(event.taskType, event.error))
+              // Don't auto-dismiss audiobook/install errors -- they're long
+              // and the user needs to act on them. Other task errors keep
+              // the default duration.
+              const isStickyError = event.taskType === 'generate-audiobook' || event.taskType === 'install-audiobook'
+              toast.error(taskErrorMessage(event.taskType, event.error), isStickyError ? { duration: Infinity } : undefined)
               if (task && (event.taskType === 'install-audiobook' || event.taskType === 'generate-audiobook')) {
                 onAudiobookTaskFailed?.(event.taskType, task.bookId)
               }

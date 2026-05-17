@@ -264,45 +264,64 @@ export async function generateAudiobook(
 
     const coverPath = await store.getCoverPath(bookId)
 
-    // Two ffmpeg invocations differ only in cover-image plumbing. The concat
-    // demuxer reads input 0; metadata is input 1; cover (if present) is input 2.
-    const ffmpegArgs = [
-      '-y',
-      '-hide_banner',
-      '-loglevel', 'error',
-      '-f', 'concat',
-      '-safe', '0',
-      '-i', concatListPath,
-      '-i', ffmetadataPath,
-    ]
-    if (coverPath) {
-      ffmpegArgs.push('-i', coverPath)
-      ffmpegArgs.push(
-        '-map', '0:a',
-        '-map', '2:v',
-        '-map_metadata', '1',
-        '-c:a', 'aac',
-        '-b:a', M4B_BITRATE,
-        '-c:v', 'mjpeg',
-        '-disposition:v:0', 'attached_pic',
+    // Build args for stitching. Concat demuxer = input 0; metadata = input 1;
+    // cover (if present) = input 2. The cover path embeds it as attached_pic;
+    // we force yuvj420p because PNG covers commonly arrive as RGBA which the
+    // mjpeg encoder otherwise refuses.
+    function buildStitchArgs(withCover: boolean): string[] {
+      const args = [
+        '-y',
+        '-hide_banner',
+        '-loglevel', 'error',
+        '-f', 'concat',
+        '-safe', '0',
+        '-i', concatListPath,
+        '-i', ffmetadataPath,
+      ]
+      if (withCover && coverPath) {
+        args.push('-i', coverPath)
+        args.push(
+          '-map', '0:a',
+          '-map', '2:v',
+          '-map_metadata', '1',
+          '-c:a', 'aac',
+          '-b:a', M4B_BITRATE,
+          '-c:v', 'mjpeg',
+          '-pix_fmt', 'yuvj420p',
+          '-disposition:v:0', 'attached_pic',
+        )
+      } else {
+        args.push(
+          '-map', '0:a',
+          '-map_metadata', '1',
+          '-c:a', 'aac',
+          '-b:a', M4B_BITRATE,
+        )
+      }
+      args.push(
+        '-metadata', `title=${finalMeta.title}`,
+        '-metadata', 'artist=Tutor',
+        '-metadata', 'genre=Audiobook',
+        '-f', 'mp4',
+        m4bTmp,
       )
-    } else {
-      ffmpegArgs.push(
-        '-map', '0:a',
-        '-map_metadata', '1',
-        '-c:a', 'aac',
-        '-b:a', M4B_BITRATE,
-      )
+      return args
     }
-    ffmpegArgs.push(
-      '-metadata', `title=${finalMeta.title}`,
-      '-metadata', 'artist=Tutor',
-      '-metadata', 'genre=Audiobook',
-      '-f', 'mp4',
-      m4bTmp,
-    )
 
-    await runFfmpeg(ffmpegArgs, abortSignal)
+    try {
+      await runFfmpeg(buildStitchArgs(true), abortSignal)
+    } catch (err) {
+      // Cover-embedding is the most fragile step (varied PNG formats,
+      // alpha channels, oversized images). Fall back to a cover-less M4B
+      // so the user at least gets the audiobook -- they can re-embed
+      // the cover from any audiobook app later.
+      if (coverPath && !abortSignal.aborted) {
+        console.warn(`[audiobook-generator] M4B stitch with cover failed for ${bookId}; retrying without cover. Reason: ${err instanceof Error ? err.message : String(err)}`)
+        await runFfmpeg(buildStitchArgs(false), abortSignal)
+      } else {
+        throw err
+      }
+    }
     await rename(m4bTmp, m4bPath)
 
     if (abortSignal.aborted) throw new Error('Audiobook generation aborted')
