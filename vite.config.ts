@@ -17,6 +17,14 @@ export default defineConfig({
               external: (id) => {
                 if (id.startsWith('node:')) return true
                 if (id.startsWith('.') || id.startsWith('/') || id.startsWith('#')) return false
+                // Keep audiobook-related native deps external — they ship via
+                // electron-builder's `files` list and resolve from node_modules.
+                const audiobookExternals = [
+                  'kokoro-js', 'onnxruntime-node', 'onnxruntime-common',
+                  'fluent-ffmpeg', 'phonemizer', '@huggingface/transformers',
+                  '@huggingface/jinja', '@huggingface/tokenizers',
+                ]
+                if (audiobookExternals.some(p => id === p || id.startsWith(p + '/'))) return true
                 // Bundle the unified/remark/rehype ecosystem — pure ESM with deep
                 // transitive deps that pnpm/electron-builder fails to resolve.
                 // Everything else stays external (resolves fine from node_modules).

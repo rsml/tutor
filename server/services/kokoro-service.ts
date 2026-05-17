@@ -1,0 +1,285 @@
+import { join } from 'node:path'
+import os from 'node:os'
+import { existsSync } from 'node:fs'
+import { readFile, mkdir, rename } from 'node:fs/promises'
+import { KokoroTTS } from 'kokoro-js'
+import { getDataDir } from '../../lib/data-dir.js'
+import {
+  isInstalled as installerIsInstalled,
+  getModelsDir,
+  MODEL_ID,
+} from './audiobook-installer.js'
+
+export interface VoiceInfo {
+  id: string
+  name: string
+  language: 'American English' | 'British English'
+  gender: 'Male' | 'Female'
+  grade: string
+}
+
+// Hardcoded voice catalogue mirrors @kokoro-js voices (see
+// node_modules/kokoro-js/dist/kokoro.js, the $ frozen object). We hardcode
+// to avoid loading the model just to enumerate. Order is intentional:
+// male American first (am_michael per user preference), then male British,
+// female American, female British. Within each group, alphabetical except
+// am_michael is forced to the front.
+const VOICE_GRADES: Record<string, string> = {
+  am_michael: 'C+',
+  am_adam: 'F+',
+  am_echo: 'D',
+  am_eric: 'D',
+  am_fenrir: 'C+',
+  am_liam: 'D',
+  am_onyx: 'D',
+  am_puck: 'C+',
+  am_santa: 'D-',
+  bm_george: 'C',
+  bm_lewis: 'D+',
+  bm_daniel: 'D',
+  bm_fable: 'C',
+  af_heart: 'A',
+  af_alloy: 'C',
+  af_aoede: 'C+',
+  af_bella: 'A-',
+  af_jessica: 'D',
+  af_kore: 'C+',
+  af_nicole: 'B-',
+  af_nova: 'C',
+  af_river: 'D',
+  af_sarah: 'C+',
+  af_sky: 'C-',
+  bf_emma: 'B-',
+  bf_isabella: 'C',
+  bf_alice: 'D',
+  bf_lily: 'D',
+}
+
+const VOICE_NAMES: Record<string, string> = {
+  am_michael: 'Michael',
+  am_adam: 'Adam',
+  am_echo: 'Echo',
+  am_eric: 'Eric',
+  am_fenrir: 'Fenrir',
+  am_liam: 'Liam',
+  am_onyx: 'Onyx',
+  am_puck: 'Puck',
+  am_santa: 'Santa',
+  bm_george: 'George',
+  bm_lewis: 'Lewis',
+  bm_daniel: 'Daniel',
+  bm_fable: 'Fable',
+  af_heart: 'Heart',
+  af_alloy: 'Alloy',
+  af_aoede: 'Aoede',
+  af_bella: 'Bella',
+  af_jessica: 'Jessica',
+  af_kore: 'Kore',
+  af_nicole: 'Nicole',
+  af_nova: 'Nova',
+  af_river: 'River',
+  af_sarah: 'Sarah',
+  af_sky: 'Sky',
+  bf_emma: 'Emma',
+  bf_isabella: 'Isabella',
+  bf_alice: 'Alice',
+  bf_lily: 'Lily',
+}
+
+// Order is significant — drives the picker UI.
+const VOICE_ORDER: string[] = [
+  // Male American (am_michael first by user preference)
+  'am_michael',
+  'am_adam',
+  'am_echo',
+  'am_eric',
+  'am_fenrir',
+  'am_liam',
+  'am_onyx',
+  'am_puck',
+  'am_santa',
+  // Male British
+  'bm_george',
+  'bm_lewis',
+  'bm_daniel',
+  'bm_fable',
+  // Female American
+  'af_heart',
+  'af_alloy',
+  'af_aoede',
+  'af_bella',
+  'af_jessica',
+  'af_kore',
+  'af_nicole',
+  'af_nova',
+  'af_river',
+  'af_sarah',
+  'af_sky',
+  // Female British
+  'bf_emma',
+  'bf_isabella',
+  'bf_alice',
+  'bf_lily',
+]
+
+function voiceLanguage(id: string): 'American English' | 'British English' {
+  return id.startsWith('a') ? 'American English' : 'British English'
+}
+
+function voiceGender(id: string): 'Male' | 'Female' {
+  return id[1] === 'm' ? 'Male' : 'Female'
+}
+
+export function listVoices(): VoiceInfo[] {
+  return VOICE_ORDER.map((id) => ({
+    id,
+    name: VOICE_NAMES[id]!,
+    language: voiceLanguage(id),
+    gender: voiceGender(id),
+    grade: VOICE_GRADES[id]!,
+  }))
+}
+
+export function isModelInstalled(): boolean {
+  return installerIsInstalled()
+}
+
+// Worker-count heuristic: RAM budget = 25% of total RAM / 600MB per worker.
+// Capped by CPU count, hard ceiling of 16, with an optional user override.
+export function getRecommendedWorkerCount(override?: number): number {
+  const ramBudget = Math.floor((os.totalmem() * 0.25) / (600 * 1024 * 1024))
+  const cpuCount = os.cpus().length
+  return Math.max(1, Math.min(override ?? Infinity, ramBudget, cpuCount, 16))
+}
+
+// --- In-process synthesis pool (concurrency-limited; see DONE_WITH_CONCERNS) ---
+//
+// v1 runs synthesis on the main event loop with a concurrency cap. The Kokoro
+// instance internally serializes inference per model anyway, so concurrent
+// generate() calls on the same instance yield no parallelism. The "pool"
+// is a soft promise queue; future work can replace with node:worker_threads
+// each owning their own KokoroTTS instance for true parallel inference.
+
+let concurrencyLimit = 1
+let inFlight = 0
+const queue: Array<() => void> = []
+
+async function acquireSlot(): Promise<void> {
+  if (inFlight < concurrencyLimit) {
+    inFlight++
+    return
+  }
+  await new Promise<void>((resolve) => queue.push(resolve))
+  inFlight++
+}
+
+function releaseSlot(): void {
+  inFlight--
+  const next = queue.shift()
+  if (next) next()
+}
+
+let ttsInstance: KokoroTTS | null = null
+let ttsLoadingPromise: Promise<KokoroTTS> | null = null
+
+async function getTts(): Promise<KokoroTTS> {
+  if (ttsInstance) return ttsInstance
+  if (ttsLoadingPromise) return ttsLoadingPromise
+  // Touch the models dir getter so transformers.js env is configured.
+  getModelsDir()
+  ttsLoadingPromise = KokoroTTS.from_pretrained(MODEL_ID, { dtype: 'q8' }).then((tts) => {
+    ttsInstance = tts
+    ttsLoadingPromise = null
+    return tts
+  })
+  return ttsLoadingPromise
+}
+
+export async function startWorkerPool(workerCount: number): Promise<void> {
+  concurrencyLimit = Math.max(1, workerCount)
+  // Eagerly warm the model so the first chapter doesn't pay full load cost.
+  await getTts()
+}
+
+export async function stopWorkerPool(): Promise<void> {
+  // Drain pending. We don't tear down the KokoroTTS instance — onnxruntime
+  // doesn't have a public "unload" and reloading is expensive. Subsequent
+  // startWorkerPool calls reuse it.
+  concurrencyLimit = 1
+}
+
+async function synthesize(text: string, voiceId: string, speed: number): Promise<{ audio: Float32Array; samplingRate: number; save: (path: string) => Promise<void> }> {
+  await acquireSlot()
+  try {
+    const tts = await getTts()
+    // kokoro-js types voice as keyof typeof VOICES but accepts any string at
+    // runtime via _validate_voice; we already validated against VOICE_NAMES.
+    const raw = await tts.generate(text, { voice: voiceId as never, speed })
+    return {
+      audio: raw.audio,
+      samplingRate: raw.sampling_rate,
+      save: (path: string) => raw.save(path),
+    }
+  } finally {
+    releaseSlot()
+  }
+}
+
+export async function synthesizePreview(voiceId: string): Promise<Buffer> {
+  if (!VOICE_NAMES[voiceId]) {
+    throw new Error(`Unknown voice: ${voiceId}`)
+  }
+  const cacheDir = join(getDataDir(), 'cache', 'voice-previews')
+  const cachePath = join(cacheDir, `${voiceId}.wav`)
+
+  if (existsSync(cachePath)) {
+    return readFile(cachePath)
+  }
+
+  await mkdir(cacheDir, { recursive: true })
+  const sampleText = `Hello! This is the ${VOICE_NAMES[voiceId]} voice for your audiobooks.`
+  const result = await synthesize(sampleText, voiceId, 1.0)
+  const tmp = cachePath + '.tmp'
+  await result.save(tmp)
+  await rename(tmp, cachePath)
+  return readFile(cachePath)
+}
+
+export async function synthesizeChapter(
+  text: string,
+  voiceId: string,
+  speed: number,
+  outPath: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (signal?.aborted) throw new Error('Synthesis aborted')
+  if (!VOICE_NAMES[voiceId]) {
+    throw new Error(`Unknown voice: ${voiceId}`)
+  }
+  if (speed < 0.5 || speed > 2.0) {
+    throw new Error(`Invalid speed: ${speed} (must be 0.5-2.0)`)
+  }
+
+  const result = await synthesize(text, voiceId, speed)
+
+  if (signal?.aborted) throw new Error('Synthesis aborted')
+
+  const tmp = outPath + '.tmp'
+  await result.save(tmp)
+  await rename(tmp, outPath)
+}
+
+// Test seam — lets tests reset the lazy-loaded TTS singleton and queue state
+// between cases without re-requiring the module.
+export const __testing = {
+  reset: (): void => {
+    concurrencyLimit = 1
+    inFlight = 0
+    queue.length = 0
+    ttsInstance = null
+    ttsLoadingPromise = null
+  },
+  setTtsInstance: (instance: KokoroTTS | null): void => {
+    ttsInstance = instance
+  },
+}

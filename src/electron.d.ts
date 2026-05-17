@@ -8,6 +8,8 @@ interface ElectronAPI {
   removeApiKey: (provider?: string) => Promise<void>
   getApiPort: () => Promise<number>
   saveFile: (defaultName: string, base64Data: string) => Promise<boolean>
+  showInFinder: (filePath: string) => Promise<boolean>
+  openInDefaultApp: (filePath: string) => Promise<boolean>
 }
 
 interface Window {
