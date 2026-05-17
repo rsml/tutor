@@ -37,6 +37,43 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
   const toc = useStreamingContent()
   const chapter = useStreamingContent()
 
+  const startChapterGeneration = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(apiUrl(`/api/books/${id}/start`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, provider, quizModel, quizProvider, quizLength }),
+      })
+      if (!res.ok || !res.body) {
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.message || `Start failed: ${res.status}`)
+      }
+      await parseSSEStream(res, {
+        onEvent: (event) => {
+          switch (event.type) {
+            case 'chapter':
+              chapter.appendChunk(event.text)
+              requestAnimationFrame(() => {
+                chapterScrollRef.current?.scrollTo({ top: chapterScrollRef.current!.scrollHeight })
+              })
+              break
+            case 'done':
+              chapter.flushNow()
+              setPhase('done')
+              break
+            case 'error':
+              setError('Generation failed: ' + event.message)
+              setPhase('error')
+              break
+          }
+        },
+      })
+    } catch (err) {
+      setError('Generation failed: ' + (err instanceof Error ? err.message : 'Unknown error'))
+      setPhase('error')
+    }
+  }, [model, provider, quizModel, quizProvider, quizLength, chapter])
+
   const startGeneration = useCallback(async () => {
     if (!hasApiKey) {
       setError('Please set your API key in Settings first.')
@@ -72,25 +109,18 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
               })
               break
 
-            case 'toc_done':
+            case 'toc_done': {
               toc.flushNow()
               setBookId(event.bookId)
               setPhase('chapter')
               setActiveTab('chapter')
+              // Kick off chapter 1 generation via the new endpoint
+              startChapterGeneration(event.bookId)
               break
-
-            case 'chapter':
-              chapter.appendChunk(event.text)
-              // Auto-scroll chapter
-              requestAnimationFrame(() => {
-                chapterScrollRef.current?.scrollTo({ top: chapterScrollRef.current!.scrollHeight })
-              })
-              break
+            }
 
             case 'done':
-              chapter.flushNow()
-              setPhase('done')
-              if (event.bookId) setBookId(event.bookId)
+              // POST /api/books now ends after toc_done; this just closes the stream
               break
 
             case 'error':
@@ -104,7 +134,7 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
       setError('Generation failed: ' + (err instanceof Error ? err.message : 'Unknown error'))
       setPhase('error')
     }
-  }, [hasApiKey, model, provider, quizModel, quizProvider, quizLength, chapterCount, topic, details, toc, chapter, onBookCreated])
+  }, [hasApiKey, model, provider, quizModel, quizProvider, quizLength, chapterCount, topic, details, toc, onBookCreated, startChapterGeneration])
 
   useEffect(() => {
     if (!startedRef.current) {

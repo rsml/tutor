@@ -1030,24 +1030,13 @@ ${profileContext ? `\nReader profile:\n${profileContext}\n\nTailor the book stru
       const existingMeta = await store.getBook(bookId)
       existingMeta.title = title
       existingMeta.subtitle = subtitle
-      existingMeta.status = 'generating'
+      existingMeta.status = 'toc_review'
       existingMeta.totalChapters = chapters.length
       existingMeta.updatedAt = new Date().toISOString()
       await store.saveBook(existingMeta)
       await store.saveToc(bookId, { chapters })
 
       send({ type: 'toc_done', bookId, title, subtitle, totalChapters: chapters.length })
-
-      await generateFirstChapterAndQuiz(bookId, send, {
-        provider: provider ?? 'anthropic',
-        model,
-        quizProvider: quizProvider ?? provider ?? 'anthropic',
-        quizModel: quizModel ?? model,
-        quizLength: quizLength ?? 3,
-        profileContext,
-        topic,
-        details,
-      })
       send({ type: 'done', bookId, title, totalChapters: chapters.length })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Generation failed'
