@@ -4,14 +4,14 @@
 
 `POST /api/books` is currently a single streaming request that generates the table of contents, classifies skills, generates Chapter 1, and generates the Chapter 1 quiz — all in sequence with no user checkpoint. The user has no opportunity to course-correct the TOC after seeing it but before Chapter 1 is written from it.
 
-This design splits that monolithic flow at the TOC boundary. After the TOC streams, the book enters a new `awaiting_toc_approval` state and waits. The user can either approve the TOC (which kicks off skill classification + Chapter 1 + quiz) or open a feedback modal to request targeted revisions. Revisions stream a new TOC in place, the user can iterate as many times as they like, and the book is resumable from the library if they walk away.
+This design splits that monolithic flow at the TOC boundary. After the TOC streams, the book enters the `toc_review` state and waits. The user can either approve the TOC (which kicks off skill classification + Chapter 1 + quiz) or open a feedback modal to request targeted revisions. Revisions stream a new TOC in place, the user can iterate as many times as they like, and the book is resumable from the library if they walk away.
 
 Once Chapter 1 has been generated, the TOC is locked — revising it then would create inconsistencies between written chapter content and what the TOC claims the chapter is about.
 
 ## Design Decisions
 
 - **Three-endpoint split** of the current monolithic `POST /api/books`: TOC-only creation, AI-mediated revise, explicit start. Each has a single responsibility and is independently retryable.
-- **`awaiting_toc_approval` is a first-class status** persisted on the book, not session-only state in the CreationView. Closing the wizard mid-approval drops the user back in the library; clicking the book resumes the approval view.
+- **`toc_review` is the persisted status** for "TOC done, awaiting user approval." This literal already exists in `BookStatusSchema` but is currently dormant (no code path sets or reads it). This design activates it. State lives on the book, not session-only — closing the wizard mid-approval drops the user back in the library; clicking the book resumes the approval view.
 - **Skill classification is deferred** until the user clicks "Generate Chapter 1". Iterating the TOC doesn't trigger skill-classification AI calls, which would otherwise be wasted work since the user may revise multiple times.
 - **Revise prompt prioritizes preservation by instruction**, not by structured diff. The AI is told explicitly to output unmentioned chapters verbatim. If preservation drift becomes a real problem in practice, this can be upgraded to a structured-diff approach without changing the API shape.
 - **Chapter count is locked** to whatever the user selected at book creation, unless the user's feedback text explicitly requests a different count. Enforcement is via prompt instruction + server-side truncation if the AI overshoots.
@@ -23,43 +23,47 @@ Once Chapter 1 has been generated, the TOC is locked — revising it then would 
 
 ### Status Machine
 
-The book's `status` field gains one new value:
+The book's `status` field reuses the dormant `'toc_review'` literal already present in `BookStatusSchema`. No new status values are added.
 
 ```
 generating_toc  → TOC currently streaming
-awaiting_toc_approval  → TOC done, user can approve or revise (NEW)
-generating  → skill classification + Chapter 1 streaming
-reading  → Chapter 1 written, book is live
+toc_review      → TOC done, user can approve or revise (NEWLY ACTIVATED)
+generating      → skill classification + Chapter 1 streaming
+reading         → Chapter 1 written, book is live
+complete, failed → unchanged, orthogonal to this flow
 ```
 
 Transition rules:
-- `POST /api/books` ends in `awaiting_toc_approval` (previously went straight to `generating`).
-- `POST /api/books/:id/toc/revise` only valid when status is `awaiting_toc_approval`. Status stays `awaiting_toc_approval` on success.
-- `POST /api/books/:id/start` only valid when status is `awaiting_toc_approval`. Transitions `awaiting_toc_approval` → `generating` → `reading`.
+- `POST /api/books` ends in `toc_review` (previously went straight to `generating`).
+- `POST /api/books/:id/toc/revise` only valid when status is `toc_review`. Status stays `toc_review` on success.
+- `POST /api/books/:id/start` only valid when status is `toc_review`. Transitions `toc_review` → `generating` → `reading`.
+- `failed` semantics unchanged — a revise that crashes the server transitions to `failed` like any other unhandled failure; a revise that just returns a parse error stays at `toc_review` (per the Error Handling table below).
 
 ### Data Model Changes
 
 **`server/schemas.ts` — `BookStatusSchema`:**
 
-Add the literal `'awaiting_toc_approval'` to the existing union of allowed status values.
+No changes. The `'toc_review'` literal is already in the enum at `server/schemas.ts:74-81` (dormant). This design activates it.
 
-No other schema changes. `toc.yml` and `meta.yml` are the only persisted state.
+`server/mcp-server.ts:62` already includes `'toc_review'` in its status enum mirror; no change needed there either.
 
-While the book is in `awaiting_toc_approval`, `toc.yml` does **not** contain the `skills` or per-chapter `skills` keys. Those are populated only when `POST /api/books/:id/start` runs skill classification just before Chapter 1 generation.
+`toc.yml` and `meta.yml` are the only persisted state.
+
+While the book is in `toc_review`, `toc.yml` does **not** contain the `skills` or per-chapter `skills` keys. Those are populated only when `POST /api/books/:id/start` runs skill classification just before Chapter 1 generation.
 
 ### Backend: Endpoint Split
 
 | Method | Path | Status | Purpose |
 |--------|------|--------|---------|
-| `POST` | `/api/books` | modified | Creates the book, streams TOC text, persists `toc.yml` (chapters only, no skills), persists `meta.yml` with `status: 'awaiting_toc_approval'`. Returns when `toc_done` SSE event fires. No skill classification, no Chapter 1, no quiz. |
-| `POST` | `/api/books/:id/toc/revise` | new | Body: `{ feedback: string, model: string, provider?: string }`. Reads existing `toc.yml` + `meta.yml`. Streams a revised TOC via the AI with the preservation prompt. On stream completion: parses, truncates to `totalChapters` if AI overshoots, persists to `toc.yml`, updates `meta.title`/`meta.subtitle` if the AI changed them. Streams SSE events shaped like the existing TOC stream (`toc` chunks + final `toc_revised` event). 409 if status isn't `awaiting_toc_approval`. |
-| `POST` | `/api/books/:id/start` | new | Body: `{ model, provider, quizModel, quizProvider, quizLength }` (same shape as the current `POST /api/books` body minus topic/details/chapterCount). Runs skill classification (deferred work). Streams Chapter 1 via the existing chapter-generation code. Generates and persists the quiz. Transitions status `awaiting_toc_approval` → `generating` → `reading`. 409 if status isn't `awaiting_toc_approval`. |
+| `POST` | `/api/books` | modified | Creates the book, streams TOC text, persists `toc.yml` (chapters only, no skills), persists `meta.yml` with `status: 'toc_review'`. Returns when `toc_done` SSE event fires. No skill classification, no Chapter 1, no quiz. |
+| `POST` | `/api/books/:id/toc/revise` | new | Body: `{ feedback: string, model: string, provider?: string }`. Reads existing `toc.yml` + `meta.yml`. Streams a revised TOC via the AI with the preservation prompt. On stream completion: parses, truncates to `totalChapters` if AI overshoots, persists to `toc.yml`, updates `meta.title`/`meta.subtitle` if the AI changed them. Streams SSE events shaped like the existing TOC stream (`toc` chunks + final `toc_revised` event). 409 if status isn't `toc_review`. |
+| `POST` | `/api/books/:id/start` | new | Body: `{ model, provider, quizModel, quizProvider, quizLength }` (same shape as the current `POST /api/books` body minus topic/details/chapterCount). Runs skill classification (deferred work). Streams Chapter 1 via the existing chapter-generation code. Generates and persists the quiz. Transitions status `toc_review` → `generating` → `reading`. 409 if status isn't `toc_review`. |
 
-The existing `PUT /api/books/:id/toc` (line 1648 in `books.ts`) — which takes a full `{ chapters }` array for direct manual edits — stays as-is. It serves a different purpose (manual save) than `/toc/revise` (AI-mediated revise).
+The existing `PUT /api/books/:id/toc` (line 1653 in `books.ts`) — which takes a full `{ chapters }` array for direct manual edits — stays as-is. It serves a different purpose (manual save) than `/toc/revise` (AI-mediated revise).
 
 ### Backend: Refactor
 
-`books.ts` extracts the Chapter 1 + quiz generation block (currently lines ~1001-1060 inside the `POST /api/books` handler) into a shared helper:
+`books.ts` extracts the Chapter 1 + quiz generation block (currently lines ~1006-1055 inside the `POST /api/books` handler) into a shared helper:
 
 ```typescript
 async function generateFirstChapterAndQuiz(
@@ -69,7 +73,7 @@ async function generateFirstChapterAndQuiz(
 ): Promise<void>
 ```
 
-This helper also runs the skill classification that currently lives at `books.ts:944-979` — since classification is deferred to start, it moves out of `POST /api/books` and into this helper. Both `/start` and any future test paths share one implementation.
+This helper also runs the skill classification that currently lives at `books.ts:949-984` — since classification is deferred to start, it moves out of `POST /api/books` and into this helper. Both `/start` and any future test paths share one implementation.
 
 ### Revise Prompt
 
@@ -158,18 +162,18 @@ The streamed TOC stays in the scroll area unchanged. The footer area (currently 
 
 **Library resume:**
 
-If user clicks Cancel during `awaiting_approval` (or closes the app), the book exists with `status: 'awaiting_toc_approval'`. The library lists it with a small status indicator (a chip or icon — UI detail, follow existing `BookCard.tsx` patterns for status-derived visual variants). Clicking it routes to CreationView in resume mode:
+If user clicks Cancel during `awaiting_approval` (or closes the app), the book exists with `status: 'toc_review'`. The library lists it with a small status indicator (a chip or icon — UI detail, follow existing `BookCard.tsx` patterns for status-derived visual variants). Clicking it routes to CreationView in resume mode:
 
 - CreationView accepts an existing `bookId` prop (in addition to or instead of `topic`/`details`/`chapterCount`).
 - In resume mode, CreationView fetches `GET /api/books/:id` + `GET /api/books/:id/toc` instead of POSTing to create.
 - The fetched TOC is rendered into the TOC scroll area as static markdown (reconstructed from the saved chapters — same format the AI produces).
 - Phase initializes to `'awaiting_approval'` immediately.
 
-`App.tsx` routing logic needs a branch: clicking a card with status `awaiting_toc_approval` opens CreationView in resume mode, not ReaderPage.
+`App.tsx` routing logic needs a branch: clicking a card with status `toc_review` opens CreationView in resume mode, not ReaderPage.
 
 ### Frontend: Library Status Indicator
 
-`src/components/BookCard.tsx` and `src/components/BookListRow.tsx` already display status-derived chrome (progress bar, status text). Add handling for `'awaiting_toc_approval'`:
+`src/components/BookCard.tsx` and `src/components/BookListRow.tsx` already display status-derived chrome (progress bar, status text). Add handling for `'toc_review'`:
 
 - Small badge text like "Awaiting approval" or an outlined chip — exact wording matches the existing status vocabulary used for `'generating'`/`'generating_toc'`.
 - Clicking the card routes to CreationView in resume mode (handled in `App.tsx`).
@@ -179,13 +183,13 @@ If user clicks Cancel during `awaiting_approval` (or closes the app), the book e
 ### Unit
 
 - `parseTocFromMarkdown` already has implicit coverage from existing use. Add a focused test for the truncation case: AI returns N+2 chapters → handler returns exactly N.
-- Status transition validation: `/toc/revise` and `/start` reject calls when status is not `awaiting_toc_approval` (return 409).
+- Status transition validation: `/toc/revise` and `/start` reject calls when status is not `toc_review` (return 409).
 
 ### Integration
 
 Backend (using existing test setup with deterministic model mocks):
 
-- `POST /api/books` returns when `toc_done` fires; book status on disk is `awaiting_toc_approval`; `toc.yml` exists and has no `skills` key.
+- `POST /api/books` returns when `toc_done` fires; book status on disk is `toc_review`; `toc.yml` exists and has no `skills` key.
 - `POST /api/books/:id/toc/revise` with a deterministic mock that returns a modified TOC: chapter named in the feedback is changed, all other chapters byte-identical to before; `meta.totalChapters` unchanged.
 - `POST /api/books/:id/toc/revise` when the mock returns N+1 chapters: persisted TOC has exactly N chapters.
 - `POST /api/books/:id/toc/revise` when the mock returns 0 parseable chapters: returns error event, `toc.yml` on disk is unchanged.
@@ -210,8 +214,8 @@ CreationView state machine (Vitest + React Testing Library):
 | Revise returns 0 parseable chapters | Error event sent. Old TOC remains in view. Toast: "Couldn't parse the revised TOC — try rephrasing your feedback." |
 | User clicks Generate Ch1 during revise | Button is disabled during `'revising'` phase. Not possible. |
 | User closes window during revise | Existing SSE abort behavior. `toc.yml` unchanged (only persisted on success). On resume, the original TOC reappears. |
-| `/start` or `/toc/revise` called when status isn't `awaiting_toc_approval` | 409 with `{ error: 'Invalid status', currentStatus }`. |
-| `/start` succeeds but quiz generation fails | Quiz failure is already non-fatal in the current code (line 1042-1044); same behavior. Status still becomes `'reading'`. |
+| `/start` or `/toc/revise` called when status isn't `toc_review` | 409 with `{ error: 'Invalid status', currentStatus }`. |
+| `/start` succeeds but quiz generation fails | Quiz failure is already non-fatal in the current code (line 1044-1049); same behavior. Status still becomes `'reading'`. |
 | AI changes title/subtitle the user didn't ask to change | Accepted as-is — the AI followed its instructions or didn't, we trust the prompt. User can revise again if they don't like it. |
 
 ## What This Design Deliberately Doesn't Do
