@@ -71,6 +71,7 @@ interface Book {
 type View =
   | { type: 'library' }
   | { type: 'creating'; topic: string; details: string; chapterCount: number }
+  | { type: 'resuming'; bookId: string }
   | { type: 'reading'; book: Book }
   | { type: 'quiz-review'; book: Book }
   | { type: 'review-progress' }
@@ -272,7 +273,11 @@ export default function App() {
     dispatch(setLastViewedBookId(book.id))
     // Force an immediate persist write so a quick Cmd+Q can't race the debounced write
     persistor.flush().catch(() => {})
-    setView({ type: 'reading', book })
+    if (book.status === 'toc_review') {
+      setView({ type: 'resuming', bookId: book.id })
+    } else {
+      setView({ type: 'reading', book })
+    }
   }, [dispatch])
 
   // Full-text content search via backend
@@ -1346,6 +1351,17 @@ export default function App() {
         onComplete={handleCreationComplete}
         onCancel={handleCreationCancel}
         onBookCreated={handleBookCreated}
+      />
+    )
+  }
+
+  if (view.type === 'resuming') {
+    return (
+      <CreationView
+        mode="resume"
+        bookId={view.bookId}
+        onComplete={handleCreationComplete}
+        onCancel={handleCreationCancel}
       />
     )
   }
