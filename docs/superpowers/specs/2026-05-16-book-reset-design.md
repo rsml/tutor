@@ -186,30 +186,32 @@ Confirmation dialog (`App.tsx`, adjacent to the delete dialog at line 1183):
 
 ```tsx
 <Dialog open={!!resetDialog} onOpenChange={open => { if (!open) setResetDialog(null) }}>
-  <DialogContent>
+  <DialogContent className="sm:max-w-sm">
     <DialogHeader>
-      <DialogTitle>Reset book</DialogTitle>
+      <DialogTitle>Reset Book</DialogTitle>
       <DialogDescription>
         Are you sure you want to reset &ldquo;{resetDialog?.book.title}&rdquo;?
         This permanently clears your reading progress, rating, feedback, and quiz answers.
         The chapters and table of contents will remain. Type <strong>reset</strong> to confirm.
       </DialogDescription>
     </DialogHeader>
-    <Input
+    <input
       value={resetDialog?.input ?? ''}
       onChange={e => setResetDialog(prev => prev ? { ...prev, input: e.target.value } : null)}
       onKeyDown={e => e.key === 'Enter' && resetDialog?.input === 'reset' && handleReset()}
+      placeholder="reset"
+      className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
       autoFocus
     />
     <DialogFooter>
       <Button variant="outline" onClick={() => setResetDialog(null)}>Cancel</Button>
-      <Button variant="destructive" onClick={handleReset} disabled={resetDialog?.input !== 'reset' || mutating}>
-        Reset
-      </Button>
+      <Button variant="destructive" onClick={handleReset} disabled={resetDialog?.input !== 'reset' || mutating}>OK</Button>
     </DialogFooter>
   </DialogContent>
 </Dialog>
 ```
+
+Mirrors the Delete dialog at `App.tsx:1183` exactly: raw `<input>` with the same Tailwind classes, `sm:max-w-sm` content width, "OK" confirm label.
 
 Both `BookCard` and `BookListRow` already accept `onContextMenu` (`BookCard.tsx:24`, `BookListRow.tsx:31`) and disable it when status is `generating`/`generating_toc`. No component changes required — the new menu item flows through the existing `onContextMenu` handler in `App.tsx:1416`.
 
@@ -236,7 +238,7 @@ The endpoint table in `CLAUDE.md` will need a row added.
 
 ### Server tests (`server/services/book-store.test.ts`)
 
-1. **Clears user-interaction files.** After a `resetBook`: `progress.yml` is absent, `feedback/` is empty (directory may remain), per-chapter `quiz/*.yml` files exist but each question has no `userAnswer` or `correct`, `final-quiz.yml` exists but its questions have no `userAnswer` or `correct`.
+1. **Clears user-interaction files.** After a `resetBook`: `progress.yml` is absent, `feedback/` directory exists but contains no `*.yml` files (the directory itself remains because `saveBook` re-creates it at `book-store.ts:126`), per-chapter `quiz/*.yml` files exist but each question has no `userAnswer` or `correct`, `final-quiz.yml` exists but its questions have no `userAnswer` or `correct`.
 2. **Preserves generated content.** After a `resetBook`: `chapters/*.md` files unchanged, `toc.yml` unchanged, cover file (if any) unchanged.
 3. **Resets meta fields.** After a `resetBook`: `meta.status === 'reading'`, `meta.rating === undefined`, `meta.finalQuizScore === undefined`, `meta.finalQuizTotal === undefined`, `meta.updatedAt` is newer than before. All other meta fields (`title`, `subtitle`, `prompt`, `totalChapters`, `generatedUpTo`, `tags`, `series`, `seriesOrder`, `sortOrder`, `showTitleOnCover`, `imported`, `createdAt`, `profileOverrides`) unchanged.
 4. **Idempotent.** Running `resetBook` twice in sequence produces the same end state as one call.
