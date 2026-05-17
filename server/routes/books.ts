@@ -1153,7 +1153,12 @@ ${feedback}`,
           book.title = parsed.title
           metaChanged = true
         }
-        if (parsed.subtitle !== book.subtitle) {
+        // Only update subtitle if AI returned one — if the AI forgets to repeat the
+        // subtitle line, we keep the existing one rather than clobber it. (The revise
+        // prompt tells the AI to preserve subtitle unless asked to change it.) This
+        // means subtitle can't be explicitly cleared via revise, which is acceptable
+        // given how much more common the "AI forgot to repeat it" case is.
+        if (parsed.subtitle !== undefined && parsed.subtitle !== book.subtitle) {
           book.subtitle = parsed.subtitle
           metaChanged = true
         }
