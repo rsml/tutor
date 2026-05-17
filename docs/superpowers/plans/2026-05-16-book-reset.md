@@ -328,11 +328,11 @@ questions. Idempotent. Rejects during active generation."
 **Files:**
 - Modify: `server/routes/books.ts`
 
-Add the endpoint adjacent to the existing `DELETE /api/books/:id` route at `server/routes/books.ts:595-598`.
+Add the endpoint adjacent to the existing `DELETE /api/books/:id` route at `server/routes/books.ts:597-600`.
 
 - [ ] **Step 1: Add the endpoint**
 
-Insert this block in `server/routes/books.ts` immediately after the closing `})` of the `DELETE /api/books/:id` handler at line 598:
+Insert this block in `server/routes/books.ts` immediately after the closing `})` of the `DELETE /api/books/:id` handler at line 600 (and before the blank line preceding the next `fastify.put<{` block):
 
 ```ts
   fastify.post<{ Params: { id: string } }>(
@@ -558,7 +558,7 @@ In the running app:
 5. Type `reset` — OK button becomes enabled.
 6. Press Enter (or click OK). Dialog closes; library re-renders. The book card now shows `N chapters` (not `X of N`), no progress bar, no rating stars.
 7. Open the book — chapter 1 is positioned at the top, no prior progress, quiz attempts gone (but same questions still on the quiz screen).
-8. Switch to list view (if the UI supports it). Right-click a book row. Verify Reset is in the context menu there too and works identically.
+8. Switch to list view (the existing `BookListView` component). Right-click a book row. Verify Reset is in the context menu there too and works identically.
 9. While a "Generate All" task is running on a book, verify right-clicking the card is disabled entirely (existing behavior — Reset is unreachable mid-generation by design).
 
 - [ ] **Step 9: Commit**
