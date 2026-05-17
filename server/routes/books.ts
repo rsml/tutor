@@ -894,6 +894,7 @@ Suggest profile updates based on this completed book. Return the complete update
         createdAt: now,
         updatedAt: now,
         tags: [],
+        audioGeneratedChapters: [],
       })
       send({ type: 'book_created', bookId, title: topic, totalChapters: chapterCount ?? 12 })
 
@@ -1569,6 +1570,7 @@ ${profileContext || 'No profile available.'}
       createdAt: now,
       updatedAt: now,
       tags: [],
+      audioGeneratedChapters: [],
     })
     return { bookId, title: body.title }
   })
