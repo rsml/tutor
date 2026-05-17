@@ -13,7 +13,9 @@ import {
 interface AudiobookDownloadModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  // Total bytes that will be downloaded — used in body copy and button label.
+  // Which components need downloading — drives the body copy.
+  missing: { model: boolean; ffmpeg: boolean }
+  // Total bytes that will be downloaded — used in the button label.
   missingBytes: number
   // Called when the user confirms; parent fires the install request.
   onConfirm: () => void
@@ -23,13 +25,19 @@ function formatMB(bytes: number): string {
   return String(Math.round(bytes / (1024 * 1024)))
 }
 
+// Sizes mirror the constants in server/services/audiobook-installer.ts so
+// per-component labels stay consistent with the total in the button.
+const KOKORO_MB = 115
+const FFMPEG_MB = 80
+
 export function AudiobookDownloadModal({
   open,
   onOpenChange,
+  missing,
   missingBytes,
   onConfirm,
 }: AudiobookDownloadModalProps) {
-  const mb = formatMB(missingBytes)
+  const totalMb = formatMB(missingBytes)
 
   const handleConfirm = () => {
     onConfirm()
@@ -42,18 +50,38 @@ export function AudiobookDownloadModal({
         <ScrollableDialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Download className="size-5" />
-            Download offline narration?
+            Download Missing Components
           </DialogTitle>
           <DialogDescription>
-            To turn your books into audiobooks, we need to download a free local
-            text-to-speech engine. It's about {mb} MB. After this one-time
-            download, you can generate audiobooks anytime — even offline.
+            Tutor can generate audiobooks for you — completely free and totally
+            on your computer. To make this happen, it needs to install
+            {missing.model && missing.ffmpeg ? ' two things:' : ' one thing:'}
           </DialogDescription>
         </ScrollableDialogHeader>
         <ScrollableDialogBody>
-          <p className="text-sm text-content-muted mt-3">
-            The download happens in the background — you can keep using Tutor while it
-            finishes.
+          <ul className="text-sm text-content-primary space-y-2.5">
+            {missing.model && (
+              <li className="flex items-baseline gap-2">
+                <span className="size-1.5 rounded-full bg-content-muted shrink-0 translate-y-[-2px]" />
+                <span>
+                  <span className="font-medium">Kokoro</span> — a text-to-speech
+                  engine (about {KOKORO_MB} MB)
+                </span>
+              </li>
+            )}
+            {missing.ffmpeg && (
+              <li className="flex items-baseline gap-2">
+                <span className="size-1.5 rounded-full bg-content-muted shrink-0 translate-y-[-2px]" />
+                <span>
+                  <span className="font-medium">FFmpeg</span> — used to stitch
+                  the audio files together (about {FFMPEG_MB} MB)
+                </span>
+              </li>
+            )}
+          </ul>
+          <p className="text-sm text-content-muted mt-4">
+            The download happens in the background, so you can keep using Tutor
+            while it finishes. Would you like to proceed?
           </p>
         </ScrollableDialogBody>
         <ScrollableDialogFooter>
@@ -62,7 +90,7 @@ export function AudiobookDownloadModal({
           </Button>
           <Button onClick={handleConfirm}>
             <Download className="size-4" data-icon="inline-start" />
-            Download ({mb} MB)
+            Download ({totalMb} MB)
           </Button>
         </ScrollableDialogFooter>
       </ScrollableDialogContent>

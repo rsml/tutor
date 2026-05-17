@@ -97,7 +97,7 @@ export default function App() {
   const [editTagsDialog, setEditTagsDialog] = useState<{ book: Book } | null>(null)
   const [setSeriesDialog, setSetSeriesDialog] = useState<{ book: Book } | null>(null)
   const [audiobookExists, setAudiobookExists] = useState<Map<string, boolean>>(new Map())
-  const [audiobookDownloadModal, setAudiobookDownloadModal] = useState<{ missingBytes: number } | null>(null)
+  const [audiobookDownloadModal, setAudiobookDownloadModal] = useState<{ missingBytes: number; missing: { model: boolean; ffmpeg: boolean } } | null>(null)
   const [audiobookVoiceModal, setAudiobookVoiceModal] = useState<{ book: Book; mode: 'firstTime' | 'normal' | 'regenerate' } | null>(null)
   const [regenerateAudiobookConfirm, setRegenerateAudiobookConfirm] = useState<{ book: Book } | null>(null)
   const [pendingAudiobookForBookId, setPendingAudiobookForBookId] = useState<string | null>(null)
@@ -475,7 +475,7 @@ export default function App() {
         setAudiobookVoiceModal({ book, mode: 'normal' })
       } else {
         setPendingAudiobookForBookId(book.id)
-        setAudiobookDownloadModal({ missingBytes: status.downloadSize })
+        setAudiobookDownloadModal({ missingBytes: status.downloadSize, missing: status.missing })
       }
     } catch (err) {
       toast.error('Failed to check audiobook engine: ' + (err instanceof Error ? err.message : 'Unknown error'))
@@ -1458,6 +1458,7 @@ export default function App() {
         <AudiobookDownloadModal
           open
           onOpenChange={(open) => { if (!open) { setAudiobookDownloadModal(null); setPendingAudiobookForBookId(null) } }}
+          missing={audiobookDownloadModal.missing}
           missingBytes={audiobookDownloadModal.missingBytes}
           onConfirm={handleConfirmDownload}
         />
