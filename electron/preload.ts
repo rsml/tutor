@@ -12,4 +12,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveFile: (defaultName: string, base64Data: string) => ipcRenderer.invoke('file:save', defaultName, base64Data) as Promise<boolean>,
   showInFinder: (filePath: string) => ipcRenderer.invoke('shell:show-item', filePath) as Promise<boolean>,
   openInDefaultApp: (filePath: string) => ipcRenderer.invoke('shell:open-path', filePath) as Promise<boolean>,
+  // Renderer pushes the live count of long-running tasks so the main process
+  // can intercept window close with a confirmation when work is in flight.
+  setBusyState: (count: number, labels: string[]) => ipcRenderer.invoke('app:set-busy-state', count, labels) as Promise<void>,
 })

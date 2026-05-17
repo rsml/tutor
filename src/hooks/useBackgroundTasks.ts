@@ -31,6 +31,9 @@ interface UseBackgroundTasksOptions {
   onGenerateAllCompleted?: () => void
   onAudiobookGenerated?: (bookId: string, bookTitle: string) => void
   onAudiobookInstalled?: () => void
+  /** Fires for any non-success terminal event (error or cancelled). Lets the
+   *  caller clean up pending UI state (e.g., "waiting on install" flags). */
+  onAudiobookTaskFailed?: (taskType: 'install-audiobook' | 'generate-audiobook', bookId: string) => void
 }
 
 export function useBackgroundTasks({
@@ -39,6 +42,7 @@ export function useBackgroundTasks({
   onGenerateAllCompleted,
   onAudiobookGenerated,
   onAudiobookInstalled,
+  onAudiobookTaskFailed,
 }: UseBackgroundTasksOptions = {}) {
   const dispatch = useAppDispatch()
 
@@ -84,13 +88,23 @@ export function useBackgroundTasks({
                   break
               }
               break
-            case 'task_error':
+            case 'task_error': {
+              const task = store.getState().backgroundTasks.tasks[event.taskId]
               dispatch(taskFailed({ taskId: event.taskId, error: event.error }))
               toast.error(taskErrorMessage(event.taskType, event.error))
+              if (task && (event.taskType === 'install-audiobook' || event.taskType === 'generate-audiobook')) {
+                onAudiobookTaskFailed?.(event.taskType, task.bookId)
+              }
               break
-            case 'task_cancelled':
+            }
+            case 'task_cancelled': {
+              const task = store.getState().backgroundTasks.tasks[event.taskId]
               dispatch(taskCancelled({ taskId: event.taskId }))
+              if (task && (task.type === 'install-audiobook' || task.type === 'generate-audiobook')) {
+                onAudiobookTaskFailed?.(task.type, task.bookId)
+              }
               break
+            }
           }
         } catch { /* ignore parse errors */ }
       }
@@ -108,5 +122,5 @@ export function useBackgroundTasks({
       evtSource?.close()
       if (reconnectTimer) clearTimeout(reconnectTimer)
     }
-  }, [dispatch, onCoverGenerated, onEpubExported, onGenerateAllCompleted, onAudiobookGenerated, onAudiobookInstalled])
+  }, [dispatch, onCoverGenerated, onEpubExported, onGenerateAllCompleted, onAudiobookGenerated, onAudiobookInstalled, onAudiobookTaskFailed])
 }

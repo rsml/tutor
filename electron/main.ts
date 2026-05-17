@@ -77,6 +77,14 @@ function getAppIcon() {
   return nativeImage.createFromPath(iconPath)
 }
 
+// Renderer pushes this on every running-task change. We intercept close
+// to prompt the user when work is in flight (audiobook gen, EPUB export,
+// model install, etc.) so they don't accidentally abandon a long-running
+// task and end up with stale/partial artifacts.
+let busyTaskCount = 0
+let busyTaskLabels: string[] = []
+const dismissedConfirm = new WeakSet<BrowserWindow>()
+
 function createWindow() {
   const isDark = nativeTheme.shouldUseDarkColors
   const win = new BrowserWindow({
@@ -97,6 +105,30 @@ function createWindow() {
   })
 
   win.once('ready-to-show', () => win.show())
+
+  win.on('close', (event) => {
+    if (busyTaskCount === 0 || dismissedConfirm.has(win)) return
+    event.preventDefault()
+    const detail = busyTaskLabels.length > 0
+      ? busyTaskLabels.slice(0, 4).map((l) => `• ${l}`).join('\n') +
+        (busyTaskLabels.length > 4 ? `\n• and ${busyTaskLabels.length - 4} more...` : '')
+      : `${busyTaskCount} background task${busyTaskCount > 1 ? 's' : ''} still running.`
+    const { response } = dialog.showMessageBoxSync
+      ? { response: dialog.showMessageBoxSync(win, {
+          type: 'warning',
+          buttons: ['Cancel', 'Quit anyway'],
+          defaultId: 0,
+          cancelId: 0,
+          title: 'Tasks still running',
+          message: 'Quit Tutor?',
+          detail,
+        }) }
+      : { response: 0 }
+    if (response === 1) {
+      dismissedConfirm.add(win)
+      win.close()
+    }
+  })
 
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL)
@@ -266,6 +298,11 @@ app.whenReady().then(async () => {
     if (!existsSync(filePath)) return false
     const err = await shell.openPath(filePath)
     return err === ''
+  })
+
+  ipcMain.handle('app:set-busy-state', async (_event, count: number, labels: string[]) => {
+    busyTaskCount = Math.max(0, Number(count) || 0)
+    busyTaskLabels = Array.isArray(labels) ? labels.slice(0, 8).map(String) : []
   })
 
   // Override mermaid renderer with Electron BrowserWindow-based renderer

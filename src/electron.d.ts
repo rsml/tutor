@@ -10,6 +10,7 @@ interface ElectronAPI {
   saveFile: (defaultName: string, base64Data: string) => Promise<boolean>
   showInFinder: (filePath: string) => Promise<boolean>
   openInDefaultApp: (filePath: string) => Promise<boolean>
+  setBusyState: (count: number, labels: string[]) => Promise<void>
 }
 
 interface Window {

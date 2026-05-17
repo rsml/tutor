@@ -1627,6 +1627,21 @@ ${profileContext || 'No profile available.'}
         } catch (err) {
           if (task.abortController.signal.aborted) return
           const msg = err instanceof Error ? err.message : 'Audiobook generation failed'
+          // Wipe the half-baked audio state so the user isn't left with a
+          // book.m4b-less directory of orphaned MP3s and a stale
+          // audioGeneratedChapters list that lights up Listen buttons for
+          // chapters whose files we'll re-narrate on retry anyway.
+          try {
+            await store.deleteAudiobookArtifacts(bookId)
+            const latest = await store.getBook(bookId)
+            if (latest.audioGeneratedChapters.length > 0) {
+              latest.audioGeneratedChapters = []
+              latest.updatedAt = new Date().toISOString()
+              await store.saveBook(latest)
+            }
+          } catch (cleanupErr) {
+            fastify.log.warn({ err: cleanupErr }, 'Audiobook cleanup-on-failure encountered an error')
+          }
           taskManager.failTask(task.id, msg)
         }
       })()
