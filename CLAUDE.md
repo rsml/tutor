@@ -113,6 +113,7 @@ tutor/
 | `POST` | `/api/books` | Start new book (generates TOC) |
 | `GET` | `/api/books/:id` | Get book metadata + progress |
 | `DELETE` | `/api/books/:id` | Delete a book |
+| `POST` | `/api/books/:id/reset` | Reset reader interaction (progress, rating, feedback, quiz answers) |
 | `GET` | `/api/books/:id/toc` | Get table of contents |
 | `PUT` | `/api/books/:id/toc` | Approve TOC, triggers Ch.1 generation |
 | `GET` | `/api/books/:id/chapters/:num` | Get chapter markdown content |
