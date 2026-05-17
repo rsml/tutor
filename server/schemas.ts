@@ -218,6 +218,20 @@ export const GenerateNextBodySchema = AiRequestSchema.extend({
   quizLength: z.number().int().min(1).max(10).optional(),
 })
 
+export const ReviseTocBodySchema = z.object({
+  feedback: z.string().min(1).max(4000),
+  model: z.string().min(1),
+  provider: z.string().min(1).optional(),
+})
+
+export const StartBookBodySchema = z.object({
+  model: z.string().min(1),
+  provider: z.string().min(1).optional(),
+  quizModel: z.string().min(1).optional(),
+  quizProvider: z.string().min(1).optional(),
+  quizLength: z.number().int().min(1).max(10).optional(),
+})
+
 export const FinalQuizBodySchema = AiRequestSchema
 
 export const PatchBookBodySchema = z.object({
