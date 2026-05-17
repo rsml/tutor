@@ -144,8 +144,6 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
     }
   }, [startGeneration])
 
-  const isGenerating = phase === 'toc' || phase === 'starting' || phase === 'revising'
-
   return (
     <div className="flex h-screen flex-col text-content-primary">
       {/* Header */}
