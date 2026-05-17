@@ -2,6 +2,14 @@ import { z } from 'zod'
 
 // --- Learning Profile ---
 
+export const AudiobookPreferencesSchema = z.object({
+  defaultVoiceId: z.string().min(1).max(100),
+  defaultSpeed: z.number().min(0.5).max(2.0),
+  workerOverride: z.number().int().min(1).max(32).optional(),
+})
+
+export type AudiobookPreferences = z.infer<typeof AudiobookPreferencesSchema>
+
 export const PreferencesSchema = z.object({
   // Booleans (6)
   explainComplexTermsSimply: z.boolean().default(true),
@@ -17,6 +25,8 @@ export const PreferencesSchema = z.object({
   narrativeStyle: z.number().int().min(1).max(5).default(3),
   humorLevel: z.number().int().min(1).max(5).default(2),
   formalityLevel: z.number().int().min(1).max(5).default(3),
+  // Audiobook narration defaults (optional — set after first generation)
+  audiobook: AudiobookPreferencesSchema.optional(),
 })
 
 export const SkillSchema = z.object({
@@ -102,6 +112,7 @@ export const BookMetaSchema = z.object({
   seriesOrder: z.number().int().min(1).optional(),
   sortOrder: z.number().optional(),
   imported: z.boolean().optional(),
+  audioGeneratedChapters: z.array(z.number().int().positive()).default([]),
 })
 
 export type BookMeta = z.infer<typeof BookMetaSchema>
@@ -296,6 +307,35 @@ export const SuggestCoverPromptBodySchema = AiRequestSchema
 
 export const SuggestDetailsBodySchema = AiRequestSchema.extend({
   topic: z.string().min(1).max(500),
+})
+
+// --- Audiobook ---
+
+export const AudiobookChapterEntrySchema = z.object({
+  num: z.number().int().positive(),
+  title: z.string(),
+  mp3Path: z.string(),
+  durationSec: z.number().nonnegative(),
+  startSec: z.number().nonnegative(),
+})
+
+export const AudiobookManifestSchema = z.object({
+  version: z.number().int().positive(),
+  voice: z.string(),
+  speed: z.number().min(0.5).max(2.0),
+  generatedAt: z.string(),
+  m4bPath: z.string(),
+  chapters: z.array(AudiobookChapterEntrySchema),
+})
+
+export type AudiobookChapterEntry = z.infer<typeof AudiobookChapterEntrySchema>
+export type AudiobookManifest = z.infer<typeof AudiobookManifestSchema>
+
+export const GenerateAudiobookBodySchema = z.object({
+  voiceId: z.string().min(1).max(100).optional(),
+  speed: z.number().min(0.5).max(2.0).optional(),
+  confirmReplace: z.boolean().optional(),
+  rememberAsDefault: z.boolean().optional(),
 })
 
 export const SuggestBookBodySchema = AiRequestSchema.extend({

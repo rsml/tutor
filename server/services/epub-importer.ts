@@ -191,6 +191,7 @@ export async function importEpub(
         ? { showTitleOnCover: bookLevelMeta.showTitleOnCover }
         : {}),
       tags: options?.tags ?? [],
+      audioGeneratedChapters: [],
       ...(options?.series ? { series: options.series } : {}),
       ...(options?.seriesOrder ? { seriesOrder: options.seriesOrder } : {}),
     }

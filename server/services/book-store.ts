@@ -11,6 +11,7 @@ import {
   QuizSchema,
   ChapterSummarySchema,
   ReferenceManifestSchema,
+  AudiobookManifestSchema,
   type BookMeta,
   type Toc,
   type Progress,
@@ -20,6 +21,7 @@ import {
   type ChapterProgress,
   type ChapterSummary,
   type ReferenceManifest,
+  type AudiobookManifest,
 } from '../schemas.js'
 import { getDataDir } from '../../lib/data-dir.js'
 
@@ -475,6 +477,65 @@ export function epubPath(bookId: string): string {
 
 export function epubExists(bookId: string): boolean {
   return existsSync(epubPath(bookId))
+}
+
+// --- Audiobook ---
+
+export function audioDir(bookId: string): string {
+  return join(bookDir(bookId), 'audio')
+}
+
+export function audiobookPath(bookId: string): string {
+  return join(bookDir(bookId), 'book.m4b')
+}
+
+export function audiobookManifestPath(bookId: string): string {
+  return join(audioDir(bookId), 'manifest.yml')
+}
+
+export function chapterAudioPath(bookId: string, chapterNum: number): string {
+  const padded = String(chapterNum).padStart(2, '0')
+  return join(audioDir(bookId), `${padded}.mp3`)
+}
+
+export function chapterWavPath(bookId: string, chapterNum: number): string {
+  const padded = String(chapterNum).padStart(2, '0')
+  return join(audioDir(bookId), `${padded}.wav`)
+}
+
+export function audiobookExists(bookId: string): boolean {
+  return existsSync(audiobookPath(bookId))
+}
+
+export function chapterAudioExists(bookId: string, chapterNum: number): boolean {
+  return existsSync(chapterAudioPath(bookId, chapterNum))
+}
+
+export async function getAudiobookManifest(bookId: string): Promise<AudiobookManifest | null> {
+  const path = audiobookManifestPath(bookId)
+  if (!existsSync(path)) return null
+  return readYaml(path, AudiobookManifestSchema)
+}
+
+export async function saveAudiobookManifest(bookId: string, manifest: AudiobookManifest): Promise<void> {
+  AudiobookManifestSchema.parse(manifest)
+  await writeYaml(audiobookManifestPath(bookId), manifest)
+}
+
+/**
+ * Remove all audiobook artifacts for a book: the M4B file, every per-chapter
+ * MP3 / leftover WAV, and the manifest. Used before a fresh regeneration so
+ * the next run starts from a clean slate (no stale chapter contamination).
+ */
+export async function deleteAudiobookArtifacts(bookId: string): Promise<void> {
+  const m4b = audiobookPath(bookId)
+  if (existsSync(m4b)) {
+    await rm(m4b)
+  }
+  const dir = audioDir(bookId)
+  if (existsSync(dir)) {
+    await rm(dir, { recursive: true })
+  }
 }
 
 export async function getAllFeedback(bookId: string): Promise<Feedback[]> {

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, ipcMain, safeStorage, nativeImage, nativeTheme, session, dialog } from 'electron'
+import { app, BrowserWindow, Menu, ipcMain, safeStorage, nativeImage, nativeTheme, session, dialog, shell } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
@@ -254,6 +254,18 @@ app.whenReady().then(async () => {
     if (canceled || !filePath) return false
     await writeFile(filePath, Buffer.from(base64Data, 'base64'))
     return true
+  })
+
+  ipcMain.handle('shell:show-item', async (_event, filePath: string) => {
+    if (!existsSync(filePath)) return false
+    shell.showItemInFolder(filePath)
+    return true
+  })
+
+  ipcMain.handle('shell:open-path', async (_event, filePath: string) => {
+    if (!existsSync(filePath)) return false
+    const err = await shell.openPath(filePath)
+    return err === ''
   })
 
   // Override mermaid renderer with Electron BrowserWindow-based renderer

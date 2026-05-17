@@ -20,7 +20,11 @@ import {
   TocChapterSkillSchema,
   ChapterProgressSchema,
   BookStatusSchema,
+  GenerateAudiobookBodySchema,
 } from '../schemas.js'
+import { isInstalled as isAudiobookEngineInstalled } from '../services/audiobook-installer.js'
+import { generateAudiobook } from '../services/audiobook-generator.js'
+import { listVoices } from '../services/kokoro-service.js'
 
 const AI_TIMEOUT_MS = 5 * 60 * 1000
 
@@ -907,6 +911,7 @@ Suggest profile updates based on this completed book. Return the complete update
         createdAt: now,
         updatedAt: now,
         tags: [],
+        audioGeneratedChapters: [],
       })
       send({ type: 'book_created', bookId, title: topic, totalChapters: chapterCount ?? 12 })
 
@@ -1529,6 +1534,228 @@ ${profileContext || 'No profile available.'}
     },
   )
 
+  // --- Audiobook ---
+
+  // POST /api/books/:id/audiobook — start generation
+  fastify.post<{ Params: { id: string }; Body: unknown }>(
+    '/api/books/:id/audiobook',
+    { schema: { params: bookIdSchema } },
+    async (request, reply) => {
+      let body: z.infer<typeof GenerateAudiobookBodySchema>
+      try {
+        body = GenerateAudiobookBodySchema.parse(request.body)
+      } catch (err) {
+        if (err instanceof ZodError) {
+          return reply.status(400).send({ error: 'Invalid request', details: err.issues })
+        }
+        throw err
+      }
+
+      const bookId = request.params.id
+      const meta = await store.getBook(bookId)
+
+      // Gate 1: book must be fully generated.
+      if (meta.generatedUpTo < meta.totalChapters) {
+        return reply.status(400).send({ error: 'Book is not fully generated' })
+      }
+
+      // Gate 2: model + ffmpeg must be installed.
+      if (!isAudiobookEngineInstalled()) {
+        return reply.status(409).send({
+          error: 'Audiobook engine not installed',
+          needsInstall: true,
+        })
+      }
+
+      // Gate 3: only one generation per book at a time.
+      if (taskManager.getActiveTaskForBook(bookId, 'generate-audiobook')) {
+        return reply.status(409).send({ error: 'Audiobook generation already in progress' })
+      }
+
+      // Gate 4: don't silently clobber an existing audiobook.
+      if (store.audiobookExists(bookId) && !body.confirmReplace) {
+        return reply.status(409).send({ error: 'Audiobook already exists', exists: true })
+      }
+
+      // Resolve voice + speed: body > profile defaults > first male voice / 1.0.
+      let profile: Awaited<ReturnType<typeof store.getProfile>> | null = null
+      try {
+        profile = await store.getProfile()
+      } catch {
+        // Profile may not exist on a fresh install; fall through to fallbacks.
+      }
+
+      const audiobookPrefs = profile?.preferences.audiobook
+      const voices = listVoices()
+      const fallbackVoice = voices.find((v) => v.gender === 'Male')?.id ?? voices[0]?.id ?? 'am_michael'
+      const voiceId = body.voiceId ?? audiobookPrefs?.defaultVoiceId ?? fallbackVoice
+      const speed = body.speed ?? audiobookPrefs?.defaultSpeed ?? 1.0
+
+      // Persist defaults if asked. Don't fail the request on profile save errors.
+      if (body.rememberAsDefault && profile) {
+        try {
+          profile.preferences.audiobook = {
+            defaultVoiceId: voiceId,
+            defaultSpeed: speed,
+            ...(audiobookPrefs?.workerOverride !== undefined
+              ? { workerOverride: audiobookPrefs.workerOverride }
+              : {}),
+          }
+          await store.saveProfile(profile)
+        } catch (err) {
+          fastify.log.warn({ err }, 'Failed to persist audiobook defaults to profile')
+        }
+      }
+
+      // total=N chapters; the generator updates progress per chapter narrated.
+      const task = taskManager.createTask(
+        'generate-audiobook',
+        bookId,
+        meta.title,
+        meta.totalChapters,
+      )
+
+      ;(async () => {
+        try {
+          await generateAudiobook(
+            bookId,
+            { voiceId, speed },
+            task.id,
+            task.abortController.signal,
+          )
+          // generator calls completeTask itself on success.
+        } catch (err) {
+          if (task.abortController.signal.aborted) return
+          const msg = err instanceof Error ? err.message : 'Audiobook generation failed'
+          taskManager.failTask(task.id, msg)
+        }
+      })()
+
+      return { taskId: task.id }
+    },
+  )
+
+  // GET /api/books/:id/audiobook — status + manifest
+  fastify.get<{ Params: { id: string } }>(
+    '/api/books/:id/audiobook',
+    { schema: { params: bookIdSchema } },
+    async (request) => {
+      const bookId = request.params.id
+      const exists = store.audiobookExists(bookId)
+      const manifest = exists ? await store.getAudiobookManifest(bookId) : null
+      const meta = await store.getBook(bookId)
+      return {
+        exists,
+        path: exists ? `/api/books/${bookId}/audiobook/file` : undefined,
+        manifest,
+        generatedChapters: meta.audioGeneratedChapters ?? [],
+      }
+    },
+  )
+
+  // GET /api/books/:id/audiobook/file — stream the M4B
+  fastify.get<{ Params: { id: string } }>(
+    '/api/books/:id/audiobook/file',
+    { schema: { params: bookIdSchema } },
+    async (request, reply) => {
+      const bookId = request.params.id
+      const { existsSync } = await import('node:fs')
+      const { createReadStream } = await import('node:fs')
+      const { stat: fsStat } = await import('node:fs/promises')
+
+      const path = store.audiobookPath(bookId)
+      if (!existsSync(path)) {
+        return reply.status(404).send({ error: 'Audiobook not found' })
+      }
+      const meta = await store.getBook(bookId)
+      const fileStat = await fsStat(path)
+      const stream = createReadStream(path)
+      reply
+        .type('audio/mp4')
+        .header('Content-Length', String(fileStat.size))
+        .header(
+          'Content-Disposition',
+          `inline; filename="${encodeURIComponent(meta.title)}.m4b"`,
+        )
+        .send(stream)
+    },
+  )
+
+  // GET /api/books/:id/chapters/:num/audio — per-chapter MP3 with HTTP Range
+  fastify.get<{ Params: { id: string; num: string } }>(
+    '/api/books/:id/chapters/:num/audio',
+    { schema: { params: bookChapterSchema } },
+    async (request, reply) => {
+      const bookId = request.params.id
+      const num = parseInt(request.params.num, 10)
+      const { existsSync, createReadStream } = await import('node:fs')
+      const { stat: fsStat } = await import('node:fs/promises')
+
+      const path = store.chapterAudioPath(bookId, num)
+      if (!existsSync(path)) {
+        return reply.status(404).send({ error: 'Chapter audio not found' })
+      }
+
+      const fileStat = await fsStat(path)
+      const range = request.headers.range
+      if (!range) {
+        // Full file — let the client buffer.
+        reply
+          .type('audio/mpeg')
+          .header('Content-Length', String(fileStat.size))
+          .header('Accept-Ranges', 'bytes')
+          .send(createReadStream(path))
+        return
+      }
+
+      // "bytes=START-END" or "bytes=START-"
+      const match = /^bytes=(\d+)-(\d+)?$/.exec(range)
+      if (!match) {
+        return reply.status(416).send({ error: 'Invalid Range header' })
+      }
+      const start = parseInt(match[1], 10)
+      const end = match[2] ? parseInt(match[2], 10) : fileStat.size - 1
+      if (start >= fileStat.size || end >= fileStat.size || start > end) {
+        reply.header('Content-Range', `bytes */${fileStat.size}`)
+        return reply.status(416).send({ error: 'Range not satisfiable' })
+      }
+      reply
+        .status(206)
+        .type('audio/mpeg')
+        .header('Content-Length', String(end - start + 1))
+        .header('Content-Range', `bytes ${start}-${end}/${fileStat.size}`)
+        .header('Accept-Ranges', 'bytes')
+        .send(createReadStream(path, { start, end }))
+    },
+  )
+
+  // GET /api/books/:id/chapters/:num/audio/status — lightweight existence check
+  fastify.get<{ Params: { id: string; num: string } }>(
+    '/api/books/:id/chapters/:num/audio/status',
+    { schema: { params: bookChapterSchema } },
+    async (request) => {
+      const bookId = request.params.id
+      const num = parseInt(request.params.num, 10)
+      return { exists: store.chapterAudioExists(bookId, num) }
+    },
+  )
+
+  // POST /api/books/:id/audiobook/reveal — hand the absolute path to the
+  // renderer so it can invoke the IPC reveal-in-finder handler.
+  fastify.post<{ Params: { id: string } }>(
+    '/api/books/:id/audiobook/reveal',
+    { schema: { params: bookIdSchema } },
+    async (request, reply) => {
+      const bookId = request.params.id
+      const { existsSync } = await import('node:fs')
+      const path = store.audiobookPath(bookId)
+      if (!existsSync(path)) {
+        return reply.status(404).send({ error: 'Audiobook not found' })
+      }
+      return { path }
+    },
+  )
+
   // --- Chapter Progress ---
 
   fastify.put<{
@@ -1582,6 +1809,7 @@ ${profileContext || 'No profile available.'}
       createdAt: now,
       updatedAt: now,
       tags: [],
+      audioGeneratedChapters: [],
     })
     return { bookId, title: body.title }
   })

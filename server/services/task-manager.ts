@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto'
 
-export type TaskType = 'generate-all' | 'generate-epub' | 'generate-cover'
+export type TaskType =
+  | 'generate-all'
+  | 'generate-epub'
+  | 'generate-cover'
+  | 'install-audiobook'
+  | 'generate-audiobook'
 export type TaskStatus = 'running' | 'done' | 'error' | 'cancelled'
 
 export interface TaskProgress {

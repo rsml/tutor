@@ -9,6 +9,8 @@ function taskDoneMessage(taskType?: string): string {
     case 'generate-cover': return 'Cover generated!'
     case 'generate-all': return 'All chapters generated!'
     case 'generate-epub': return 'EPUB export complete!'
+    case 'generate-audiobook': return 'Audiobook ready!'
+    case 'install-audiobook': return 'Audiobook narrator ready!'
     default: return 'Task complete!'
   }
 }
@@ -17,6 +19,8 @@ function taskErrorMessage(taskType?: string, error?: string): string {
   const prefix = taskType === 'generate-cover' ? 'Cover generation failed'
     : taskType === 'generate-all' ? 'Book generation failed'
     : taskType === 'generate-epub' ? 'EPUB export failed'
+    : taskType === 'generate-audiobook' ? 'Audiobook generation failed'
+    : taskType === 'install-audiobook' ? 'Narrator setup failed'
     : 'Task failed'
   return error ? `${prefix}: ${error}` : prefix
 }
@@ -25,9 +29,17 @@ interface UseBackgroundTasksOptions {
   onCoverGenerated?: () => void
   onEpubExported?: (bookId: string, bookTitle: string) => void
   onGenerateAllCompleted?: () => void
+  onAudiobookGenerated?: (bookId: string, bookTitle: string) => void
+  onAudiobookInstalled?: () => void
 }
 
-export function useBackgroundTasks({ onCoverGenerated, onEpubExported, onGenerateAllCompleted }: UseBackgroundTasksOptions = {}) {
+export function useBackgroundTasks({
+  onCoverGenerated,
+  onEpubExported,
+  onGenerateAllCompleted,
+  onAudiobookGenerated,
+  onAudiobookInstalled,
+}: UseBackgroundTasksOptions = {}) {
   const dispatch = useAppDispatch()
 
   useEffect(() => {
@@ -50,13 +62,27 @@ export function useBackgroundTasks({ onCoverGenerated, onEpubExported, onGenerat
             case 'task_done':
               dispatch(taskCompleted({ taskId: event.taskId, result: event.result }))
               toast.success(taskDoneMessage(event.taskType))
-              if (event.taskType === 'generate-cover') onCoverGenerated?.()
-              if (event.taskType === 'generate-all') onGenerateAllCompleted?.()
-              if (event.taskType === 'generate-epub') {
-                const task = store.getState().backgroundTasks.tasks[event.taskId]
-                if (task) onEpubExported?.(task.bookId, task.bookTitle)
+              switch (event.taskType) {
+                case 'generate-cover':
+                  onCoverGenerated?.()
+                  break
+                case 'generate-all':
+                  onGenerateAllCompleted?.()
+                  break
+                case 'generate-epub': {
+                  const task = store.getState().backgroundTasks.tasks[event.taskId]
+                  if (task) onEpubExported?.(task.bookId, task.bookTitle)
+                  break
+                }
+                case 'generate-audiobook': {
+                  const task = store.getState().backgroundTasks.tasks[event.taskId]
+                  if (task) onAudiobookGenerated?.(task.bookId, task.bookTitle)
+                  break
+                }
+                case 'install-audiobook':
+                  onAudiobookInstalled?.()
+                  break
               }
-
               break
             case 'task_error':
               dispatch(taskFailed({ taskId: event.taskId, error: event.error }))
@@ -82,5 +108,5 @@ export function useBackgroundTasks({ onCoverGenerated, onEpubExported, onGenerat
       evtSource?.close()
       if (reconnectTimer) clearTimeout(reconnectTimer)
     }
-  }, [dispatch, onCoverGenerated, onEpubExported, onGenerateAllCompleted])
+  }, [dispatch, onCoverGenerated, onEpubExported, onGenerateAllCompleted, onAudiobookGenerated, onAudiobookInstalled])
 }

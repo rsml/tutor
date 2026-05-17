@@ -29,6 +29,8 @@ function taskTypeLabel(type: string): string {
     case 'generate-all': return 'Generating'
     case 'generate-epub': return 'Exporting EPUB'
     case 'generate-cover': return 'Generating cover'
+    case 'install-audiobook': return 'Setting up narration'
+    case 'generate-audiobook': return 'Generating audiobook'
     default: return type
   }
 }

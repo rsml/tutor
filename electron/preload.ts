@@ -10,4 +10,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   removeApiKey: (provider?: string) => ipcRenderer.invoke('apiKey:remove', provider),
   getApiPort: () => ipcRenderer.invoke('get-api-port') as Promise<number>,
   saveFile: (defaultName: string, base64Data: string) => ipcRenderer.invoke('file:save', defaultName, base64Data) as Promise<boolean>,
+  showInFinder: (filePath: string) => ipcRenderer.invoke('shell:show-item', filePath) as Promise<boolean>,
+  openInDefaultApp: (filePath: string) => ipcRenderer.invoke('shell:open-path', filePath) as Promise<boolean>,
 })
