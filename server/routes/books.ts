@@ -599,6 +599,19 @@ export async function bookRoutes(fastify: FastifyInstance) {
     return { ok: true }
   })
 
+  fastify.post<{ Params: { id: string } }>(
+    '/api/books/:id/reset',
+    { schema: { params: bookIdSchema } },
+    async (request, reply) => {
+      const meta = await store.getBook(request.params.id)
+      if (meta.status === 'generating' || meta.status === 'generating_toc') {
+        return reply.code(409).send({ error: 'Cannot reset while generating' })
+      }
+      await store.resetBook(request.params.id)
+      return { ok: true }
+    },
+  )
+
   fastify.put<{
     Params: { id: string }
     Body: unknown
