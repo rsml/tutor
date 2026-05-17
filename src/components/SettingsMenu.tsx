@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Settings, Sun, Moon, Monitor, Type, Layers, Check, CheckCircle2, User, BarChart3, Sliders, MoveHorizontal, ListOrdered, BookOpen, Headphones, Trash2 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import {
@@ -142,24 +142,29 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
     setDialogProvider(id)
   }
 
-  const pendingProviders = PROVIDER_IDS.filter(id => (keyInputs[id] ?? '').trim() !== '')
-  const hasPendingChanges = pendingProviders.length > 0
+  const saveTimeoutsRef = useRef<Partial<Record<ProviderId, ReturnType<typeof setTimeout>>>>({})
 
-  const handleSave = async () => {
-    for (const provider of pendingProviders) {
-      const trimmed = (keyInputs[provider] ?? '').trim()
-      await window.electronAPI?.saveApiKey(trimmed, provider)
-      try {
-        await fetch(apiUrl('/api/settings/api-key'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ provider, apiKey: trimmed }),
-        })
-      } catch { /* server may not be ready */ }
-      dispatch(setProviderApiKey({ provider, apiKey: trimmed }))
-    }
-    setKeyInputs({})
-    setDialogOpen(false)
+  const persistProviderKey = async (provider: ProviderId, key: string) => {
+    const trimmed = key.trim()
+    if (!trimmed) return
+    await window.electronAPI?.saveApiKey(trimmed, provider)
+    try {
+      await fetch(apiUrl('/api/settings/api-key'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, apiKey: trimmed }),
+      })
+    } catch { /* server may not be ready */ }
+    dispatch(setProviderApiKey({ provider, apiKey: trimmed }))
+  }
+
+  const handleKeyInputChange = (provider: ProviderId, value: string) => {
+    setKeyInputs(prev => ({ ...prev, [provider]: value }))
+    const existing = saveTimeoutsRef.current[provider]
+    if (existing) clearTimeout(existing)
+    saveTimeoutsRef.current[provider] = setTimeout(() => {
+      persistProviderKey(provider, value)
+    }, 200)
   }
 
   const handleRemove = async (provider: ProviderId) => {
@@ -494,7 +499,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
                   id="api-key"
                   type="password"
                   value={keyInputs[dialogProvider] ?? ''}
-                  onChange={e => setKeyInputs(prev => ({ ...prev, [dialogProvider]: e.target.value }))}
+                  onChange={e => handleKeyInputChange(dialogProvider, e.target.value)}
                   placeholder={dialogConfig?.apiKey ? 'Key saved (enter new to replace)' : dialogDef.placeholder}
                   className={`h-9 w-full rounded-lg border border-border-default bg-surface-raised px-3 ${dialogConfig?.apiKey ? 'pr-9' : ''} font-mono text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20`}
                 />
@@ -513,8 +518,8 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
           </div>
 
           <DialogFooter>
-            <Button onClick={handleSave}>
-              {hasPendingChanges ? 'Save' : 'Done'}
+            <Button onClick={() => setDialogOpen(false)}>
+              Done
             </Button>
           </DialogFooter>
         </DialogContent>
