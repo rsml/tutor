@@ -1215,8 +1215,9 @@ ${feedback}`,
       try {
         const profileContext = await buildProfileContext()
         // Pull topic/details from the stored prompt — split on the first \n\n
+        // Use the user-typed topic (promptParts[0]), not the AI-generated/revised title
         const promptParts = book.prompt.split('\n\n')
-        const topic = book.title
+        const topic = promptParts[0] ?? book.title
         const details = promptParts.length > 1 ? promptParts.slice(1).join('\n\n') : undefined
 
         await generateFirstChapterAndQuiz(bookId, send, {
