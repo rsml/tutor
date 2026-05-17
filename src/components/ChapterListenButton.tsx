@@ -7,10 +7,13 @@ interface Props {
   bookId: string
   chapterNum: number
   voiceName?: string
+  /** Audiobook generatedAt — drives cache-busting so re-narrating a
+   *  chapter doesn't serve the browser's stale MP3 from the prior run. */
+  generatedAt?: string
   available: boolean
 }
 
-export function ChapterListenButton({ bookId, chapterNum, voiceName, available }: Props) {
+export function ChapterListenButton({ bookId, chapterNum, voiceName, generatedAt, available }: Props) {
   const [open, setOpen] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
@@ -66,7 +69,7 @@ export function ChapterListenButton({ bookId, chapterNum, voiceName, available }
             preload="auto"
             crossOrigin="anonymous"
             className="w-full"
-            src={apiUrl(`/api/books/${bookId}/chapters/${chapterNum}/audio`)}
+            src={apiUrl(`/api/books/${bookId}/chapters/${chapterNum}/audio${generatedAt ? `?v=${encodeURIComponent(generatedAt)}` : ''}`)}
           />
         </div>
       )}

@@ -119,17 +119,17 @@ export function BookCard({ title, subtitle, chaptersRead, totalChapters, status,
       {/* Meta */}
       <div className="mt-2.5 px-0.5">
         <div className="flex items-center gap-1.5">
-          <p className="text-[0.75em] text-content-muted">
-            {chaptersRead === 0
-              ? `${totalChapters} chapters`
-              : `${chaptersRead} of ${totalChapters} chapters`}
-          </p>
           {hasAudiobook && (
             <Headphones
               className="size-3 text-content-muted/70"
               aria-label="Audiobook available"
             />
           )}
+          <p className="text-[0.75em] text-content-muted">
+            {chaptersRead === 0
+              ? `${totalChapters} chapters`
+              : `${chaptersRead} of ${totalChapters} chapters`}
+          </p>
         </div>
         {rating != null && rating > 0 && (
           <div className="mt-0.5">

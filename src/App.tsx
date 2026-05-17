@@ -1294,7 +1294,7 @@ export default function App() {
           </div>
           <span className="ml-5 pl-0.5 text-xs text-content-muted">Finish generating chapters first</span>
         </button>
-      ) : (audiobookExists.get(contextMenu.book.id) ?? contextMenu.book.hasAudiobook) === true ? (
+      ) : (audiobookExists.get(contextMenu.book.id) === true || contextMenu.book.hasAudiobook === true) ? (
         <>
           <button
             onClick={() => { handleShowAudiobook(contextMenu.book); setContextMenu(null) }}

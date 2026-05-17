@@ -1715,6 +1715,9 @@ ${profileContext || 'No profile available.'}
       }
 
       const fileStat = await fsStat(path)
+      // Tie the ETag to mtime so re-narrating a chapter invalidates the
+      // browser cache automatically without needing a query-string bust.
+      const etag = `"${fileStat.size.toString(16)}-${fileStat.mtimeMs.toString(36)}"`
       const range = request.headers.range
       if (!range) {
         // Full file — let the client buffer.
@@ -1722,6 +1725,8 @@ ${profileContext || 'No profile available.'}
           .type('audio/mpeg')
           .header('Content-Length', String(fileStat.size))
           .header('Accept-Ranges', 'bytes')
+          .header('Cache-Control', 'no-cache')
+          .header('ETag', etag)
           .send(createReadStream(path))
         return
       }
@@ -1743,6 +1748,8 @@ ${profileContext || 'No profile available.'}
         .header('Content-Length', String(end - start + 1))
         .header('Content-Range', `bytes ${start}-${end}/${fileStat.size}`)
         .header('Accept-Ranges', 'bytes')
+        .header('Cache-Control', 'no-cache')
+        .header('ETag', etag)
         .send(createReadStream(path, { start, end }))
     },
   )
