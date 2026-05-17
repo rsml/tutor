@@ -1046,8 +1046,7 @@ ${profileContext ? `\nReader profile:\n${profileContext}\n\nTailor the book stru
         topic,
         details,
       })
-      send({ type: 'done', bookId })
-      reply.raw.end()
+      send({ type: 'done', bookId, title, totalChapters: chapters.length })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Generation failed'
       console.error(`[POST /api/books] Book "${bookId}" generation failed:`, error)
