@@ -90,6 +90,35 @@ async function buildProfileContext(): Promise<string> {
   }
 }
 
+// Quality rules embedded in every quiz prompt. The "longest answer wins" pattern
+// emerges because models write the correct answer thoroughly while distractors
+// stay terse — a reader can score 100% by picking the longest option without
+// reading the question. These rules push the model toward length-balanced,
+// genuinely plausible distractors.
+export const QUIZ_QUALITY_RULES = `Quality rules for the options — every question MUST follow these:
+- All 4 options MUST be similar in length (within ~20% character count of each other) and written at the same level of detail. The correct answer must NOT be noticeably longer, more specific, or more thoroughly hedged than the distractors. If you find yourself writing a long correct answer and short distractors, expand the distractors with equally plausible specifics.
+- Distractors must be genuinely plausible to a reader who skimmed the chapter — common misconceptions, near-misses, or partially-correct statements. No obvious throwaways.
+- Do not use "All of the above" or "None of the above".
+- Do not start options with telltale qualifiers ("always", "never", "only") on incorrect answers and softer language on the correct one. Match register across all four.
+- Vary which option index is correct across the question set — do not cluster the correct answer at the same position.`
+
+// Shuffles each question's options and updates correctIndex accordingly.
+// Defence-in-depth against any positional bias the model exhibits.
+export function shuffleQuizOptions<T extends { questions: Array<{ question: string; options: string[]; correctIndex: number }> }>(quiz: T): T {
+  return {
+    ...quiz,
+    questions: quiz.questions.map(q => {
+      const correctOption = q.options[q.correctIndex]
+      const shuffled = [...q.options]
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+      }
+      return { ...q, options: shuffled, correctIndex: shuffled.indexOf(correctOption) }
+    }),
+  }
+}
+
 export async function generateQuiz(
   provider: string,
   model: string,
@@ -110,10 +139,12 @@ export async function generateQuiz(
       }),
       prompt: `Based on this chapter content, generate exactly ${quizLength} multiple-choice quiz questions to test comprehension. Each question should have 4 options with exactly one correct answer.
 
+${QUIZ_QUALITY_RULES}
+
 Chapter content:
 ${chapterContent}`,
     })
-    return result.object
+    return shuffleQuizOptions(result.object)
   } finally {
     timeout.clear()
   }

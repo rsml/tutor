@@ -529,7 +529,14 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
         goPrev()
       } else if (e.key === 'ArrowRight') {
         e.preventDefault()
-        goNext()
+        if (quizLoading) return
+        if (isLastSectionOfBook) {
+          handleFinishBook()
+        } else if (isLastSectionOfChapter && !isLastChapter) {
+          handleKeepGoing()
+        } else {
+          goNext()
+        }
       } else if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault()
         const el = scrollRef.current
@@ -546,7 +553,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [phase, goPrev, goNext, fontSize, smoothScrollBy])
+  }, [phase, goPrev, goNext, fontSize, smoothScrollBy, quizLoading, isLastSectionOfBook, isLastSectionOfChapter, isLastChapter, handleFinishBook, handleKeepGoing])
 
   // The chapter number to show on the generating tab
   const generatingTabLabel = generatingChapterNum ?? chapterIndex + 2

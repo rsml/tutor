@@ -180,10 +180,12 @@ async function generateQuiz(
       }),
       prompt: `Based on this chapter content, generate exactly ${quizLength} multiple-choice quiz questions to test comprehension. Each question should have 4 options with exactly one correct answer.
 
+${genManager.QUIZ_QUALITY_RULES}
+
 Chapter content:
 ${chapterContent}`,
     })
-    return result.object
+    return genManager.shuffleQuizOptions(result.object)
   } finally {
     timeout.clear()
   }
@@ -718,11 +720,14 @@ ${focusInstructions}
 - Be meaningfully different from these previously asked questions:
 ${priorQuestions.map(q => `  - ${q}`).join('\n')}
 
+${genManager.QUIZ_QUALITY_RULES}
+
 IMPORTANT: ONLY ask about concepts, facts, and ideas explicitly discussed in the chapter content above. Do NOT draw on outside knowledge of the topic.`,
       })
 
-      await store.saveFinalQuiz(bookId, result.object)
-      return result.object
+      const shuffled = genManager.shuffleQuizOptions(result.object)
+      await store.saveFinalQuiz(bookId, shuffled)
+      return shuffled
     } finally {
       timeout.clear()
     }
