@@ -173,6 +173,129 @@ async function validateChapterNum(bookId: string, num: number): Promise<void> {
 const sanitizeFeedback = (s: string) => s.replace(/<\/?[^>]+>/g, '')
 
 export async function bookRoutes(fastify: FastifyInstance) {
+  async function generateFirstChapterAndQuiz(
+    bookId: string,
+    send: (data: Record<string, unknown>) => void,
+    opts: {
+      provider: string
+      model: string
+      quizProvider: string
+      quizModel: string
+      quizLength: number
+      profileContext: string
+      topic: string
+      details?: string
+    },
+  ): Promise<void> {
+    // 1. Read book + TOC from store
+    const book = await store.getBook(bookId)
+    const toc = await store.getToc(bookId)
+    const chapters = toc.chapters
+
+    // 2. Skill classification — write skills back to toc.yml
+    let tocSkills: { name: string; weight: number }[] = []
+    let chapterSkillMap: Array<{ chapterIndex: number; skills: Array<{ skill: string; subskill: string; weight: number }> }> = []
+    try {
+      const skillTimeout = createTimeout()
+      const skillClassification = await generateObject({
+        model: createModelClient(opts.provider, opts.model),
+        abortSignal: skillTimeout.signal,
+        schema: z.object({
+          skills: z.array(TocBookSkillSchema),
+          chapters: z.array(z.object({
+            chapterIndex: z.number(),
+            skills: z.array(TocChapterSkillSchema),
+          })),
+        }),
+        prompt: `You are classifying the learning content of a book's table of contents like a college course curriculum.
+
+Book title: ${book.title}
+Topic: ${opts.topic}
+
+Chapters:
+${chapters.map((ch, i) => `${i + 1}. ${ch.title} — ${ch.description}`).join('\n')}
+
+Identify 2-5 top-level skills this book teaches (broad disciplines like "Workflow Orchestration", "Distributed Systems", "API Design"). Assign each a weight 1-5 reflecting how central it is to the book.
+
+For each chapter, identify 1-3 sub-skills that fall under the book's top-level skills. Each sub-skill must reference one of the top-level skill names. Assign weights 1-3.
+
+Use consistent, human-readable skill names. Think of skills as what would appear on a course syllabus.`,
+      })
+      skillTimeout.clear()
+      tocSkills = skillClassification.object.skills
+      chapterSkillMap = skillClassification.object.chapters
+      send({ type: 'skills_classified' })
+    } catch {
+      // Skill classification failure is non-fatal
+    }
+
+    // Persist skills onto the TOC (preserve existing chapters)
+    const tocWithSkills = {
+      skills: tocSkills.length > 0 ? tocSkills : undefined,
+      chapters: chapters.map((ch, i) => ({
+        ...ch,
+        skills: chapterSkillMap.find(c => c.chapterIndex === i)?.skills ?? undefined,
+      })),
+    }
+    await store.saveToc(bookId, tocWithSkills)
+
+    // 3. Update status: toc_review → generating
+    book.status = 'generating'
+    book.updatedAt = new Date().toISOString()
+    await store.saveBook(book)
+
+    // 4. Stream Chapter 1
+    let chapterText = ''
+    const ch1Timeout = createTimeout()
+    const chapterResult = streamText({
+      model: createModelClient(opts.provider, opts.model),
+      abortSignal: ch1Timeout.signal,
+      system: `You are writing a chapter for a personalized learning book. Write an engaging, clear chapter approximately 1,500 words long.
+
+Use markdown formatting:
+- Start with # heading for the chapter title
+- Use ## and ### for sections
+- Bold and italic for emphasis
+- Bullet/numbered lists where appropriate
+- Code blocks with language tags where relevant
+- > blockquotes for key insights or memorable takeaways
+- If you include mermaid diagrams, do NOT add style, classDef, or class directives for colors — the app applies its own theme automatically. ALWAYS wrap node labels in double quotes (e.g., \`A["My Label"]\` not \`A[My Label]\`)
+
+Write in a conversational but knowledgeable tone. Use concrete examples and real-world analogies. Make complex ideas accessible without being condescending.
+${opts.profileContext ? `\nReader profile:\n${opts.profileContext}\n` : ''}`,
+      prompt: `Book: ${book.title}
+Topic: ${opts.topic}${opts.details ? `\nContext: ${opts.details}` : ''}
+
+This is Chapter 1 of ${chapters.length}.
+Chapter title: ${chapters[0].title}
+Chapter description: ${chapters[0].description}
+
+Write this chapter now.`,
+    })
+    for await (const chunk of chapterResult.textStream) {
+      chapterText += chunk
+      send({ type: 'chapter', text: chunk })
+    }
+    ch1Timeout.clear()
+
+    await store.saveChapter(bookId, 1, chapterText)
+
+    // 5. Quiz (non-fatal)
+    try {
+      const quiz = await generateQuiz(opts.quizProvider, opts.quizModel, chapterText, opts.quizLength)
+      await store.saveQuiz(bookId, 1, quiz)
+    } catch {
+      // Quiz generation failure is non-fatal
+    }
+
+    // 6. Finalize
+    const meta = await store.getBook(bookId)
+    meta.generatedUpTo = 1
+    meta.status = 'reading'
+    meta.updatedAt = new Date().toISOString()
+    await store.saveBook(meta)
+  }
+
   fastify.get('/api/books', async () => {
     let books: Awaited<ReturnType<typeof store.listBooks>>
     try {
@@ -901,51 +1024,6 @@ ${profileContext ? `\nReader profile:\n${profileContext}\n\nTailor the book stru
         return
       }
 
-      // Classify skills for the TOC
-      let tocSkills: { name: string; weight: number }[] = []
-      let chapterSkillMap: Array<{ chapterIndex: number; skills: Array<{ skill: string; subskill: string; weight: number }> }> = []
-      try {
-        const skillTimeout = createTimeout()
-        const skillClassification = await generateObject({
-          model: createModelClient(provider ?? 'anthropic', model),
-          abortSignal: skillTimeout.signal,
-          schema: z.object({
-            skills: z.array(TocBookSkillSchema),
-            chapters: z.array(z.object({
-              chapterIndex: z.number(),
-              skills: z.array(TocChapterSkillSchema),
-            })),
-          }),
-          prompt: `You are classifying the learning content of a book's table of contents like a college course curriculum.
-
-Book title: ${title}
-Topic: ${topic}
-
-Chapters:
-${chapters.map((ch, i) => `${i + 1}. ${ch.title} — ${ch.description}`).join('\n')}
-
-Identify 2-5 top-level skills this book teaches (broad disciplines like "Workflow Orchestration", "Distributed Systems", "API Design"). Assign each a weight 1-5 reflecting how central it is to the book.
-
-For each chapter, identify 1-3 sub-skills that fall under the book's top-level skills. Each sub-skill must reference one of the top-level skill names. Assign weights 1-3.
-
-Use consistent, human-readable skill names. Think of skills as what would appear on a course syllabus.`,
-        })
-        skillTimeout.clear()
-        tocSkills = skillClassification.object.skills
-        chapterSkillMap = skillClassification.object.chapters
-        send({ type: 'skills_classified' })
-      } catch {
-        // Skill classification failure is non-fatal
-      }
-
-      const tocWithSkills = {
-        skills: tocSkills.length > 0 ? tocSkills : undefined,
-        chapters: chapters.map((ch, i) => ({
-          ...ch,
-          skills: chapterSkillMap.find(c => c.chapterIndex === i)?.skills ?? undefined,
-        })),
-      }
-
       // Update the early-persisted book with real title/subtitle from AI
       const existingMeta = await store.getBook(bookId)
       existingMeta.title = title
@@ -954,62 +1032,22 @@ Use consistent, human-readable skill names. Think of skills as what would appear
       existingMeta.totalChapters = chapters.length
       existingMeta.updatedAt = new Date().toISOString()
       await store.saveBook(existingMeta)
-      await store.saveToc(bookId, tocWithSkills)
+      await store.saveToc(bookId, { chapters })
 
       send({ type: 'toc_done', bookId, title, subtitle, totalChapters: chapters.length })
 
-      // Phase 2: Generate Chapter 1
-      let chapterText = ''
-      const ch1Timeout = createTimeout()
-      const chapterResult = streamText({
-        model: createModelClient(provider ?? 'anthropic', model),
-        abortSignal: ch1Timeout.signal,
-        system: `You are writing a chapter for a personalized learning book. Write an engaging, clear chapter approximately 1,500 words long.
-
-Use markdown formatting:
-- Start with # heading for the chapter title
-- Use ## and ### for sections
-- Bold and italic for emphasis
-- Bullet/numbered lists where appropriate
-- Code blocks with language tags where relevant
-- > blockquotes for key insights or memorable takeaways
-- If you include mermaid diagrams, do NOT add style, classDef, or class directives for colors — the app applies its own theme automatically. ALWAYS wrap node labels in double quotes (e.g., \`A["My Label"]\` not \`A[My Label]\`)
-
-Write in a conversational but knowledgeable tone. Use concrete examples and real-world analogies. Make complex ideas accessible without being condescending.
-${profileContext ? `\nReader profile:\n${profileContext}\n` : ''}`,
-        prompt: `Book: ${title}
-Topic: ${topic}${details ? `\nContext: ${details}` : ''}
-
-This is Chapter 1 of ${chapters.length}.
-Chapter title: ${chapters[0].title}
-Chapter description: ${chapters[0].description}
-
-Write this chapter now.`,
+      await generateFirstChapterAndQuiz(bookId, send, {
+        provider: provider ?? 'anthropic',
+        model,
+        quizProvider: quizProvider ?? provider ?? 'anthropic',
+        quizModel: quizModel ?? model,
+        quizLength: quizLength ?? 3,
+        profileContext,
+        topic,
+        details,
       })
-
-      for await (const chunk of chapterResult.textStream) {
-        chapterText += chunk
-        send({ type: 'chapter', text: chunk })
-      }
-      ch1Timeout.clear()
-
-      await store.saveChapter(bookId, 1, chapterText)
-
-      // Generate quiz for chapter 1
-      try {
-        const quiz = await generateQuiz(quizProvider ?? provider ?? 'anthropic', quizModel ?? model, chapterText, quizLength)
-        await store.saveQuiz(bookId, 1, quiz)
-      } catch {
-        // Quiz generation failure is non-fatal
-      }
-
-      const meta = await store.getBook(bookId)
-      meta.generatedUpTo = 1
-      meta.status = 'reading'
-      meta.updatedAt = new Date().toISOString()
-      await store.saveBook(meta)
-
-      send({ type: 'done', bookId, title, totalChapters: chapters.length })
+      send({ type: 'done', bookId })
+      reply.raw.end()
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Generation failed'
       console.error(`[POST /api/books] Book "${bookId}" generation failed:`, error)
