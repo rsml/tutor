@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useDeferredValue, useRef } from 'react'
 import { toast } from '@src/lib/toast'
-import { Plus, BookOpen, X, FileDown, Pencil, Star, Tags, Library, ClipboardCheck, Eye, Image, Zap, Download, Trash2 } from 'lucide-react'
+import { Plus, BookOpen, X, FileDown, Pencil, Star, Tags, Library, ClipboardCheck, Eye, Image, Zap, Download, Trash2, RotateCcw } from 'lucide-react'
 import { DndContext, DragOverlay, closestCenter, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Button } from '@src/components/ui/button'
@@ -87,6 +87,7 @@ export default function App() {
   const [contextMenu, setContextMenu] = useState<{ book: Book; x: number; y: number } | null>(null)
   const [renameDialog, setRenameDialog] = useState<{ book: Book; title: string; subtitle: string } | null>(null)
   const [deleteDialog, setDeleteDialog] = useState<{ book: Book; input: string } | null>(null)
+  const [resetDialog, setResetDialog] = useState<{ book: Book; input: string } | null>(null)
   const [rateDialog, setRateDialog] = useState<{ book: Book; rating: number } | null>(null)
   const [overviewBook, setOverviewBook] = useState<Book | null>(null)
   const [coverModal, setCoverModal] = useState<{ book: Book } | null>(null)
@@ -489,6 +490,23 @@ export default function App() {
       setMutating(false)
     }
     setDeleteDialog(null)
+  }
+
+  const handleReset = async () => {
+    if (!resetDialog || resetDialog.input !== 'reset') return
+    setMutating(true)
+    try {
+      const res = await fetch(apiUrl(`/api/books/${resetDialog.book.id}/reset`), {
+        method: 'POST',
+      })
+      if (res.ok) await fetchBooks()
+      else toast.error('Failed to reset book')
+    } catch {
+      toast.error('Failed to reset book — server unreachable')
+    } finally {
+      setMutating(false)
+    }
+    setResetDialog(null)
   }
 
   const handleSaveTags = async (bookId: string, tags: string[]) => {
@@ -1072,6 +1090,16 @@ export default function App() {
       {/* Danger group */}
       <button
         onClick={() => {
+          setResetDialog({ book: contextMenu.book, input: '' })
+          setContextMenu(null)
+        }}
+        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-status-error hover:bg-surface-muted transition-colors whitespace-nowrap"
+      >
+        <RotateCcw className="size-3.5 shrink-0" />
+        Reset
+      </button>
+      <button
+        onClick={() => {
           setDeleteDialog({ book: contextMenu.book, input: '' })
           setContextMenu(null)
         }}
@@ -1199,6 +1227,29 @@ export default function App() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialog(null)}>Cancel</Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleteDialog?.input !== 'delete' || mutating}>OK</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!resetDialog} onOpenChange={open => { if (!open) setResetDialog(null) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Reset Book</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to reset &ldquo;{resetDialog?.book.title}&rdquo;? This permanently clears your reading progress, rating, feedback, and quiz answers. The chapters and table of contents will remain. Type <strong>reset</strong> to confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <input
+            value={resetDialog?.input ?? ''}
+            onChange={e => setResetDialog(prev => prev ? { ...prev, input: e.target.value } : null)}
+            onKeyDown={e => e.key === 'Enter' && resetDialog?.input === 'reset' && handleReset()}
+            placeholder="reset"
+            className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetDialog(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleReset} disabled={resetDialog?.input !== 'reset' || mutating}>OK</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
