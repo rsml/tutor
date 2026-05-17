@@ -17,6 +17,21 @@ import { QuizPanel } from '@src/components/QuizPanel'
 import { FeedbackForm } from '@src/components/FeedbackForm'
 import { StarRating } from '@src/components/StarRating'
 import { BookCompleteSummary } from '@src/components/BookCompleteSummary'
+import { ChapterListenButton } from '@src/components/ChapterListenButton'
+import { useChapterAudio } from '@src/hooks/useChapterAudio'
+
+const VOICE_DISPLAY_NAMES: Record<string, string> = {
+  am_michael: 'Michael', am_adam: 'Adam', am_onyx: 'Onyx',
+  am_echo: 'Echo', am_eric: 'Eric', am_fenrir: 'Fenrir',
+  am_liam: 'Liam', am_puck: 'Puck', am_santa: 'Santa',
+  bm_george: 'George', bm_lewis: 'Lewis', bm_daniel: 'Daniel', bm_fable: 'Fable',
+  af_heart: 'Heart', af_bella: 'Bella', af_nicole: 'Nicole',
+  af_sarah: 'Sarah', af_sky: 'Sky',
+  bf_emma: 'Emma', bf_alice: 'Alice',
+}
+function voiceNameFromId(id: string): string {
+  return VOICE_DISPLAY_NAMES[id] ?? id.replace(/^[ab][fm]_/, '').replace(/^./, c => c.toUpperCase())
+}
 
 interface Book {
   id: string
@@ -558,6 +573,10 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
   // The chapter number to show on the generating tab
   const generatingTabLabel = generatingChapterNum ?? chapterIndex + 2
 
+  const { hasAudio, status: audiobookStatus } = useChapterAudio(book.id)
+  const currentChapterNum = chapterIndex + 1
+  const voiceName = audiobookStatus?.manifest ? voiceNameFromId(audiobookStatus.manifest.voice) : undefined
+
   return (
     <div className="flex h-screen flex-col text-content-primary">
       {/* Header — drag region */}
@@ -710,6 +729,15 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
         >
           <ArrowLeft className="size-5" />
         </button>
+
+        {phase === 'reading' && !showToc && (
+          <ChapterListenButton
+            bookId={book.id}
+            chapterNum={currentChapterNum}
+            voiceName={voiceName}
+            available={hasAudio(currentChapterNum)}
+          />
+        )}
 
         {/* Content area with edge tap zones */}
         <div className="relative flex-1 overflow-hidden">
