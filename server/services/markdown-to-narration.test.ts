@@ -62,19 +62,24 @@ describe('stripMarkdownForNarration', () => {
     expect(stripMarkdownForNarration(input)).toBe('H1.\n\nH2.\n\nH3.')
   })
 
-  it('strips bullet markers from list items', () => {
+  it('strips bullet markers from list items and adds periods so Kokoro splits each item as a separate sentence', () => {
     const input = '- one\n- two\n- three'
-    expect(stripMarkdownForNarration(input)).toBe('one\ntwo\nthree')
+    expect(stripMarkdownForNarration(input)).toBe('one.\ntwo.\nthree.')
   })
 
-  it('strips numbered list markers', () => {
+  it('strips numbered list markers and adds periods', () => {
     const input = '1. first\n2. second\n3. third'
-    expect(stripMarkdownForNarration(input)).toBe('first\nsecond\nthird')
+    expect(stripMarkdownForNarration(input)).toBe('first.\nsecond.\nthird.')
   })
 
-  it('strips asterisk list markers', () => {
+  it('strips asterisk list markers and adds periods', () => {
     const input = '* alpha\n* beta'
-    expect(stripMarkdownForNarration(input)).toBe('alpha\nbeta')
+    expect(stripMarkdownForNarration(input)).toBe('alpha.\nbeta.')
+  })
+
+  it('does not double-punctuate list items that already end in sentence punctuation', () => {
+    const input = '- already done.\n- a question?\n- exclamation!'
+    expect(stripMarkdownForNarration(input)).toBe('already done.\na question?\nexclamation!')
   })
 
   it('converts a table to comma-separated sentences', () => {
@@ -153,8 +158,8 @@ describe('stripMarkdownForNarration', () => {
         '',
         'Steps.',
         '',
-        'First step',
-        'Second step',
+        'First step.',
+        'Second step.',
         '',
         'Wise words.',
       ].join('\n'),

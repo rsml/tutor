@@ -208,18 +208,56 @@ export async function stopWorkerPool(): Promise<void> {
   concurrencyLimit = 1
 }
 
-async function synthesize(text: string, voiceId: string, speed: number): Promise<{ audio: Float32Array; samplingRate: number; save: (path: string) => Promise<void> }> {
+// Kokoro's tokenizer truncates to ~510 tokens silently. tts.generate() is
+// limited to a single chunk and clips long chapters to ~150 words of audio.
+// Use tts.stream() instead — it splits on sentence boundaries and yields
+// one RawAudio per sentence. We collect, concatenate, and wrap into a
+// single RawAudio for the WAV write.
+interface RawAudioLike {
+  audio: Float32Array
+  sampling_rate: number
+  save: (path: string) => Promise<void>
+}
+
+async function synthesizeFullText(
+  text: string,
+  voiceId: string,
+  speed: number,
+  signal?: AbortSignal,
+  onSentence?: (sentenceIdx: number, sentenceText: string) => void,
+): Promise<RawAudioLike> {
   await acquireSlot()
   try {
     const tts = await getTts()
+    const chunks: RawAudioLike[] = []
+    let totalSamples = 0
+    let samplingRate = 24000
     // kokoro-js types voice as keyof typeof VOICES but accepts any string at
     // runtime via _validate_voice; we already validated against VOICE_NAMES.
-    const raw = await tts.generate(text, { voice: voiceId as never, speed })
-    return {
-      audio: raw.audio,
-      samplingRate: raw.sampling_rate,
-      save: (path: string) => raw.save(path),
+    let i = 0
+    for await (const chunk of tts.stream(text, { voice: voiceId as never, speed })) {
+      if (signal?.aborted) throw new Error('Synthesis aborted')
+      const audio = chunk.audio as unknown as RawAudioLike
+      chunks.push(audio)
+      totalSamples += audio.audio.length
+      samplingRate = audio.sampling_rate
+      onSentence?.(i, (chunk as unknown as { text: string }).text)
+      i++
     }
+    if (chunks.length === 0) {
+      throw new Error('Kokoro produced no audio for input text')
+    }
+    const merged = new Float32Array(totalSamples)
+    let offset = 0
+    for (const chunk of chunks) {
+      merged.set(chunk.audio, offset)
+      offset += chunk.audio.length
+    }
+    // RawAudio isn't exported from kokoro-js; pull the constructor off the
+    // first chunk and re-construct with the merged buffer so we can reuse
+    // its .save() method (handles WAV header writing).
+    const RawAudioCtor = (chunks[0] as unknown as { constructor: new (audio: Float32Array, sampling_rate: number) => RawAudioLike }).constructor
+    return new RawAudioCtor(merged, samplingRate)
   } finally {
     releaseSlot()
   }
@@ -238,7 +276,7 @@ export async function synthesizePreview(voiceId: string): Promise<Buffer> {
 
   await mkdir(cacheDir, { recursive: true })
   const sampleText = `Hello! This is the ${VOICE_NAMES[voiceId]} voice for your audiobooks.`
-  const result = await synthesize(sampleText, voiceId, 1.0)
+  const result = await synthesizeFullText(sampleText, voiceId, 1.0)
   const tmp = cachePath + '.tmp'
   await result.save(tmp)
   await rename(tmp, cachePath)
@@ -251,6 +289,7 @@ export async function synthesizeChapter(
   speed: number,
   outPath: string,
   signal?: AbortSignal,
+  onSentence?: (sentenceIdx: number, sentenceText: string) => void,
 ): Promise<void> {
   if (signal?.aborted) throw new Error('Synthesis aborted')
   if (!VOICE_NAMES[voiceId]) {
@@ -260,7 +299,7 @@ export async function synthesizeChapter(
     throw new Error(`Invalid speed: ${speed} (must be 0.5-2.0)`)
   }
 
-  const result = await synthesize(text, voiceId, speed)
+  const result = await synthesizeFullText(text, voiceId, speed, signal, onSentence)
 
   if (signal?.aborted) throw new Error('Synthesis aborted')
 

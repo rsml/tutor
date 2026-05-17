@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useDeferredValue, useRef } from 'react'
 import { toast } from '@src/lib/toast'
-import { Plus, BookOpen, X, FileDown, Pencil, Star, Tags, Library, ClipboardCheck, Eye, Image, Zap, Download, Trash2, RotateCcw, Headphones, Play } from 'lucide-react'
+import { Plus, BookOpen, X, FileDown, Pencil, Star, Tags, Library, ClipboardCheck, Eye, Image, Zap, Download, Trash2, RotateCcw, Headphones, FolderOpen } from 'lucide-react'
 import { DndContext, DragOverlay, closestCenter, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Button } from '@src/components/ui/button'
@@ -233,7 +233,7 @@ export default function App() {
         setApiBooks(prev => {
           // Preserve optimistic generating books not yet on server
           const generatingBooks = prev.filter(b => (b.status === 'generating' || b.status === 'generating_toc') && !books.some((sb: { id: string }) => sb.id === b.id))
-          const serverBooks = books.map((b: { id: string; title: string; subtitle?: string; prompt?: string; totalChapters: number; generatedUpTo: number; status?: string; rating?: number; finalQuizScore?: number; finalQuizTotal?: number; hasCover?: boolean; showTitleOnCover?: boolean; coverUpdatedAt?: string | null; createdAt: string; tags: string[]; series?: string; seriesOrder?: number; sortOrder?: number; imported?: boolean; chaptersRead?: number }) => ({
+          const serverBooks = books.map((b: { id: string; title: string; subtitle?: string; prompt?: string; totalChapters: number; generatedUpTo: number; status?: string; rating?: number; finalQuizScore?: number; finalQuizTotal?: number; hasCover?: boolean; showTitleOnCover?: boolean; coverUpdatedAt?: string | null; createdAt: string; tags: string[]; series?: string; seriesOrder?: number; sortOrder?: number; imported?: boolean; chaptersRead?: number; hasAudiobook?: boolean }) => ({
             id: b.id,
             title: b.title,
             subtitle: b.subtitle,
@@ -254,6 +254,7 @@ export default function App() {
             seriesOrder: b.seriesOrder,
             sortOrder: b.sortOrder,
             imported: b.imported,
+            hasAudiobook: b.hasAudiobook,
           }))
           return [...serverBooks, ...generatingBooks]
         })
@@ -270,6 +271,15 @@ export default function App() {
 
   useEffect(() => {
     fetchBooks()
+  }, [fetchBooks])
+
+  // Refetch when the window regains focus so external changes (e.g.,
+  // audiobook generated via CLI/MCP, files moved on disk, recovery on
+  // server restart) show up in the library without a manual reload.
+  useEffect(() => {
+    const onFocus = () => { void fetchBooks() }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
   }, [fetchBooks])
 
   // Resume last-viewed book on first load
@@ -340,7 +350,7 @@ export default function App() {
       toast.success(`Audiobook for "${bookTitle}" is ready!`, {
         duration: 12000,
         action: {
-          label: 'Show in Finder',
+          label: 'Show audiobook',
           onClick: () => {
             void (async () => {
               try {
@@ -546,6 +556,13 @@ export default function App() {
       if (!res.ok) return
       const data = await res.json()
       setAudiobookExists(prev => new Map(prev).set(bookId, data.exists))
+      // Keep the card's hasAudiobook indicator in sync. If the server says
+      // "exists" but our cached book row says otherwise (e.g., the audiobook
+      // was generated outside this React session), refetch the books list.
+      const book = apiBooks.find(b => b.id === bookId)
+      if (book && !!book.hasAudiobook !== data.exists) {
+        void fetchBooks()
+      }
     } catch { /* swallow */ }
   }
 
@@ -579,7 +596,7 @@ export default function App() {
     }
   }
 
-  const handlePlayAudiobook = async (book: Book) => {
+  const handleShowAudiobook = async (book: Book) => {
     try {
       const res = await fetch(apiUrl(`/api/books/${book.id}/audiobook/reveal`), { method: 'POST' })
       if (!res.ok) throw new Error('Audiobook not found')
@@ -1264,11 +1281,11 @@ export default function App() {
       ) : (audiobookExists.get(contextMenu.book.id) ?? contextMenu.book.hasAudiobook) === true ? (
         <>
           <button
-            onClick={() => { handlePlayAudiobook(contextMenu.book); setContextMenu(null) }}
+            onClick={() => { handleShowAudiobook(contextMenu.book); setContextMenu(null) }}
             className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
           >
-            <Play className="size-3.5 text-content-muted shrink-0" />
-            Play audiobook
+            <FolderOpen className="size-3.5 text-content-muted shrink-0" />
+            Show audiobook
           </button>
           <button
             onClick={() => { setRegenerateAudiobookConfirm({ book: contextMenu.book }); setContextMenu(null) }}

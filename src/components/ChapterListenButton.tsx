@@ -63,7 +63,8 @@ export function ChapterListenButton({ bookId, chapterNum, voiceName, available }
           <audio
             ref={audioRef}
             controls
-            preload="metadata"
+            preload="auto"
+            crossOrigin="anonymous"
             className="w-full"
             src={apiUrl(`/api/books/${bookId}/chapters/${chapterNum}/audio`)}
           />

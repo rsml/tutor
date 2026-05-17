@@ -34,7 +34,14 @@ export function stripMarkdownForNarration(md: string): string {
   text = text.replace(/^[ \t]{0,3}>[ \t]?/gm, '')
 
   // 8. List markers: drop "-", "*", "+", or "1." prefix. Preserve item text.
-  text = text.replace(/^[ \t]*([-*+]|\d+\.)[ \t]+/gm, '')
+  //    Also append "." if the item doesn't already end in sentence punctuation,
+  //    so Kokoro's sentence splitter doesn't lump multiple bullets into one
+  //    massive "sentence" that overflows the tokenizer's 510-token limit.
+  text = text.replace(/^[ \t]*([-*+]|\d+\.)[ \t]+(.*)$/gm, (_, _marker: string, body: string) => {
+    const trimmed = body.trim()
+    if (!trimmed) return ''
+    return /[.!?:;]$/.test(trimmed) ? trimmed : trimmed + '.'
+  })
 
   // 9. Horizontal rules (---, ***, ___) -> paragraph break.
   text = text.replace(/^[ \t]{0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/gm, '')

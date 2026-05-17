@@ -11,18 +11,38 @@ vi.mock('../../lib/data-dir.js', () => ({
 }))
 
 // Mock kokoro-js so tests never touch the model. We expose the mock so
-// individual tests can configure generate() output and inspect calls.
-type GenerateFn = (text: string, opts: { voice?: string; speed?: number }) => Promise<{ audio: Float32Array; sampling_rate: number; save: (path: string) => Promise<void> }>
-const generateMock = vi.fn<GenerateFn>(async (text, opts) => ({
-  audio: new Float32Array(1024),
-  sampling_rate: 24000,
-  save: async (path: string): Promise<void> => {
-    await writeFile(path, Buffer.from(`fake-wav for ${opts.voice} :: ${text}`), 'binary')
-  },
-}))
-type FromPretrainedFn = (id: string, opts?: unknown) => Promise<{ generate: GenerateFn }>
+// individual tests can configure stream() output and inspect calls. The
+// service uses tts.stream() (not generate()) to avoid the tokenizer's
+// silent ~510-token truncation; the mock mirrors that signature.
+class FakeRawAudio {
+  audio: Float32Array
+  sampling_rate: number
+  meta: string
+  constructor(audio: Float32Array, sampling_rate: number, meta = '') {
+    this.audio = audio
+    this.sampling_rate = sampling_rate
+    this.meta = meta
+  }
+  async save(path: string): Promise<void> {
+    await writeFile(path, Buffer.from(`fake-wav ${this.meta} :: samples=${this.audio.length}`), 'binary')
+  }
+}
+
+type StreamFn = (text: string, opts: { voice?: string; speed?: number }) => AsyncGenerator<{ text: string; phonemes: string; audio: FakeRawAudio }, void, void>
+const streamMock = vi.fn<StreamFn>(async function* (text, opts) {
+  // Split into "sentences" on `. ` so tests can verify multi-chunk handling.
+  const parts = text.split(/(?<=\.)\s+/).filter(Boolean)
+  for (const part of parts) {
+    yield {
+      text: part,
+      phonemes: part,
+      audio: new FakeRawAudio(new Float32Array(1024), 24000, `voice=${opts.voice}|part=${part}`),
+    }
+  }
+})
+type FromPretrainedFn = (id: string, opts?: unknown) => Promise<{ stream: StreamFn }>
 const fromPretrainedMock = vi.fn<FromPretrainedFn>(async () => ({
-  generate: generateMock,
+  stream: streamMock,
 }))
 vi.mock('kokoro-js', () => ({
   KokoroTTS: {
@@ -39,7 +59,7 @@ import * as service from './kokoro-service.js'
 describe('kokoro-service', () => {
   beforeEach(async () => {
     testDir = await mkdtemp(join(tmpdir(), 'tutor-kokoro-test-'))
-    generateMock.mockClear()
+    streamMock.mockClear()
     fromPretrainedMock.mockClear()
     service.__testing.reset()
   })
@@ -121,8 +141,25 @@ describe('kokoro-service', () => {
       const outPath = join(testDir, 'out.wav')
       await service.synthesizeChapter('Hello there.', 'am_michael', 1.0, outPath)
       const content = await readFile(outPath, 'utf-8')
-      expect(content).toContain('am_michael')
-      expect(content).toContain('Hello there.')
+      // The merged RawAudio carries no per-chunk meta string, so we assert
+      // on the sample count instead: 1 chunk of 1024 samples per sentence.
+      expect(content).toContain('samples=1024')
+    })
+
+    it('uses stream() so long inputs are not silently truncated', async () => {
+      await service.startWorkerPool(1)
+      const outPath = join(testDir, 'long.wav')
+      // Three sentences -> three streamed chunks.
+      await service.synthesizeChapter(
+        'Sentence one. Sentence two. Sentence three.',
+        'am_michael',
+        1.0,
+        outPath,
+      )
+      expect(streamMock).toHaveBeenCalledTimes(1)
+      const content = await readFile(outPath, 'utf-8')
+      // 3 chunks × 1024 samples each = 3072 merged into one RawAudio.
+      expect(content).toContain('samples=3072')
     })
 
     it('rejects unknown voice IDs', async () => {
@@ -156,12 +193,12 @@ describe('kokoro-service', () => {
       await service.startWorkerPool(1)
       const first = await service.synthesizePreview('am_michael')
       expect(first).toBeInstanceOf(Buffer)
-      expect(generateMock).toHaveBeenCalledTimes(1)
+      expect(streamMock).toHaveBeenCalledTimes(1)
 
       // Second call should hit the on-disk cache.
       const second = await service.synthesizePreview('am_michael')
       expect(second.equals(first)).toBe(true)
-      expect(generateMock).toHaveBeenCalledTimes(1)
+      expect(streamMock).toHaveBeenCalledTimes(1)
     })
 
     it('rejects unknown voices', async () => {

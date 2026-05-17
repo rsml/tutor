@@ -174,8 +174,27 @@ export async function generateAudiobook(
       const narrationBody = stripMarkdownForNarration(md)
       const narration = `Chapter ${n}: ${chapterTitle}.\n\n${narrationBody}`
 
+      // Rough sentence estimate from the narration text so per-sentence
+      // progress can show "Narrating sentence 12 of ~80" (the user otherwise
+      // sees no movement for the ~5-15 minutes a single chapter takes).
+      const sentenceEstimate = Math.max(1, (narration.match(/[.!?]+(?:\s|$)/g) ?? []).length)
+
       const wavPath = store.chapterWavPath(bookId, n)
-      await synthesizeChapter(narration, opts.voiceId, opts.speed, wavPath, abortSignal)
+      await synthesizeChapter(
+        narration,
+        opts.voiceId,
+        opts.speed,
+        wavPath,
+        abortSignal,
+        (sentenceIdx) => {
+          // current stays at n-1 (chapter granularity); label tells the story.
+          updateProgress(
+            taskId,
+            n - 1,
+            `Narrating chapter ${n} of ${totalChapters}: sentence ${sentenceIdx + 1} of ~${sentenceEstimate}`,
+          )
+        },
+      )
 
       if (abortSignal.aborted) throw new Error('Audiobook generation aborted')
 
