@@ -14,10 +14,12 @@ export function ChapterListenButton({ bookId, chapterNum, voiceName, available }
   const [open, setOpen] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
-  // Auto-pause if the chapter changes under us.
+  // Auto-pause if the chapter changes under us. Capture the ref into a local
+  // so the cleanup function still sees the audio element that was current
+  // when this effect last ran, not whatever the ref points to later.
   useEffect(() => {
+    const a = audioRef.current
     return () => {
-      const a = audioRef.current
       if (a) {
         a.pause()
         a.currentTime = 0

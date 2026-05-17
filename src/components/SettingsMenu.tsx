@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Settings, Sun, Moon, Monitor, Type, Layers, Check, CheckCircle2, User, BarChart3, Sliders, MoveHorizontal, ListOrdered, BookOpen } from 'lucide-react'
+import { Settings, Sun, Moon, Monitor, Type, Layers, Check, CheckCircle2, User, BarChart3, Sliders, MoveHorizontal, ListOrdered, BookOpen, Headphones } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import {
   Dialog,
@@ -25,6 +25,7 @@ import { ModelAssignmentDialog } from '@src/components/ModelAssignmentDialog'
 import { ProfileDialog } from '@src/components/ProfileDialog'
 import { InterviewPanel } from '@src/components/InterviewPanel'
 import { SkillsPanel } from '@src/components/SkillsPanel'
+import { AudiobookSettingsDialog } from '@src/components/AudiobookSettingsDialog'
 import { useTheme } from '@src/components/ThemeProvider'
 import {
   useAppDispatch,
@@ -88,6 +89,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
   const [interviewOpen, setInterviewOpen] = useState(false)
   const [skillsOpen, setSkillsOpen] = useState(false)
   const [modelAssignOpen, setModelAssignOpen] = useState(false)
+  const [audiobookSettingsOpen, setAudiobookSettingsOpen] = useState(false)
   const [internalDialogOpen, setInternalDialogOpen] = useState(false)
   const [dialogProvider, setDialogProvider] = useState<ProviderId>(activeProvider)
   const [keyInput, setKeyInput] = useState('')
@@ -259,6 +261,11 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
           <DropdownMenuItem onClick={() => onReviewProgress?.()}>
             <BarChart3 className="size-4" />
             Review Progress
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onClick={() => setAudiobookSettingsOpen(true)}>
+            <Headphones className="size-4" />
+            Audiobook narration
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
@@ -533,6 +540,8 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
       />
 
       <ModelAssignmentDialog open={modelAssignOpen} onOpenChange={setModelAssignOpen} />
+
+      <AudiobookSettingsDialog open={audiobookSettingsOpen} onOpenChange={setAudiobookSettingsOpen} />
     </>
   )
 }
