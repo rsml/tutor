@@ -68,6 +68,7 @@ interface Book {
   seriesOrder?: number
   sortOrder?: number
   imported?: boolean
+  hasAudiobook?: boolean
 }
 
 
@@ -332,12 +333,32 @@ export default function App() {
     onEpubExported: handleEpubExported,
     onGenerateAllCompleted: fetchBooks,
     onAudiobookGenerated: (bookId, bookTitle) => {
-      setAudiobookExists(prev => {
-        const next = new Map(prev)
-        next.delete(bookId)
-        return next
+      // Set immediately so the next menu open shows Play+Regen without
+      // waiting on the /api/books refetch (which updates the card indicator).
+      setAudiobookExists(prev => new Map(prev).set(bookId, true))
+      void fetchBooks()
+      toast.success(`Audiobook for "${bookTitle}" is ready!`, {
+        duration: 12000,
+        action: {
+          label: 'Show in Finder',
+          onClick: () => {
+            void (async () => {
+              try {
+                const res = await fetch(apiUrl(`/api/books/${bookId}/audiobook/reveal`), { method: 'POST' })
+                if (!res.ok) throw new Error('not found')
+                const { path } = await res.json()
+                if (window.electronAPI?.showInFinder) {
+                  await window.electronAPI.showInFinder(path)
+                } else {
+                  toast.success(`Audiobook saved to: ${path}`)
+                }
+              } catch {
+                toast.error('Could not locate the audiobook file')
+              }
+            })()
+          },
+        },
       })
-      toast.success(`Audiobook for "${bookTitle}" is ready! Use the right-click menu to reveal it in Finder.`, { duration: 8000 })
     },
     onAudiobookInstalled: () => {
       if (pendingAudiobookForBookId) {
@@ -352,14 +373,12 @@ export default function App() {
       if (taskType === 'install-audiobook' && pendingAudiobookForBookId) {
         setPendingAudiobookForBookId(null)
       }
-      // Generate failure: invalidate the exists-cache so the next menu open
-      // re-fetches and shows the correct entry (Generate vs Play+Regen).
+      // Generate failure: cache "no audiobook" since the route handler wipes
+      // partial artifacts. Refetch books so the card headphones-indicator
+      // (driven by hasAudiobook) drops if it was set.
       if (taskType === 'generate-audiobook') {
-        setAudiobookExists(prev => {
-          const next = new Map(prev)
-          next.delete(bookId)
-          return next
-        })
+        setAudiobookExists(prev => new Map(prev).set(bookId, false))
+        void fetchBooks()
       }
     },
   })
@@ -1242,7 +1261,7 @@ export default function App() {
           </div>
           <span className="ml-5 pl-0.5 text-xs text-content-muted">Finish generating chapters first</span>
         </button>
-      ) : audiobookExists.get(contextMenu.book.id) === true ? (
+      ) : (audiobookExists.get(contextMenu.book.id) ?? contextMenu.book.hasAudiobook) === true ? (
         <>
           <button
             onClick={() => { handlePlayAudiobook(contextMenu.book); setContextMenu(null) }}
@@ -2036,6 +2055,7 @@ export default function App() {
                         coverUrl={book.hasCover ? apiUrl(`/api/books/${book.id}/cover?v=${book.coverUpdatedAt ?? ''}`) : undefined}
                         showTitleOnCover={book.showTitleOnCover}
                         imported={book.imported}
+                        hasAudiobook={book.hasAudiobook}
                         onClick={() => openBook(book)}
                         onContextMenu={apiBookIds.has(book.id) ? (e) => {
                           e.preventDefault()
@@ -2057,6 +2077,7 @@ export default function App() {
                         coverUrl={book.hasCover ? apiUrl(`/api/books/${book.id}/cover?v=${book.coverUpdatedAt ?? ''}`) : undefined}
                         showTitleOnCover={book.showTitleOnCover}
                         imported={book.imported}
+                        hasAudiobook={book.hasAudiobook}
                         onClick={() => openBook(book)}
                         onContextMenu={apiBookIds.has(book.id) ? (e) => {
                           e.preventDefault()

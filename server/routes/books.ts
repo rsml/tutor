@@ -238,6 +238,8 @@ export async function bookRoutes(fastify: FastifyInstance) {
           showTitleOnCover: (b as Record<string, unknown>).showTitleOnCover ?? false,
           coverUpdatedAt: (await store.getCoverMtime(b.id))?.toISOString() ?? null,
           chaptersRead: await store.getChaptersRead(b.id),
+          // m4b presence is the source of truth — see crash recovery comment in book-store.ts.
+          hasAudiobook: store.audiobookExists(b.id),
         }
       } catch (err) {
         console.error(`[GET /api/books] Failed to augment book "${b.id}":`, err)
@@ -247,6 +249,7 @@ export async function bookRoutes(fastify: FastifyInstance) {
           showTitleOnCover: false,
           coverUpdatedAt: null,
           chaptersRead: 0,
+          hasAudiobook: false,
         }
       }
     }))

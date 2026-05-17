@@ -1,3 +1,4 @@
+import { Headphones } from 'lucide-react'
 import { Badge } from '@src/components/ui/badge'
 import { StarRating } from '@src/components/StarRating'
 
@@ -22,6 +23,7 @@ interface Book {
   seriesOrder?: number
   sortOrder?: number
   imported?: boolean
+  hasAudiobook?: boolean
 }
 
 export interface BookListRowProps {
@@ -69,9 +71,17 @@ export function BookListRow({ book, chaptersRead, onClick, onContextMenu, nested
     >
       {/* Title column — flex: 2 */}
       <div className="flex-[2] min-w-0">
-        <p className="truncate text-sm font-medium text-content-primary">
-          {book.title}
-        </p>
+        <div className="flex items-center gap-1.5">
+          <p className="truncate text-sm font-medium text-content-primary">
+            {book.title}
+          </p>
+          {book.hasAudiobook && (
+            <Headphones
+              className="size-3 shrink-0 text-content-muted/70"
+              aria-label="Audiobook available"
+            />
+          )}
+        </div>
         {book.subtitle && (
           <p className="truncate text-xs text-content-muted mt-0.5">
             {book.subtitle}

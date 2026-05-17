@@ -14,6 +14,7 @@ interface SortableBookCardProps {
   coverUrl?: string
   showTitleOnCover?: boolean
   imported?: boolean
+  hasAudiobook?: boolean
   onClick?: () => void
   onContextMenu?: (e: React.MouseEvent) => void
 }

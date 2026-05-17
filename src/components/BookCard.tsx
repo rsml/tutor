@@ -1,4 +1,4 @@
-import { AlertTriangle, Loader2, FileDown } from 'lucide-react'
+import { AlertTriangle, Loader2, FileDown, Headphones } from 'lucide-react'
 import { NoiseOverlay } from '@src/components/NoiseOverlay'
 import { StarRating } from '@src/components/StarRating'
 
@@ -20,11 +20,12 @@ interface BookCardProps {
   coverUrl?: string
   showTitleOnCover?: boolean
   imported?: boolean
+  hasAudiobook?: boolean
   onClick?: () => void
   onContextMenu?: (e: React.MouseEvent) => void
 }
 
-export function BookCard({ title, subtitle, chaptersRead, totalChapters, status, rating, coverUrl, showTitleOnCover, imported, onClick, onContextMenu }: BookCardProps) {
+export function BookCard({ title, subtitle, chaptersRead, totalChapters, status, rating, coverUrl, showTitleOnCover, imported, hasAudiobook, onClick, onContextMenu }: BookCardProps) {
   const hue = stringToHue(title)
   const progress = totalChapters > 0 ? chaptersRead / totalChapters : 0
   const isGenerating = status === 'generating_toc' || status === 'generating'
@@ -117,11 +118,19 @@ export function BookCard({ title, subtitle, chaptersRead, totalChapters, status,
 
       {/* Meta */}
       <div className="mt-2.5 px-0.5">
-        <p className="text-[0.75em] text-content-muted">
-          {chaptersRead === 0
-            ? `${totalChapters} chapters`
-            : `${chaptersRead} of ${totalChapters} chapters`}
-        </p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-[0.75em] text-content-muted">
+            {chaptersRead === 0
+              ? `${totalChapters} chapters`
+              : `${chaptersRead} of ${totalChapters} chapters`}
+          </p>
+          {hasAudiobook && (
+            <Headphones
+              className="size-3 text-content-muted/70"
+              aria-label="Audiobook available"
+            />
+          )}
+        </div>
         {rating != null && rating > 0 && (
           <div className="mt-0.5">
             <StarRating value={rating} readonly size="sm" />

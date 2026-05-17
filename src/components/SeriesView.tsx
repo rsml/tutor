@@ -21,6 +21,7 @@ interface Book {
   tags: string[]
   series?: string
   seriesOrder?: number
+  hasAudiobook?: boolean
 }
 
 interface SeriesViewProps {
@@ -95,6 +96,7 @@ export function SeriesView({ seriesName, books, readingPositions, onBookClick, o
                   rating={book.rating}
                   coverUrl={book.hasCover ? apiUrl(`/api/books/${book.id}/cover?v=${book.coverUpdatedAt ?? ''}`) : undefined}
                   showTitleOnCover={book.showTitleOnCover}
+                  hasAudiobook={book.hasAudiobook}
                   onClick={() => onBookClick(book)}
                   onContextMenu={onContextMenu ? (e) => {
                     e.preventDefault()
