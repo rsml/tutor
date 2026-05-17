@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { writeFile } from 'node:fs/promises'
 import { stringify as stringifyYaml } from 'yaml'
-import type { BookMeta, Feedback, LearningProfile, Toc } from '../schemas.js'
+import type { BookMeta, Feedback, LearningProfile, Quiz, Toc } from '../schemas.js'
 
 // Mock getDataDir at module level so book-store ALWAYS uses temp dir.
 // This prevents tests from ever writing to the production data directory.
@@ -258,6 +258,171 @@ describe('book-store', () => {
       await store.saveBook(testMeta)
       const invalid = { chapter: 'not-a-number' } as unknown as Feedback
       await expect(store.saveFeedback('test-book-123', 1, invalid)).rejects.toThrow()
+    })
+  })
+
+  describe('reset', () => {
+    const testFeedback: Feedback = {
+      chapter: 1,
+      feedback: { liked: 'Great', disliked: 'Too dense' },
+      quiz: {
+        questions: [
+          { question: 'Q1', options: ['A', 'B', 'C', 'D'], correctIndex: 0, userAnswer: 1, correct: false },
+          { question: 'Q2', options: ['A', 'B', 'C', 'D'], correctIndex: 2, userAnswer: 2, correct: true },
+        ],
+        score: 1,
+      },
+    }
+
+    const testQuiz: Quiz = {
+      questions: [
+        { question: 'Q1', options: ['A', 'B', 'C', 'D'], correctIndex: 0, userAnswer: 3, correct: false },
+        { question: 'Q2', options: ['A', 'B', 'C', 'D'], correctIndex: 1, userAnswer: 1, correct: true },
+      ],
+    }
+
+    // Seed a book with chapters, TOC, progress, feedback, per-chapter quiz,
+    // final quiz, and full meta (rating + final-quiz score).
+    async function seedReadBook(): Promise<BookMeta> {
+      const meta: BookMeta = {
+        ...testMeta,
+        status: 'complete',
+        rating: 4.5,
+        finalQuizScore: 8,
+        finalQuizTotal: 10,
+      }
+      await store.saveBook(meta)
+      await store.saveToc(meta.id, testToc)
+      await store.saveChapter(meta.id, 1, '# Chapter 1\n\nBody')
+      await store.saveChapter(meta.id, 2, '# Chapter 2\n\nBody')
+      await store.saveChapterProgress(meta.id, 1, { scroll: 1, completed: true, completedAt: '2026-05-01T00:00:00Z' })
+      await store.saveChapterProgress(meta.id, 2, { scroll: 0.5, completed: false })
+      await store.saveFeedback(meta.id, 1, testFeedback)
+      await store.saveFeedback(meta.id, 2, { ...testFeedback, chapter: 2 })
+      await store.saveQuiz(meta.id, 1, testQuiz)
+      await store.saveQuiz(meta.id, 2, testQuiz)
+      await store.saveFinalQuiz(meta.id, testQuiz)
+      return meta
+    }
+
+    it('clears user-interaction files', async () => {
+      const meta = await seedReadBook()
+      await store.resetBook(meta.id)
+
+      // progress.yml is gone
+      const progress = await store.getProgress(meta.id)
+      expect(progress.chapters).toEqual({})
+
+      // feedback files are gone
+      const allFeedback = await store.getAllFeedback(meta.id)
+      expect(allFeedback).toEqual([])
+
+      // per-chapter quiz files exist; userAnswer/correct stripped
+      const q1 = await store.getQuiz(meta.id, 1)
+      expect(q1.questions).toHaveLength(2)
+      for (const q of q1.questions) {
+        expect(q).not.toHaveProperty('userAnswer')
+        expect(q).not.toHaveProperty('correct')
+        expect(q.question).toBeTruthy()
+        expect(q.options).toHaveLength(4)
+        expect(typeof q.correctIndex).toBe('number')
+      }
+      const q2 = await store.getQuiz(meta.id, 2)
+      expect(q2.questions).toHaveLength(2)
+
+      // final quiz exists; userAnswer/correct stripped
+      const fq = await store.getFinalQuiz(meta.id)
+      expect(fq.questions).toHaveLength(2)
+      for (const q of fq.questions) {
+        expect(q).not.toHaveProperty('userAnswer')
+        expect(q).not.toHaveProperty('correct')
+      }
+    })
+
+    it('preserves generated content', async () => {
+      const meta = await seedReadBook()
+      await store.resetBook(meta.id)
+
+      // chapters stay
+      const ch1 = await store.getChapter(meta.id, 1)
+      expect(ch1).toContain('# Chapter 1')
+      const ch2 = await store.getChapter(meta.id, 2)
+      expect(ch2).toContain('# Chapter 2')
+
+      // TOC stays
+      const toc = await store.getToc(meta.id)
+      expect(toc.chapters).toHaveLength(3)
+    })
+
+    it('resets meta fields', async () => {
+      const meta = await seedReadBook()
+      const before = meta.updatedAt
+      await store.resetBook(meta.id)
+      const after = await store.getBook(meta.id)
+
+      expect(after.status).toBe('reading')
+      expect(after.rating).toBeUndefined()
+      expect(after.finalQuizScore).toBeUndefined()
+      expect(after.finalQuizTotal).toBeUndefined()
+      expect(after.updatedAt > before).toBe(true)
+
+      // Preserved meta fields
+      expect(after.id).toBe(meta.id)
+      expect(after.title).toBe(meta.title)
+      expect(after.prompt).toBe(meta.prompt)
+      expect(after.totalChapters).toBe(meta.totalChapters)
+      expect(after.generatedUpTo).toBe(meta.generatedUpTo)
+      expect(after.createdAt).toBe(meta.createdAt)
+    })
+
+    it('is idempotent', async () => {
+      const meta = await seedReadBook()
+      await store.resetBook(meta.id)
+      const firstReset = await store.getBook(meta.id)
+      // Second reset on an already-reset book should not throw and should
+      // leave the book in the same shape (modulo updatedAt).
+      await store.resetBook(meta.id)
+      const secondReset = await store.getBook(meta.id)
+
+      expect(secondReset.status).toBe('reading')
+      expect(secondReset.rating).toBeUndefined()
+      expect(secondReset.finalQuizScore).toBeUndefined()
+      expect(secondReset.finalQuizTotal).toBeUndefined()
+
+      const progress = await store.getProgress(meta.id)
+      expect(progress.chapters).toEqual({})
+      const allFeedback = await store.getAllFeedback(meta.id)
+      expect(allFeedback).toEqual([])
+
+      // updatedAt monotonically increases (or is at least not earlier)
+      expect(secondReset.updatedAt >= firstReset.updatedAt).toBe(true)
+    })
+
+    it('is a no-op on a fresh book without progress/feedback/quizzes', async () => {
+      const meta: BookMeta = { ...testMeta, status: 'reading' }
+      await store.saveBook(meta)
+      await store.saveToc(meta.id, testToc)
+      await store.saveChapter(meta.id, 1, '# Chapter 1')
+
+      await expect(store.resetBook(meta.id)).resolves.not.toThrow()
+
+      const after = await store.getBook(meta.id)
+      expect(after.status).toBe('reading')
+      expect(after.rating).toBeUndefined()
+      const ch = await store.getChapter(meta.id, 1)
+      expect(ch).toContain('# Chapter 1')
+    })
+
+    it('rejects when status is generating', async () => {
+      const meta: BookMeta = { ...testMeta, status: 'generating' }
+      await store.saveBook(meta)
+      await expect(store.resetBook(meta.id)).rejects.toThrow(/generating/)
+    })
+
+    it('rejects when status is generating_toc', async () => {
+      const meta: BookMeta = { ...testMeta, status: 'generating_toc' }
+      await store.saveBook(meta)
+      await expect(store.resetBook(meta.id)).rejects.toThrow(/generating/)
     })
   })
 })

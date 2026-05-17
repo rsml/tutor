@@ -138,6 +138,62 @@ export async function deleteBook(bookId: string): Promise<void> {
   }
 }
 
+// --- Reset ---
+
+function stripUserAnswers(quiz: Quiz): Quiz {
+  return {
+    ...quiz,
+    questions: quiz.questions.map(({ userAnswer: _u, correct: _c, ...rest }) => rest),
+  }
+}
+
+export async function resetBook(bookId: string): Promise<void> {
+  const meta = await getBook(bookId)
+  if (meta.status === 'generating' || meta.status === 'generating_toc') {
+    throw new Error(`Cannot reset book "${bookId}" while it is generating`)
+  }
+
+  const dir = bookDir(bookId)
+
+  // Delete progress.yml
+  const progressPath = join(dir, 'progress.yml')
+  if (existsSync(progressPath)) await rm(progressPath)
+
+  // Delete every feedback/*.yml file (keep the directory itself; saveBook re-creates it)
+  const feedbackDir = join(dir, 'feedback')
+  if (existsSync(feedbackDir)) {
+    for (const file of await readdir(feedbackDir)) {
+      if (file.endsWith('.yml')) await rm(join(feedbackDir, file))
+    }
+  }
+
+  // Strip userAnswer/correct from per-chapter quiz files (keep the questions)
+  const quizDir = join(dir, 'quiz')
+  if (existsSync(quizDir)) {
+    for (const file of await readdir(quizDir)) {
+      if (!file.endsWith('.yml')) continue
+      const path = join(quizDir, file)
+      const quiz = await readYaml(path, QuizSchema)
+      await writeYaml(path, stripUserAnswers(quiz))
+    }
+  }
+
+  // Strip userAnswer/correct from final-quiz.yml (keep the questions)
+  const finalQuizPath = join(dir, 'final-quiz.yml')
+  if (existsSync(finalQuizPath)) {
+    const finalQuiz = await readYaml(finalQuizPath, QuizSchema)
+    await writeYaml(finalQuizPath, stripUserAnswers(finalQuiz))
+  }
+
+  // Reset meta: drop rating/finalQuiz* fields, set status to 'reading', refresh updatedAt
+  const { rating: _r, finalQuizScore: _s, finalQuizTotal: _t, ...rest } = meta
+  await saveBook({
+    ...rest,
+    status: 'reading',
+    updatedAt: new Date().toISOString(),
+  })
+}
+
 // --- Table of Contents ---
 
 export async function getToc(bookId: string): Promise<Toc> {
