@@ -15,7 +15,7 @@ Once Chapter 1 has been generated, the TOC is locked — revising it then would 
 - **Skill classification is deferred** until the user clicks "Generate Chapter 1". Iterating the TOC doesn't trigger skill-classification AI calls, which would otherwise be wasted work since the user may revise multiple times.
 - **Revise prompt prioritizes preservation by instruction**, not by structured diff. The AI is told explicitly to output unmentioned chapters verbatim. If preservation drift becomes a real problem in practice, this can be upgraded to a structured-diff approach without changing the API shape.
 - **Chapter count is locked** to whatever the user selected at book creation, unless the user's feedback text explicitly requests a different count. Enforcement is via prompt instruction + server-side truncation if the AI overshoots.
-- **Feedback panel is a modal** following the existing `Dialog` + `ScrollableDialogContent` pattern used by `EditTagsDialog`, `ProfileDialog`, etc. — backdrop, focus trap, Esc to close.
+- **Feedback panel is a modal** following the existing `Dialog` + `ScrollableDialogContent` pattern used by `src/components/EditTagsDialog.tsx`, `src/components/ProfileDialog.tsx`, etc. — backdrop, focus trap, Esc to close.
 - **TOC streams replace in place** during revision. The previous TOC content is cleared from the view as the new one streams in (matching the original creation experience).
 - **No history of past TOC revisions** is kept. `toc.yml` is overwritten on each successful revise. Simpler, smaller blast radius, and history would be UX clutter the user did not ask for.
 
@@ -114,7 +114,7 @@ The reader-profile context block (currently built by `buildProfileContext()` at 
 
 Server-side validation after parsing the revised TOC:
 - If `parsedChapters.length === 0`: stream an `error` event, do not persist, keep the existing TOC.
-- If `parsedChapters.length > totalChapters`: truncate via the same `chapters.slice(0, totalChapters)` pattern the current code uses at line 936. (No detection logic for "did the user request a count change" — the AI was told the count in the prompt; if it returned the right count, we keep it; if it overshot, we truncate.)
+- If `parsedChapters.length > totalChapters`: truncate via the same `chapters.slice(0, targetCount)` pattern the current code uses at `books.ts:941`. (No detection logic for "did the user request a count change" — the AI was told the count in the prompt; if it returned the right count, we keep it; if it overshot, we truncate.)
 - If `parsedChapters.length < totalChapters`: accept as-is (user may have asked for fewer; if not, the AI under-delivered and we surface the smaller TOC — user can revise again or accept).
 
 ### Frontend: CreationView State Machine
@@ -166,7 +166,7 @@ If user clicks Cancel during `awaiting_approval` (or closes the app), the book e
 
 - CreationView accepts an existing `bookId` prop (in addition to or instead of `topic`/`details`/`chapterCount`).
 - In resume mode, CreationView fetches `GET /api/books/:id` + `GET /api/books/:id/toc` instead of POSTing to create.
-- The fetched TOC is rendered into the TOC scroll area as static markdown (reconstructed from the saved chapters — same format the AI produces).
+- The fetched TOC is rendered into the TOC scroll area as static markdown. The saved TOC structure (`{ title, subtitle, chapters: [{title, description}] }`) is converted back to the same markdown format the AI emits (`# title\n*subtitle*\n\n1. **title** — description\n...`) via a small client-side helper (`src/lib/format-toc.ts` or colocated with CreationView). This keeps reconstruction client-side; no new endpoint needed.
 - Phase initializes to `'awaiting_approval'` immediately.
 
 `App.tsx` routing logic needs a branch: clicking a card with status `toc_review` opens CreationView in resume mode, not ReaderPage.
