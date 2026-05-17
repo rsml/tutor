@@ -17,6 +17,7 @@ import {
   RatingBodySchema,
   SuggestBookBodySchema,
   SuggestDetailsBodySchema,
+  StartBookBodySchema,
   TocBookSkillSchema,
   TocChapterSkillSchema,
   ChapterProgressSchema,
@@ -1068,6 +1069,67 @@ ${profileContext ? `\nReader profile:\n${profileContext}\n\nTailor the book stru
 
     reply.raw.end()
   })
+
+  fastify.post<{ Params: { id: string }; Body: unknown }>(
+    '/api/books/:id/start',
+    { schema: { params: bookIdSchema }, config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      let body: { model: string; provider?: string; quizModel?: string; quizProvider?: string; quizLength?: number }
+      try {
+        body = StartBookBodySchema.parse(request.body)
+      } catch (err) {
+        if (err instanceof ZodError) {
+          return reply.status(400).send({ error: 'Invalid request', details: err.issues })
+        }
+        throw err
+      }
+
+      const bookId = request.params.id
+      const book = await store.getBook(bookId)
+
+      if (book.status !== 'toc_review') {
+        return reply.status(409).send({
+          error: 'Invalid status',
+          message: `Book must be in 'toc_review' status to start; currently '${book.status}'`,
+          currentStatus: book.status,
+        })
+      }
+
+      reply.raw.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      })
+
+      const send = (data: Record<string, unknown>) => {
+        reply.raw.write(`data: ${JSON.stringify(data)}\n\n`)
+      }
+
+      try {
+        const profileContext = await buildProfileContext()
+        // Pull topic/details from the stored prompt — split on the first \n\n
+        const promptParts = book.prompt.split('\n\n')
+        const topic = book.title
+        const details = promptParts.length > 1 ? promptParts.slice(1).join('\n\n') : undefined
+
+        await generateFirstChapterAndQuiz(bookId, send, {
+          provider: body.provider ?? 'anthropic',
+          model: body.model,
+          quizProvider: body.quizProvider ?? body.provider ?? 'anthropic',
+          quizModel: body.quizModel ?? body.model,
+          quizLength: body.quizLength ?? 3,
+          profileContext,
+          topic,
+          details,
+        })
+        send({ type: 'done', bookId })
+      } catch (err) {
+        send({ type: 'error', message: err instanceof Error ? err.message : 'Unknown error' })
+      } finally {
+        reply.raw.end()
+      }
+    },
+  )
 
   fastify.post<{ Body: unknown }>('/api/books/suggest', async (request, reply) => {
     let body: z.infer<typeof SuggestBookBodySchema>
