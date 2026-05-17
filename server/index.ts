@@ -9,7 +9,7 @@ import { coverRoutes } from './routes/covers.js'
 import { importRoutes } from './routes/import.js'
 import { modelsRoutes } from './routes/models.js'
 import { audiobookRoutes } from './routes/audiobook.js'
-import { recoverStuckBooks } from './services/book-store.js'
+import { recoverFromCrash } from './services/book-store.js'
 
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
@@ -130,7 +130,13 @@ export async function startServer(port = 3147, host = '127.0.0.1') {
 
   fastify.get('/api/health', async () => ({ status: 'ok' }))
 
-  await recoverStuckBooks()
+  const recovery = await recoverFromCrash()
+  if (recovery.booksReset.length > 0 || recovery.artifactsRemoved.length > 0) {
+    fastify.log.info(
+      { booksReset: recovery.booksReset.length, artifactsRemoved: recovery.artifactsRemoved.length },
+      'Crash recovery completed',
+    )
+  }
   await fastify.listen({ port, host })
   return fastify
 }

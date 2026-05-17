@@ -3,6 +3,7 @@ import { mkdtemp, rm, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { stringify as stringifyYaml } from 'yaml'
 import type { BookMeta, Feedback, LearningProfile, Quiz, Toc } from '../schemas.js'
 
@@ -424,6 +425,108 @@ describe('book-store', () => {
       const meta: BookMeta = { ...testMeta, status: 'generating_toc' }
       await store.saveBook(meta)
       await expect(store.resetBook(meta.id)).rejects.toThrow(/generating/)
+    })
+  })
+
+  describe('crash recovery', () => {
+    it('moves generating_toc with toc.yml present to toc_review', async () => {
+      const meta: BookMeta = { ...testMeta, id: 'recov-toc-ok', status: 'generating_toc' }
+      await store.saveBook(meta)
+      await store.saveToc(meta.id, testToc)
+      const report = await store.recoverFromCrash()
+      const recovered = await store.getBook(meta.id)
+      expect(recovered.status).toBe('toc_review')
+      expect(report.booksReset.some(b => b.id === meta.id && b.to === 'toc_review')).toBe(true)
+    })
+
+    it('moves generating_toc without toc.yml to failed', async () => {
+      const meta: BookMeta = { ...testMeta, id: 'recov-toc-empty', status: 'generating_toc' }
+      await store.saveBook(meta)
+      // intentionally no saveToc
+      await store.recoverFromCrash()
+      const recovered = await store.getBook(meta.id)
+      expect(recovered.status).toBe('failed')
+    })
+
+    it('moves generating with chapters to reading', async () => {
+      const meta: BookMeta = { ...testMeta, id: 'recov-chap', status: 'generating', generatedUpTo: 2 }
+      await store.saveBook(meta)
+      await store.recoverFromCrash()
+      const recovered = await store.getBook(meta.id)
+      expect(recovered.status).toBe('reading')
+    })
+
+    it('moves generating with zero chapters to toc_review', async () => {
+      const meta: BookMeta = { ...testMeta, id: 'recov-no-chap', status: 'generating', generatedUpTo: 0 }
+      await store.saveBook(meta)
+      await store.recoverFromCrash()
+      const recovered = await store.getBook(meta.id)
+      expect(recovered.status).toBe('toc_review')
+    })
+
+    it('wipes audio dir + audioGeneratedChapters when m4b missing', async () => {
+      const meta: BookMeta = { ...testMeta, id: 'recov-audio', audioGeneratedChapters: [1, 2] }
+      await store.saveBook(meta)
+      // Create a fake audio dir with stale per-chapter MP3s but no m4b.
+      await mkdir(store.audioDir(meta.id), { recursive: true })
+      await writeFile(store.chapterAudioPath(meta.id, 1), 'fake mp3')
+      await writeFile(store.chapterAudioPath(meta.id, 2), 'fake mp3')
+      const report = await store.recoverFromCrash()
+      const recovered = await store.getBook(meta.id)
+      expect(recovered.audioGeneratedChapters).toEqual([])
+      expect(report.artifactsRemoved).toContain(store.audioDir(meta.id))
+    })
+
+    it('preserves audio dir when m4b exists', async () => {
+      const meta: BookMeta = { ...testMeta, id: 'recov-audio-ok', audioGeneratedChapters: [1, 2] }
+      await store.saveBook(meta)
+      await mkdir(store.audioDir(meta.id), { recursive: true })
+      await writeFile(store.chapterAudioPath(meta.id, 1), 'fake mp3')
+      await writeFile(store.audiobookPath(meta.id), 'fake m4b')
+      await store.recoverFromCrash()
+      const recovered = await store.getBook(meta.id)
+      expect(recovered.audioGeneratedChapters).toEqual([1, 2])
+      expect(existsSync(store.audiobookPath(meta.id))).toBe(true)
+      expect(existsSync(store.chapterAudioPath(meta.id, 1))).toBe(true)
+    })
+
+    it('removes leftover chapter .tmp files', async () => {
+      const meta: BookMeta = { ...testMeta, id: 'recov-tmp' }
+      await store.saveBook(meta)
+      const chapTmp = join(testDir, 'books', meta.id, 'chapters', '01.md.tmp')
+      await mkdir(join(testDir, 'books', meta.id, 'chapters'), { recursive: true })
+      await writeFile(chapTmp, 'half-written')
+      const report = await store.recoverFromCrash()
+      expect(existsSync(chapTmp)).toBe(false)
+      expect(report.artifactsRemoved).toContain(chapTmp)
+    })
+
+    it('removes leftover epub .tmp', async () => {
+      const meta: BookMeta = { ...testMeta, id: 'recov-epub-tmp' }
+      await store.saveBook(meta)
+      const epubTmp = join(testDir, 'books', meta.id, 'book.epub.tmp')
+      await writeFile(epubTmp, 'half')
+      await store.recoverFromCrash()
+      expect(existsSync(epubTmp)).toBe(false)
+    })
+
+    it('leaves healthy reading book untouched', async () => {
+      const meta: BookMeta = { ...testMeta, id: 'recov-healthy', status: 'reading' }
+      await store.saveBook(meta)
+      const before = await store.getBook(meta.id)
+      const report = await store.recoverFromCrash()
+      const after = await store.getBook(meta.id)
+      expect(after.status).toBe('reading')
+      expect(after.updatedAt).toBe(before.updatedAt)
+      expect(report.booksReset).toEqual([])
+    })
+
+    it('recoverStuckBooks alias still works', async () => {
+      const meta: BookMeta = { ...testMeta, id: 'recov-alias', status: 'generating', generatedUpTo: 1 }
+      await store.saveBook(meta)
+      await store.recoverStuckBooks()
+      const recovered = await store.getBook(meta.id)
+      expect(recovered.status).toBe('reading')
     })
   })
 })

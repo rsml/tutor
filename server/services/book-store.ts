@@ -105,18 +105,166 @@ export async function getBook(bookId: string): Promise<BookMeta> {
 }
 
 /**
- * Reset books stuck in transient generation states (generating_toc, generating)
- * to 'failed'. Called once at server startup — if the server restarted mid-generation,
- * the in-memory job is gone and these books will never complete on their own.
+ * Comprehensive crash recovery — runs once at server startup.
+ *
+ * Long-running operations (TOC streaming, chapter streaming, audiobook
+ * generation, EPUB export, cover generation, audiobook install) hold their
+ * progress in memory and have no resume path. If the app crashes or quits
+ * mid-flight, partial artifacts and stuck statuses are left behind. This
+ * function detects each kind of partial state and reverts it to the cleanest
+ * recoverable point so the user can retry from a known-good baseline.
+ *
+ * Recovery policy per book status:
+ *   generating_toc + toc.yml exists -> 'toc_review' (user can approve/edit/regen)
+ *   generating_toc + no toc.yml    -> 'failed' (empty shell; user can Delete)
+ *   generating  + generatedUpTo>0  -> 'reading' (user has chapters to read; can retry next)
+ *   generating  + generatedUpTo=0  -> 'toc_review' (TOC exists, no chapters)
+ *
+ * Artifact cleanup per book (always, regardless of status):
+ *   - audio/ wiped + audioGeneratedChapters reset, UNLESS book.m4b exists
+ *     (a successful audiobook is the only state where partial audio means
+ *     "complete" — m4b presence is the source of truth)
+ *   - chapters/NN.md.tmp removed
+ *   - book.epub.tmp removed
+ *   - cover.*.tmp removed
+ *
+ * Engine cleanup (system-wide):
+ *   - userData/bin/ffmpeg.partial / .zip.tmp / .ffmpeg-extract.tmp removed
+ *
+ * Returns a report of what was changed for logging / debugging.
+ */
+export interface CrashRecoveryReport {
+  booksReset: Array<{ id: string; title: string; from: string; to: string; reason: string }>
+  artifactsRemoved: string[]
+}
+
+export async function recoverFromCrash(): Promise<CrashRecoveryReport> {
+  const report: CrashRecoveryReport = { booksReset: [], artifactsRemoved: [] }
+  const books = await listBooks()
+
+  for (const book of books) {
+    // 1. Wipe per-book partial artifacts BEFORE any status decision.
+    await cleanPartialBookArtifacts(book, report)
+
+    // 2. Audiobook artifact cleanup: m4b is the source of truth.
+    const m4bExists = existsSync(audiobookPath(book.id))
+    const audioDirExists = existsSync(audioDir(book.id))
+    if (!m4bExists && audioDirExists) {
+      await rm(audioDir(book.id), { recursive: true })
+      report.artifactsRemoved.push(audioDir(book.id))
+      if (book.audioGeneratedChapters.length > 0) {
+        book.audioGeneratedChapters = []
+      }
+    }
+
+    // 3. Status recovery. Both transient states get re-mapped to the cleanest
+    //    user-actionable resting point.
+    const originalStatus = book.status
+    let newStatus = originalStatus
+    let reason = ''
+
+    if (originalStatus === 'generating_toc') {
+      const tocPath = join(bookDir(book.id), 'toc.yml')
+      if (existsSync(tocPath)) {
+        newStatus = 'toc_review'
+        reason = 'TOC was written before crash; user can approve/edit/regen'
+      } else {
+        newStatus = 'failed'
+        reason = 'TOC stream was interrupted before toc.yml landed; nothing to recover'
+      }
+    } else if (originalStatus === 'generating') {
+      newStatus = book.generatedUpTo > 0 ? 'reading' : 'toc_review'
+      reason = book.generatedUpTo > 0
+        ? `${book.generatedUpTo} chapter(s) saved; user can read and retry next`
+        : 'No chapters saved yet; back to TOC review'
+    }
+
+    const audioWiped = !m4bExists && audioDirExists
+    if (newStatus !== originalStatus || audioWiped) {
+      if (newStatus !== originalStatus) {
+        book.status = newStatus
+      }
+      book.updatedAt = new Date().toISOString()
+      await saveBook(book)
+      if (newStatus !== originalStatus) {
+        report.booksReset.push({ id: book.id, title: book.title, from: originalStatus, to: newStatus, reason })
+        console.warn(`[startup] Recovered "${book.title}" (${book.id}): ${originalStatus} -> ${newStatus} (${reason})`)
+      }
+    }
+  }
+
+  // 4. Engine-wide cleanup: half-downloaded ffmpeg artifacts.
+  await cleanPartialInstallArtifacts(report)
+
+  return report
+}
+
+/**
+ * Backward-compatible alias kept for any external callers (e.g., tests
+ * referencing the old name). New code should call recoverFromCrash().
  */
 export async function recoverStuckBooks(): Promise<void> {
-  const books = await listBooks()
-  const stuck = books.filter(b => b.status === 'generating_toc' || b.status === 'generating')
-  for (const book of stuck) {
-    console.warn(`[startup] Resetting stuck book "${book.id}" (${book.title}) from "${book.status}" to "failed"`)
-    book.status = 'failed'
-    book.updatedAt = new Date().toISOString()
-    await saveBook(book)
+  await recoverFromCrash()
+}
+
+async function cleanPartialBookArtifacts(book: BookMeta, report: CrashRecoveryReport): Promise<void> {
+  const dir = bookDir(book.id)
+  if (!existsSync(dir)) return
+
+  // chapters/NN.md.tmp — mid-write chapter markdown
+  const chaptersDir = join(dir, 'chapters')
+  if (existsSync(chaptersDir)) {
+    for (const file of await readdir(chaptersDir)) {
+      if (file.endsWith('.tmp')) {
+        const p = join(chaptersDir, file)
+        await rm(p)
+        report.artifactsRemoved.push(p)
+      }
+    }
+  }
+
+  // book.epub.tmp
+  const epubTmp = join(dir, 'book.epub.tmp')
+  if (existsSync(epubTmp)) {
+    await rm(epubTmp)
+    report.artifactsRemoved.push(epubTmp)
+  }
+
+  // cover.*.tmp
+  for (const ext of COVER_EXTENSIONS) {
+    const coverTmp = join(dir, `cover.${ext}.tmp`)
+    if (existsSync(coverTmp)) {
+      await rm(coverTmp)
+      report.artifactsRemoved.push(coverTmp)
+    }
+  }
+
+  // meta.yml.tmp / toc.yml.tmp / progress.yml.tmp — mid-write yaml
+  for (const yamlName of ['meta.yml', 'toc.yml', 'progress.yml', 'final-quiz.yml']) {
+    const yamlTmp = join(dir, `${yamlName}.tmp`)
+    if (existsSync(yamlTmp)) {
+      await rm(yamlTmp)
+      report.artifactsRemoved.push(yamlTmp)
+    }
+  }
+}
+
+async function cleanPartialInstallArtifacts(report: CrashRecoveryReport): Promise<void> {
+  const binDir = join(getDataDir(), 'bin')
+  if (!existsSync(binDir)) return
+
+  // ffmpeg downloader leaves these on crash mid-download or mid-unzip.
+  for (const name of ['ffmpeg.partial', 'ffmpeg.zip.tmp']) {
+    const p = join(binDir, name)
+    if (existsSync(p)) {
+      await rm(p)
+      report.artifactsRemoved.push(p)
+    }
+  }
+  const extractDir = join(binDir, '.ffmpeg-extract.tmp')
+  if (existsSync(extractDir)) {
+    await rm(extractDir, { recursive: true })
+    report.artifactsRemoved.push(extractDir)
   }
 }
 
