@@ -184,6 +184,9 @@ export async function generateAudiobook(
       const mp3Path = store.chapterAudioPath(bookId, n)
       const mp3Tmp = mp3Path + '.tmp'
       tmpFilesToClean.push(mp3Tmp)
+      // -f mp3 is required because the tmp path ends in ".mp3.tmp" — ffmpeg
+      // infers container format from the output extension and would otherwise
+      // fail with "Unable to choose an output format for ...mp3.tmp".
       await runFfmpeg(
         [
           '-y',
@@ -194,6 +197,7 @@ export async function generateAudiobook(
           '-b:a', MP3_BITRATE,
           '-ac', '1',
           '-ar', '22050',
+          '-f', 'mp3',
           mp3Tmp,
         ],
         abortSignal,
