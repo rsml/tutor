@@ -7,6 +7,7 @@ import * as store from '../services/book-store.js'
 import { createModelClient } from '../services/model-client.js'
 import * as genManager from '../services/generation-manager.js'
 import * as taskManager from '../services/task-manager.js'
+import { parseTocFromMarkdown, truncateChapters } from '../services/toc-parser.js'
 import {
   CreateBookBodySchema,
   FeedbackBodySchema,
@@ -28,52 +29,6 @@ function createTimeout(): { signal: AbortSignal; clear: () => void } {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
   return { signal: controller.signal, clear: () => clearTimeout(timer) }
-}
-
-function parseTocFromMarkdown(text: string): { title: string; subtitle?: string; chapters: Array<{ title: string; description: string }> } {
-  const lines = text.split('\n').filter(l => l.trim())
-  let title = ''
-  let subtitle: string | undefined
-  let titleFound = false
-  const chapters: Array<{ title: string; description: string }> = []
-
-  for (const line of lines) {
-    const titleMatch = line.match(/^#\s+(.+)/)
-    if (titleMatch && !title) {
-      title = titleMatch[1].replace(/\*\*/g, '').trim()
-      titleFound = true
-      continue
-    }
-
-    // Look for subtitle right after title: *subtitle* or _subtitle_
-    if (titleFound && !subtitle && chapters.length === 0) {
-      const italicMatch = line.match(/^\*(.+)\*$/) || line.match(/^_(.+)_$/)
-      if (italicMatch) {
-        subtitle = italicMatch[1].trim()
-        continue
-      }
-      const h2Match = line.match(/^##\s+(.+)/)
-      if (h2Match) {
-        subtitle = h2Match[1].trim()
-        continue
-      }
-    }
-
-    // 1. **Chapter Title** — Description  or  1. **Chapter Title** - Description
-    const chapterMatch = line.match(/^\d+\.\s+\*\*(.+?)\*\*\s*[—–\-:]\s*(.+)/)
-    if (chapterMatch) {
-      chapters.push({
-        title: chapterMatch[1].trim(),
-        description: chapterMatch[2].trim(),
-      })
-    }
-  }
-
-  if (!title && chapters.length > 0) {
-    title = 'Untitled Book'
-  }
-
-  return { title, subtitle, chapters }
 }
 
 const DEPTH_LABELS = ['high-level overview', 'light coverage', 'balanced depth', 'detailed', 'comprehensive deep-dive']
@@ -938,7 +893,7 @@ ${profileContext ? `\nReader profile:\n${profileContext}\n\nTailor the book stru
 
       const { title, subtitle, chapters: parsedChapters } = parseTocFromMarkdown(tocText)
       const targetCount = chapterCount ?? 12
-      const chapters = parsedChapters.slice(0, targetCount)
+      const chapters = truncateChapters(parsedChapters, targetCount)
 
       if (chapters.length === 0) {
         send({ type: 'error', message: 'Failed to parse table of contents from AI response' })
