@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import { SafeMarkdown } from '@src/components/SafeMarkdown'
+import { ReviseTocDialog } from '@src/components/ReviseTocDialog'
 import { useAppSelector, selectHasApiKey, selectFunctionModel, selectFontSize, selectQuizLength } from '@src/store'
 import { useStreamingContent } from '@src/hooks/useStreamingContent'
 import { parseSSEStream } from '@src/lib/parse-sse-stream'
 import { apiUrl } from '@src/lib/api-base'
+import { toast } from '@src/lib/toast'
 
 type Phase = 'toc' | 'awaiting_approval' | 'revising' | 'starting' | 'done' | 'error'
 
@@ -77,6 +79,48 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
     }
   }, [model, provider, quizModel, quizProvider, quizLength, chapter])
 
+  const handleRevise = useCallback(async (id: string, feedback: string) => {
+    setPhase('revising')
+    setActiveTab('toc')
+    // Clear the existing TOC content to make room for the streamed replacement
+    toc.flushNow()
+    toc.reset()
+    try {
+      const res = await fetch(apiUrl(`/api/books/${id}/toc/revise`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feedback, model, provider }),
+      })
+      if (!res.ok || !res.body) {
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.message || `Revise failed: ${res.status}`)
+      }
+      await parseSSEStream(res, {
+        onEvent: (event) => {
+          switch (event.type) {
+            case 'toc':
+              toc.appendChunk(event.text)
+              requestAnimationFrame(() => {
+                tocScrollRef.current?.scrollTo({ top: tocScrollRef.current!.scrollHeight })
+              })
+              break
+            case 'toc_revised':
+              toc.flushNow()
+              setPhase('awaiting_approval')
+              break
+            case 'error':
+              toast.error('Revise failed: ' + event.message)
+              setPhase('awaiting_approval')
+              break
+          }
+        },
+      })
+    } catch (err) {
+      toast.error('Revise failed: ' + (err instanceof Error ? err.message : 'Unknown error'))
+      setPhase('awaiting_approval')
+    }
+  }, [model, provider, toc])
+
   const startGeneration = useCallback(async () => {
     if (!hasApiKey) {
       setError('Please set your API key in Settings first.')
@@ -145,6 +189,7 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
   }, [startGeneration])
 
   return (
+    <>
     <div className="flex h-screen flex-col text-content-primary">
       {/* Header */}
       <header
@@ -313,5 +358,15 @@ export function CreationView({ topic, details, chapterCount, onComplete, onCance
         )}
       </div>
     </div>
+
+    <ReviseTocDialog
+      open={feedbackOpen}
+      onOpenChange={setFeedbackOpen}
+      onSubmit={(feedback) => {
+        setFeedbackOpen(false)
+        if (bookId) handleRevise(bookId, feedback)
+      }}
+    />
+    </>
   )
 }
