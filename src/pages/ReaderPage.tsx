@@ -606,9 +606,11 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
           <div className="flex items-center justify-between">
             <nav ref={tocNavRef} className="flex min-w-0 overflow-x-auto scrollbar-none">
               <button
+                onMouseDown={e => e.preventDefault()}
                 onClick={() => setShowToc(true)}
+                tabIndex={-1}
                 className={cn(
-                  'relative shrink-0 whitespace-nowrap px-4 py-2 text-xs font-medium transition-colors',
+                  'relative shrink-0 whitespace-nowrap px-4 py-2 text-xs font-medium transition-colors outline-none focus:outline-none focus-visible:outline-none',
                   showToc
                     ? 'text-content-primary'
                     : 'text-content-muted hover:text-content-secondary',
@@ -627,9 +629,11 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
                   <button
                     key={i}
                     ref={el => { chapterTabRefs.current[i] = el }}
+                    onMouseDown={e => e.preventDefault()}
                     onClick={() => { if (phase === 'generating' || phase === 'generation-error') return; setShowToc(false); goToChapter(i, 0) }}
+                    tabIndex={-1}
                     className={cn(
-                      'relative shrink-0 whitespace-nowrap px-4 py-2 text-xs font-medium transition-colors',
+                      'relative shrink-0 whitespace-nowrap px-4 py-2 text-xs font-medium transition-colors outline-none focus:outline-none focus-visible:outline-none',
                       isActive
                         ? 'text-content-primary'
                         : 'text-content-muted hover:text-content-secondary',
