@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import { SafeMarkdown } from '@src/components/SafeMarkdown'
-import { ReviseTocDialog } from '@src/components/ReviseTocDialog'
+import { ReviseTocPanel } from '@src/components/ReviseTocPanel'
 import { useAppSelector, selectHasApiKey, selectFunctionModel, selectFontSize, selectQuizLength } from '@src/store'
 import { useStreamingContent } from '@src/hooks/useStreamingContent'
 import { parseSSEStream } from '@src/lib/parse-sse-stream'
@@ -235,9 +235,11 @@ export function CreationView(props: CreationViewProps) {
     }
   }, [startGeneration, resumeFromExisting, resumeBookId])
 
+  const chapterTabAvailable = phase === 'starting' || phase === 'done' || chapter.content.length > 0
+
   return (
-    <>
-    <div className="flex h-screen flex-col text-content-primary">
+    <div className="flex h-screen text-content-primary">
+    <div className="flex h-screen flex-1 flex-col overflow-hidden">
       {/* Header */}
       <header
         className="relative flex h-12 shrink-0 items-center border-b border-border-default/50 bg-surface-base/90 px-4 backdrop-blur-sm"
@@ -267,15 +269,18 @@ export function CreationView(props: CreationViewProps) {
           )}
         </button>
         <button
-          onClick={() => setActiveTab('chapter')}
+          onClick={() => chapterTabAvailable && setActiveTab('chapter')}
+          disabled={!chapterTabAvailable}
           className={`relative px-4 py-2.5 text-sm font-medium transition-colors ${
-            activeTab === 'chapter'
+            !chapterTabAvailable
+              ? 'cursor-not-allowed text-content-muted/40'
+              : activeTab === 'chapter'
               ? 'text-content-primary'
               : 'text-content-muted hover:text-content-secondary'
           }`}
         >
           Chapter 1
-          {activeTab === 'chapter' && (
+          {activeTab === 'chapter' && chapterTabAvailable && (
             <span className="absolute bottom-0 inset-x-2 h-0.5 rounded-full bg-[oklch(0.55_0.20_285)]" />
           )}
           {phase === 'starting' && (
@@ -327,15 +332,19 @@ export function CreationView(props: CreationViewProps) {
               <div className="creation-markdown" style={{ fontSize: `${fontSize}px` }}>
                 <SafeMarkdown>{chapter.content}</SafeMarkdown>
               </div>
+            ) : phase === 'starting' ? (
+              <div className="flex items-center gap-2 text-content-muted">
+                <Loader2 className="size-4 animate-spin" />
+                <span className="text-sm">Generating chapter 1...</span>
+              </div>
             ) : phase === 'toc' ? (
               <p className="text-sm text-content-muted">
                 Waiting for table of contents to finish...
               </p>
             ) : (
-              <div className="flex items-center gap-2 text-content-muted">
-                <Loader2 className="size-4 animate-spin" />
-                <span className="text-sm">Generating chapter 1...</span>
-              </div>
+              <p className="text-sm text-content-muted">
+                Approve the table of contents to generate Chapter 1.
+              </p>
             )}
           </div>
         </div>
@@ -406,14 +415,15 @@ export function CreationView(props: CreationViewProps) {
       </div>
     </div>
 
-    <ReviseTocDialog
+    <ReviseTocPanel
       open={feedbackOpen}
-      onOpenChange={setFeedbackOpen}
+      onClose={() => setFeedbackOpen(false)}
       onSubmit={(feedback) => {
         setFeedbackOpen(false)
         if (bookId) handleRevise(bookId, feedback)
       }}
+      submitting={phase === 'revising'}
     />
-    </>
+    </div>
   )
 }
