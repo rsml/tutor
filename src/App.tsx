@@ -339,7 +339,7 @@ export default function App() {
     setView({ type: 'creating', topic, details, chapterCount })
   }
 
-  const handleCreationComplete = (bookId: string) => {
+  const handleCreationComplete = async (bookId: string) => {
     // Fire cover generation if opted in during creation
     if (pendingCoverPrompt) {
       const { provider: imgProvider, model: imgModel } = selectFunctionModel('image')(store.getState())
@@ -349,6 +349,21 @@ export default function App() {
         body: JSON.stringify({ prompt: pendingCoverPrompt, provider: imgProvider, model: imgModel }),
       }).catch(() => {}) // fire-and-forget
       setPendingCoverPrompt(null)
+    }
+    // Navigate straight into the reader at chapter 1 — going back to the
+    // library after the user just sat through TOC + ch.1 generation is a dead-end.
+    try {
+      const res = await fetch(apiUrl(`/api/books/${bookId}`))
+      if (res.ok) {
+        const book = await res.json() as Book
+        dispatch(setLastViewedBookId(bookId))
+        persistor.flush().catch(() => {})
+        setView({ type: 'reading', book })
+        fetchBooks()
+        return
+      }
+    } catch {
+      // Fall through to library if the fetch fails
     }
     fetchBooks()
     setView({ type: 'library' })

@@ -1,4 +1,4 @@
-import { combineReducers, configureStore, createSlice, type PayloadAction } from '@reduxjs/toolkit'
+import { combineReducers, configureStore, createSelector, createSlice, type PayloadAction } from '@reduxjs/toolkit'
 import { useDispatch, useSelector } from 'react-redux'
 import { persistStore, persistReducer, createTransform, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER } from 'redux-persist'
 import storage from 'redux-persist/lib/storage'
@@ -285,22 +285,26 @@ export const selectLibraryView = (state: RootState) => state.settings.libraryVie
 export const selectLibraryFilters = (state: RootState) => state.settings.libraryFilters
 export const selectModelAssignmentSeen = (state: RootState) => state.settings.modelAssignmentSeen
 export const selectLastViewedBookId = (state: RootState) => state.settings.lastViewedBookId ?? null
-export const selectFunctionModel = (group: AiFunctionGroup) => (state: RootState): { provider: ProviderId; model: string } => {
-  const override = state.settings.functionModels?.[group]
-  if (override) return override
+export const selectFunctionModel = (group: AiFunctionGroup) =>
+  createSelector(
+    (state: RootState) => state.settings,
+    (settings): { provider: ProviderId; model: string } => {
+      const override = settings.functionModels?.[group]
+      if (override) return override
 
-  // For image group, don't fall back to activeProvider (it may not support images)
-  if (group === 'image') {
-    const imageProviders = Object.keys(IMAGE_MODELS) as ProviderId[]
-    const withKey = imageProviders.find(p => !!state.settings.providers[p]?.apiKey)
-    const fallback = withKey ?? imageProviders[0] ?? 'openai'
-    const models = IMAGE_MODELS[fallback]
-    return { provider: fallback, model: models?.[0]?.value ?? '' }
-  }
+      // For image group, don't fall back to activeProvider (it may not support images)
+      if (group === 'image') {
+        const imageProviders = Object.keys(IMAGE_MODELS) as ProviderId[]
+        const withKey = imageProviders.find(p => !!settings.providers[p]?.apiKey)
+        const fallback = withKey ?? imageProviders[0] ?? 'openai'
+        const models = IMAGE_MODELS[fallback]
+        return { provider: fallback, model: models?.[0]?.value ?? '' }
+      }
 
-  const p = state.settings.activeProvider
-  return { provider: p, model: state.settings.providers[p]?.model ?? '' }
-}
+      const p = settings.activeProvider
+      return { provider: p, model: settings.providers[p]?.model ?? '' }
+    },
+  )
 
 // --- Background Tasks ---
 
@@ -365,8 +369,10 @@ export const {
 } = backgroundTasksSlice.actions
 
 export const selectBackgroundTasks = (state: RootState) => state.backgroundTasks.tasks
-export const selectRunningTasks = (state: RootState) =>
-  Object.values(state.backgroundTasks.tasks).filter(t => t.status === 'running')
+export const selectRunningTasks = createSelector(
+  selectBackgroundTasks,
+  (tasks) => Object.values(tasks).filter(t => t.status === 'running'),
+)
 
 // --- Provider Models (auto-detected from upstream /v1/models) ---
 
