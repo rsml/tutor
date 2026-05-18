@@ -238,11 +238,10 @@ export function CreationView(props: CreationViewProps) {
   const chapterTabAvailable = phase === 'starting' || phase === 'done' || chapter.content.length > 0
 
   return (
-    <div className="flex h-screen text-content-primary">
-    <div className="flex h-screen flex-1 flex-col overflow-hidden">
-      {/* Header */}
+    <div className="flex h-screen flex-col text-content-primary">
+      {/* Header — spans full width */}
       <header
-        className="relative flex h-12 shrink-0 items-center border-b border-border-default/50 bg-surface-base/90 px-4 backdrop-blur-sm"
+        className="relative z-30 flex h-12 shrink-0 items-center border-b border-border-default/50 bg-surface-base/90 px-4 backdrop-blur-sm"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
         <span className="absolute inset-x-0 pointer-events-none text-center text-sm font-semibold tracking-tight">
@@ -250,7 +249,7 @@ export function CreationView(props: CreationViewProps) {
         </span>
       </header>
 
-      {/* Tabs */}
+      {/* Tabs — span full width */}
       <div className="flex shrink-0 border-b border-border-default/50 px-4">
         <button
           onClick={() => setActiveTab('toc')}
@@ -289,6 +288,9 @@ export function CreationView(props: CreationViewProps) {
         </button>
       </div>
 
+      {/* Body — content + slide-out panel side-by-side, below header & tabs */}
+      <div className="flex flex-1 overflow-hidden">
+      <div className="relative flex flex-1 flex-col overflow-hidden">
       {/* Content */}
       <div className="relative flex-1 overflow-hidden">
         {/* Back button — overlays top-left of content area */}
@@ -350,8 +352,8 @@ export function CreationView(props: CreationViewProps) {
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="shrink-0 border-t border-border-default/50 p-4 flex items-center justify-end gap-3">
+      {/* Footer — height matches ReviseTocPanel footer (p-3 + default button = 60px) */}
+      <div className="shrink-0 border-t border-border-default/50 p-3 flex items-center justify-end gap-3">
         <button
           onClick={onCancel}
           className="px-3 py-1.5 text-sm text-content-muted hover:text-content-secondary transition-colors"
@@ -364,7 +366,7 @@ export function CreationView(props: CreationViewProps) {
         )}
 
         {phase === 'toc' && (
-          <Button size="lg" disabled>
+          <Button disabled>
             <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
             Generating…
           </Button>
@@ -374,13 +376,11 @@ export function CreationView(props: CreationViewProps) {
           <>
             <Button
               variant="outline"
-              size="lg"
               onClick={() => setFeedbackOpen(true)}
             >
               Edit Table of Contents
             </Button>
             <Button
-              size="lg"
               onClick={() => bookId && handleGenerateChapter1(bookId)}
               className="bg-[oklch(0.55_0.20_285)] text-white font-semibold hover:bg-[oklch(0.50_0.22_285)]"
             >
@@ -390,14 +390,14 @@ export function CreationView(props: CreationViewProps) {
         )}
 
         {phase === 'starting' && (
-          <Button size="lg" disabled>
+          <Button disabled>
             <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
             Generating Chapter 1…
           </Button>
         )}
 
         {phase === 'revising' && (
-          <Button size="lg" disabled>
+          <Button disabled>
             <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
             Revising…
           </Button>
@@ -405,7 +405,6 @@ export function CreationView(props: CreationViewProps) {
 
         {phase === 'done' && (
           <Button
-            size="lg"
             onClick={() => bookId && onComplete(bookId)}
             className="bg-[oklch(0.55_0.20_285)] text-white font-semibold hover:bg-[oklch(0.50_0.22_285)]"
           >
@@ -413,17 +412,18 @@ export function CreationView(props: CreationViewProps) {
           </Button>
         )}
       </div>
-    </div>
+      </div>
 
-    <ReviseTocPanel
-      open={feedbackOpen}
-      onClose={() => setFeedbackOpen(false)}
-      onSubmit={(feedback) => {
-        setFeedbackOpen(false)
-        if (bookId) handleRevise(bookId, feedback)
-      }}
-      submitting={phase === 'revising'}
-    />
+      <ReviseTocPanel
+        open={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        onSubmit={(feedback) => {
+          setFeedbackOpen(false)
+          if (bookId) handleRevise(bookId, feedback)
+        }}
+        submitting={phase === 'revising'}
+      />
+      </div>
     </div>
   )
 }
