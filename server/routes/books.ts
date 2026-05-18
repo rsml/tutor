@@ -1142,12 +1142,18 @@ ${feedback}`,
           return
         }
 
-        const chaptersFinal = truncateChapters(parsed.chapters, book.totalChapters)
+        // Cap at the schema's hard ceiling. The AI is told the user-requested
+        // count in the prompt; if they explicitly asked for more chapters, the
+        // new count flows through. If the AI overshot the absolute ceiling
+        // (500), truncate.
+        const MAX_CHAPTERS = 500
+        const chaptersFinal = truncateChapters(parsed.chapters, MAX_CHAPTERS)
 
         // Persist — chapters only, no skills (deferred to /start)
         await store.saveToc(bookId, { chapters: chaptersFinal })
 
-        // Update meta title/subtitle if the AI changed them
+        // Update meta — title, subtitle (if AI returned one), and
+        // totalChapters whenever the chapter count changed.
         let metaChanged = false
         if (parsed.title && parsed.title !== book.title) {
           book.title = parsed.title
@@ -1160,6 +1166,10 @@ ${feedback}`,
         // given how much more common the "AI forgot to repeat it" case is.
         if (parsed.subtitle !== undefined && parsed.subtitle !== book.subtitle) {
           book.subtitle = parsed.subtitle
+          metaChanged = true
+        }
+        if (chaptersFinal.length !== book.totalChapters) {
+          book.totalChapters = chaptersFinal.length
           metaChanged = true
         }
         if (metaChanged) {

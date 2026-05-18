@@ -55,10 +55,11 @@ export function ReviseTocPanel({ open, onClose, onSubmit, submitting }: ReviseTo
   return (
     <div
       ref={panelRef}
-      className={`relative flex shrink-0 flex-col border-l border-border-default/50 bg-surface-base/95 backdrop-blur-sm transition-[width] duration-300 overflow-hidden ${
-        !open ? 'w-0 border-l-0' : ''
+      aria-hidden={!open}
+      className={`absolute right-0 top-0 bottom-0 z-30 flex flex-col border-l border-border-default/50 bg-surface-base/95 backdrop-blur-sm transition-transform duration-300 ease-out will-change-transform ${
+        open ? 'translate-x-0 shadow-2xl shadow-black/40' : 'translate-x-full pointer-events-none'
       }`}
-      style={{ width: open ? width : 0 }}
+      style={{ width }}
     >
       {/* Resize handle */}
       <div

@@ -88,7 +88,7 @@ export const BookMetaSchema = z.object({
   subtitle: z.string().optional(),
   prompt: z.string(),
   status: BookStatusSchema,
-  totalChapters: z.number().int().positive(),
+  totalChapters: z.number().int().min(1).max(500),
   generatedUpTo: z.number().int().min(0),
   createdAt: z.string(),
   updatedAt: z.string(),
