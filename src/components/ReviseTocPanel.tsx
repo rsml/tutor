@@ -70,7 +70,7 @@ export function ReviseTocPanel({ open, onClose, onSubmit, submitting }: ReviseTo
 
       {/* Header */}
       <div className="flex h-11 shrink-0 items-center justify-between border-b border-border-default/50 px-4">
-        <span className="text-sm font-medium text-content-primary">Revise Table of Contents</span>
+        <span className="text-sm font-medium text-content-primary">Edit Table of Contents</span>
         <button
           onClick={onClose}
           disabled={submitting}
@@ -83,7 +83,7 @@ export function ReviseTocPanel({ open, onClose, onSubmit, submitting }: ReviseTo
       {/* Body */}
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
         <p className="text-xs text-content-muted leading-relaxed">
-          Describe the changes you'd like. Untouched chapters will be preserved.
+          What would you like to edit? For example: "make chapter 1 simpler", "change chapter 3 to be about X instead", "merge chapters 5 and 6". Untouched chapters will be preserved.
         </p>
         <textarea
           ref={textareaRef}
@@ -95,7 +95,7 @@ export function ReviseTocPanel({ open, onClose, onSubmit, submitting }: ReviseTo
               handleSubmit()
             }
           }}
-          placeholder="e.g., merge chapters 5 and 6, add a chapter on X between 3 and 4, rename 'Foundations' to something punchier"
+          placeholder="Change chapter 1 to be simpler..."
           rows={8}
           disabled={submitting}
           className="flex-1 min-h-[10rem] resize-none rounded-lg border border-border-default bg-surface-raised px-3 py-2 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20 disabled:opacity-50"

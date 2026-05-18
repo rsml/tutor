@@ -383,6 +383,10 @@ export default function App() {
   }
 
   const handleBookCreated = useCallback((bookId: string, title: string, totalChapters?: number) => {
+    // Point lastViewedBookId at the new book so a refresh during creation
+    // restores to this book (auto-restore + routing gate will then send a
+    // toc_review book to the resume view rather than someone's old book).
+    dispatch(setLastViewedBookId(bookId))
     // Optimistically add the book to the library so it's visible during creation
     setApiBooks(prev => {
       if (prev.some(b => b.id === bookId)) return prev
@@ -397,7 +401,7 @@ export default function App() {
         tags: [],
       }]
     })
-  }, [])
+  }, [dispatch])
 
   const handleGenerateAll = async (book: Book) => {
     try {

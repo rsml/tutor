@@ -377,7 +377,7 @@ export function CreationView(props: CreationViewProps) {
               size="lg"
               onClick={() => setFeedbackOpen(true)}
             >
-              Provide Feedback
+              Edit Table of Contents
             </Button>
             <Button
               size="lg"
