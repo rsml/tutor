@@ -6,6 +6,7 @@ import { createModelClient } from '../services/model-client.js'
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import { UpdateProfileBodySchema, InterviewChatBodySchema, CompleteProfileSchema, SuggestSkillsBodySchema, SkillSchema } from '../schemas.js'
+import { MARKDOWN_FORMATTING_RULES } from '../prompts/formatting-rules.js'
 
 const AI_TIMEOUT_MS = 5 * 60 * 1000
 
@@ -41,7 +42,9 @@ const INTERVIEW_SYSTEM_PROMPT = `You are conducting a learning profile interview
 - metaphorDensity: 1=rare metaphors, 5=frequent metaphors
 - narrativeStyle: 1=technical/reference-style, 5=narrative/storytelling
 - humorLevel: 1=serious/professional, 5=playful/witty
-- formalityLevel: 1=casual/conversational, 5=academic/formal`
+- formalityLevel: 1=casual/conversational, 5=academic/formal
+
+${MARKDOWN_FORMATTING_RULES}`
 
 export async function profileRoutes(fastify: FastifyInstance) {
   fastify.get('/api/profile', async () => {

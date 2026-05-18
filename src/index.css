@@ -317,6 +317,75 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 /* Markdown styles for creation view */
+/* Chat prose — same markdown rules as creation/reader, scaled for chat bubble */
+.chat-prose {
+  h1 {
+    @apply text-base font-semibold tracking-tight text-content-primary mt-3 mb-2;
+  }
+  h2 {
+    @apply text-[0.95rem] font-semibold text-content-primary mt-3 mb-1.5;
+  }
+  h3 {
+    @apply text-sm font-semibold text-content-primary mt-2 mb-1;
+  }
+  p {
+    @apply mb-2 last:mb-0;
+  }
+  p + p {
+    @apply mt-2;
+  }
+  ol {
+    @apply list-decimal pl-5 mb-2 space-y-1;
+  }
+  ul {
+    @apply list-disc pl-5 mb-2 space-y-1;
+  }
+  li {
+    @apply leading-snug;
+  }
+  li > p {
+    @apply mb-1;
+  }
+  strong {
+    @apply font-semibold;
+  }
+  em {
+    @apply italic;
+  }
+  blockquote {
+    @apply border-l-2 border-border-focus/40 pl-3 italic text-content-muted my-2;
+  }
+  blockquote p {
+    @apply mb-1 last:mb-0;
+  }
+  code {
+    @apply rounded bg-surface-muted/60 px-1 py-0.5 text-[0.85em] font-mono;
+  }
+  pre {
+    @apply rounded-md p-3 overflow-x-auto mb-2 text-xs leading-relaxed;
+    background: #13171e;
+    color: #c2c4c8;
+    code {
+      @apply bg-transparent p-0 text-[inherit];
+    }
+  }
+  hr {
+    @apply my-3 border-border-default/40;
+  }
+  a {
+    @apply text-border-focus underline underline-offset-2;
+  }
+  table {
+    @apply w-full text-xs my-2 border-collapse;
+  }
+  th {
+    @apply font-semibold text-left px-2 py-1 border-b border-border-default;
+  }
+  td {
+    @apply px-2 py-1 border-b border-border-default/60;
+  }
+}
+
 .creation-markdown {
   h1 {
     @apply text-2xl font-bold tracking-tight text-content-primary mb-4;

@@ -140,7 +140,7 @@ function extractText(node: Element | Text): string {
 const epubProcessor = unified()
   .use(remarkParse)
   .use(remarkGfm)
-  .use(remarkMath)
+  .use(remarkMath, { singleDollarTextMath: false })
   .use(remarkRehype)
   .use(rehypeKatex)
   .use(rehypePreserveKatexSources)

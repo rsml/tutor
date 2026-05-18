@@ -2,6 +2,7 @@ import { streamText, generateObject } from 'ai'
 import { z } from 'zod'
 import * as store from './book-store.js'
 import { createModelClient } from './model-client.js'
+import { MARKDOWN_FORMATTING_RULES } from '../prompts/formatting-rules.js'
 
 const AI_TIMEOUT_MS = 5 * 60 * 1000
 const CLEANUP_DELAY_MS = 5 * 60 * 1000
@@ -140,6 +141,8 @@ export async function generateQuiz(
       prompt: `Based on this chapter content, generate exactly ${quizLength} multiple-choice quiz questions to test comprehension. Each question should have 4 options with exactly one correct answer.
 
 ${QUIZ_QUALITY_RULES}
+
+${MARKDOWN_FORMATTING_RULES}
 
 Chapter content:
 ${chapterContent}`,
@@ -303,7 +306,8 @@ Use markdown formatting:
 - If you include mermaid diagrams, do NOT add style, classDef, or class directives for colors — the app applies its own theme automatically. ALWAYS wrap node labels in double quotes (e.g., \`A["My Label"]\` not \`A[My Label]\`)
 
 Write in a conversational but knowledgeable tone. Use concrete examples and real-world analogies. Make complex ideas accessible without being condescending.
-${profileContext ? `\nReader profile:\n${profileContext}\n` : ''}`,
+${profileContext ? `\nReader profile:\n${profileContext}\n` : ''}
+${MARKDOWN_FORMATTING_RULES}`,
     prompt: `Book: ${meta.title}
 Topic: ${meta.prompt}
 

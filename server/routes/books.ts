@@ -28,6 +28,7 @@ import {
 import { isInstalled as isAudiobookEngineInstalled } from '../services/audiobook-installer.js'
 import { generateAudiobook } from '../services/audiobook-generator.js'
 import { listVoices } from '../services/kokoro-service.js'
+import { MARKDOWN_FORMATTING_RULES } from '../prompts/formatting-rules.js'
 
 const AI_TIMEOUT_MS = 5 * 60 * 1000
 
@@ -333,7 +334,8 @@ Use markdown formatting:
 - If you include mermaid diagrams, do NOT add style, classDef, or class directives for colors — the app applies its own theme automatically. ALWAYS wrap node labels in double quotes (e.g., \`A["My Label"]\` not \`A[My Label]\`)
 
 Write in a conversational but knowledgeable tone. Use concrete examples and real-world analogies. Make complex ideas accessible without being condescending.
-${opts.profileContext ? `\nReader profile:\n${opts.profileContext}\n` : ''}`,
+${opts.profileContext ? `\nReader profile:\n${opts.profileContext}\n` : ''}
+${MARKDOWN_FORMATTING_RULES}`,
       prompt: `Book: ${book.title}
 Topic: ${opts.topic}${opts.details ? `\nContext: ${opts.details}` : ''}
 
@@ -991,7 +993,9 @@ For skills: add new areas the book covered that aren't already in the profile, u
 
 For preferences: only change if feedback signals a clear pattern (e.g., reader consistently says chapters are too fast → lower pace).
 
-For aboutMe: incorporate new knowledge areas and accomplishments while preserving the existing identity and voice. If the existing aboutMe is empty, write a brief description based on what you know.`,
+For aboutMe: incorporate new knowledge areas and accomplishments while preserving the existing identity and voice. If the existing aboutMe is empty, write a brief description based on what you know.
+
+${MARKDOWN_FORMATTING_RULES}`,
         prompt: `Book just completed: "${meta.title}"
 Topic: ${meta.prompt}
 ${meta.rating ? `Reader rating: ${meta.rating}/5` : ''}
@@ -1092,7 +1096,9 @@ Example format:
 1. **The Box Model Revisited** — Understanding the foundation that everything else builds on.
 2. **Flexbox Deep Dive** — Layout patterns that solve real problems elegantly.
 
-${profileContext ? `\nReader profile:\n${profileContext}\n\nTailor the book structure and difficulty to match the reader's background and preferences.\n` : ''}Just output the title and table of contents, nothing else.`,
+${profileContext ? `\nReader profile:\n${profileContext}\n\nTailor the book structure and difficulty to match the reader's background and preferences.\n` : ''}Just output the title and table of contents, nothing else.
+
+${MARKDOWN_FORMATTING_RULES}`,
         prompt: `Create a table of contents for a book about: ${topic}${details ? `\n\nAdditional context: ${details}` : ''}`,
       })
 
@@ -1207,7 +1213,9 @@ Constraints:
 - For any chapter the reader did not reference, output it verbatim — do not rephrase, restructure, or "improve" it.
 - Output in the same numbered markdown format as the existing TOC.
 ${profileContext ? `\nReader profile:\n${profileContext}\n` : ''}
-Just output the title and table of contents, nothing else.`,
+Just output the title and table of contents, nothing else.
+
+${MARKDOWN_FORMATTING_RULES}`,
           prompt: `Existing TOC:
 ${existingTocMarkdown}
 
@@ -1424,6 +1432,12 @@ ${feedback}`,
       const result = await generateObject({
         model: createModelClient(provider ?? 'anthropic', model),
         abortSignal: timeout.signal,
+        schemaName: 'BookSuggestion',
+        schemaDescription: 'A suggested next book for the learner. Must include all three fields: topic, details, and reasoning.',
+        experimental_repairText: async ({ text, error }) => {
+          request.log.warn({ rawText: text, errName: error.name, errMsg: error.message }, 'generateObject (suggest) returned unparseable payload')
+          return null
+        },
         schema: z.object({
           topic: z.string().describe('The suggested book topic (concise, like "Kubernetes Networking" not "A book about...")'),
           details: z.string().describe('Additional context and focus areas for the book (2-3 sentences)'),

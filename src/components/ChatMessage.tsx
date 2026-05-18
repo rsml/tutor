@@ -3,19 +3,23 @@ import type { ChatMessage as ChatMessageType } from '@src/hooks/useStreamingChat
 
 interface ChatMessageProps {
   message: ChatMessageType
+  onContextMenu?: (e: React.MouseEvent, content: string) => void
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({ message, onContextMenu }: ChatMessageProps) {
   if (message.role === 'user') {
     return (
       <div className="flex justify-end">
         <div className="max-w-[85%]">
           {message.selectedText && (
-            <div className="mb-1.5 rounded-lg rounded-br-md border-l-2 border-border-focus/60 bg-surface-muted/50 px-3 py-2 text-xs text-content-muted">
+            <div className="mb-1.5 rounded-lg rounded-br-md border-l-2 border-border-focus/60 bg-surface-muted/50 px-3 py-2 text-xs text-content-muted select-text cursor-text">
               "{message.selectedText.length > 150 ? message.selectedText.slice(0, 150) + '...' : message.selectedText}"
             </div>
           )}
-          <div className="rounded-2xl rounded-br-md bg-[oklch(0.55_0.20_285)] px-3.5 py-2 text-sm text-white">
+          <div
+            onContextMenu={onContextMenu ? (e) => onContextMenu(e, message.content) : undefined}
+            className="rounded-2xl rounded-br-md bg-[oklch(0.55_0.20_285)] px-3.5 py-2 text-sm text-white select-text cursor-text"
+          >
             {message.content}
           </div>
         </div>
@@ -25,9 +29,12 @@ export function ChatMessage({ message }: ChatMessageProps) {
 
   return (
     <div className="flex justify-start">
-      <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-surface-muted px-3.5 py-2 text-sm text-content-primary">
+      <div
+        onContextMenu={message.content && onContextMenu ? (e) => onContextMenu(e, message.content) : undefined}
+        className="max-w-[85%] rounded-2xl rounded-bl-md bg-surface-muted px-3.5 py-2 text-sm text-content-primary select-text cursor-text"
+      >
         {message.content ? (
-          <div className="prose-sm prose-neutral dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+          <div className="chat-prose max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
             <SafeMarkdown>{message.content}</SafeMarkdown>
           </div>
         ) : (

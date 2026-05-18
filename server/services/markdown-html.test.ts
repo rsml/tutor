@@ -22,11 +22,23 @@ describe('markdownToHtml', () => {
 
   describe('preserveSources mode', () => {
     it('renders inline KaTeX with source preservation', async () => {
-      const result = await markdownToHtml('Inline $E = mc^2$ here', { preserveSources: true })
+      const result = await markdownToHtml('Inline $$E = mc^2$$ here', { preserveSources: true })
       expect(result.html).toContain('class="katex"')
       expect(result.html).toContain('class="tutor-katex-inline"')
       expect(result.html).toContain('E = mc^2')
       expect(result.html).toContain('display:none')
+    })
+
+    // Guards against accidentally re-enabling singleDollarTextMath in remark-math.
+    // Currency amounts paired in the same paragraph used to render as italic math.
+    it('treats single-dollar pairs as literal text (currency renders correctly)', async () => {
+      const result = await markdownToHtml(
+        'Send a counter of $5K and ask for $10K reimbursement.',
+        { preserveSources: true },
+      )
+      expect(result.html).not.toContain('class="katex"')
+      expect(result.html).toContain('$5K')
+      expect(result.html).toContain('$10K')
     })
 
     it('renders display KaTeX with source preservation', async () => {

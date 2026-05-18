@@ -3,6 +3,7 @@ import { streamText } from 'ai'
 import { ZodError } from 'zod'
 import { createModelClient } from '../services/model-client.js'
 import { ChatBodySchema } from '../schemas.js'
+import { MARKDOWN_FORMATTING_RULES } from '../prompts/formatting-rules.js'
 
 const AI_TIMEOUT_MS = 5 * 60 * 1000
 
@@ -47,7 +48,9 @@ ${selectedTextSection}
 - Use concrete examples and analogies
 - If the learner asks a follow-up, build on your previous answers
 - Use markdown formatting where helpful (bold, lists, code blocks)${noRepeatInstruction}
-- Use the full chapter content above to inform your answers with surrounding context`
+- Use the full chapter content above to inform your answers with surrounding context
+
+${MARKDOWN_FORMATTING_RULES}`
 
     const messages = [
       ...history.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),

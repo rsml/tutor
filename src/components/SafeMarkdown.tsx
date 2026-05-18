@@ -8,7 +8,7 @@ import { CodeBlock } from './CodeBlock'
 export function SafeMarkdown({ children }: { children: string }) {
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm, remarkMath]}
+      remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: false }]]}
       rehypePlugins={[rehypeHighlight, rehypeKatex]}
       components={{ pre: CodeBlock }}
     >

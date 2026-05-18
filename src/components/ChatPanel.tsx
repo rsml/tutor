@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { X, SendHorizontal } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { X, SendHorizontal, Copy, ClipboardCopy } from 'lucide-react'
 import { ChatMessage } from '@src/components/ChatMessage'
+import { toast } from '@src/lib/toast'
 import { useStreamingChat } from '@src/hooks/useStreamingChat'
 import { useAppDispatch, useAppSelector, selectHasApiKey, selectFunctionModel, setChatMessages, selectChatMessages } from '@src/store'
 
@@ -29,6 +31,7 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
   })
   const [input, setInput] = useState('')
   const [width, setWidth] = useState(420)
+  const [contextMenu, setContextMenu] = useState<{ content: string; x: number; y: number } | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const isDraggingRef = useRef(false)
@@ -143,14 +146,49 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
     document.addEventListener('mouseup', onMouseUp)
   }, [])
 
-  // Escape closes panel
+  // Escape closes panel (or context menu if open)
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && open) onClose()
+      if (e.key !== 'Escape') return
+      if (contextMenu) {
+        setContextMenu(null)
+        return
+      }
+      if (open) onClose()
     }
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)
-  }, [open, onClose])
+  }, [open, onClose, contextMenu])
+
+  // Close context menu on any click outside
+  useEffect(() => {
+    if (!contextMenu) return
+    const close = () => setContextMenu(null)
+    window.addEventListener('click', close)
+    return () => window.removeEventListener('click', close)
+  }, [contextMenu])
+
+  const handleMessageContextMenu = useCallback((e: React.MouseEvent, content: string) => {
+    e.preventDefault()
+    setContextMenu({ content, x: e.clientX, y: e.clientY })
+  }, [])
+
+  const handleCopy = useCallback(() => {
+    if (!contextMenu) return
+    void navigator.clipboard.writeText(contextMenu.content)
+    setContextMenu(null)
+    toast.success('Copied chat to clipboard')
+  }, [contextMenu])
+
+  const handleCopyAll = useCallback(() => {
+    const transcript = messages
+      .filter(m => m.content)
+      .map(m => `${m.role === 'user' ? 'You' : 'AI'}:\n${m.content}`)
+      .join('\n\n')
+    if (!transcript) return
+    void navigator.clipboard.writeText(transcript)
+    toast.success('Copied conversation to clipboard')
+  }, [messages])
 
   const handleSubmit = () => {
     const trimmed = input.trim()
@@ -183,12 +221,22 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
       {/* Header */}
       <div className="flex h-11 shrink-0 items-center justify-between border-b border-border-default/50 px-4">
         <span className="text-sm font-medium text-content-primary">Chat</span>
-        <button
-          onClick={onClose}
-          className="rounded-md p-1 text-content-muted transition-colors hover:text-content-primary"
-        >
-          <X className="size-4" />
-        </button>
+        <div className="flex items-center gap-0.5">
+          <button
+            onClick={handleCopyAll}
+            disabled={messages.filter(m => m.content).length === 0}
+            title="Copy entire transcript"
+            className="rounded-md p-1 text-content-muted transition-colors hover:text-content-primary disabled:opacity-30 disabled:hover:text-content-muted"
+          >
+            <ClipboardCopy className="size-4" />
+          </button>
+          <button
+            onClick={onClose}
+            className="rounded-md p-1 text-content-muted transition-colors hover:text-content-primary"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
       </div>
 
       {/* Messages */}
@@ -197,9 +245,42 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
           <ChatMessage
             key={i}
             message={msg}
+            onContextMenu={handleMessageContextMenu}
           />
         ))}
       </div>
+
+      {/* Context menu — portal'd to body to escape the panel's containing block (backdrop-filter + overflow-hidden) */}
+      {contextMenu && createPortal(
+        <div
+          ref={(el) => {
+            if (!el) return
+            const rect = el.getBoundingClientRect()
+            const vw = window.innerWidth
+            const vh = window.innerHeight
+            let x = contextMenu.x
+            let y = contextMenu.y
+            if (x + rect.width > vw - 8) x = contextMenu.x - rect.width
+            if (y + rect.height > vh - 8) y = contextMenu.y - rect.height
+            if (x < 8) x = 8
+            if (y < 8) y = 8
+            el.style.left = `${x}px`
+            el.style.top = `${y}px`
+          }}
+          className="fixed z-50 w-fit rounded-lg border border-border-default/50 bg-surface-base/95 backdrop-blur-md py-1 shadow-lg"
+          style={{ left: -9999, top: -9999 }}
+          onClick={e => e.stopPropagation()}
+        >
+          <button
+            onClick={handleCopy}
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
+          >
+            <Copy className="size-3.5 text-content-muted shrink-0" />
+            Copy
+          </button>
+        </div>,
+        document.body
+      )}
 
       {/* Input */}
       <div className="shrink-0 border-t border-border-default/50 p-3">
