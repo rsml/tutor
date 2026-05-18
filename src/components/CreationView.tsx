@@ -96,6 +96,15 @@ export function CreationView(props: CreationViewProps) {
     }
   }, [model, provider, quizModel, quizProvider, quizLength, chapter])
 
+  // Auto-advance into the reader once chapter 1 has finished streaming.
+  // Uses a phase-driven effect (not the SSE handler) so this also fires
+  // correctly on Vite HMR if the component remounts while phase is already 'done'.
+  useEffect(() => {
+    if (phase !== 'done' || !bookId) return
+    const t = setTimeout(() => onComplete(bookId), 600)
+    return () => clearTimeout(t)
+  }, [phase, bookId, onComplete])
+
   const handleRevise = useCallback(async (id: string, feedback: string) => {
     setPhase('revising')
     setActiveTab('toc')
@@ -404,11 +413,9 @@ export function CreationView(props: CreationViewProps) {
         )}
 
         {phase === 'done' && (
-          <Button
-            onClick={() => bookId && onComplete(bookId)}
-            className="bg-[oklch(0.55_0.20_285)] text-white font-semibold hover:bg-[oklch(0.50_0.22_285)]"
-          >
-            Start Book
+          <Button disabled>
+            <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
+            Opening book…
           </Button>
         )}
       </div>
