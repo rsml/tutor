@@ -256,11 +256,15 @@ export default function App() {
     if (!lastViewedBookId) return
     const book = apiBooks.find(b => b.id === lastViewedBookId)
     if (!book) return
-    // Mirror openBook: toc_review books go to the CreationView resume flow,
-    // not the reader (which has no Chapter 1 to render yet).
+    // Only auto-restore into views that won't break for the book's state.
+    // - toc_review: resume into CreationView's approval flow.
+    // - reading/complete: open the reader (chapters exist).
+    // - generating_toc/generating/failed/undefined: stay on the library —
+    //   the reader has no chapter 1 to render, and these statuses either
+    //   reflect an interrupted stream or transient progress.
     if (book.status === 'toc_review') {
       setView({ type: 'resuming', bookId: book.id })
-    } else {
+    } else if (book.status === 'reading' || book.status === 'complete') {
       setView({ type: 'reading', book })
     }
   }, [hasLoaded, apiBooks, lastViewedBookId])
@@ -277,14 +281,19 @@ export default function App() {
   }, [])
 
   const openBook = useCallback((book: Book) => {
-    dispatch(setLastViewedBookId(book.id))
-    // Force an immediate persist write so a quick Cmd+Q can't race the debounced write
-    persistor.flush().catch(() => {})
+    // Same gating as the auto-restore effect — never route a book without
+    // chapters into the reader. BookCard already disables clicks for the
+    // active-generation statuses, but this is the defensive backstop.
     if (book.status === 'toc_review') {
+      dispatch(setLastViewedBookId(book.id))
+      persistor.flush().catch(() => {})
       setView({ type: 'resuming', bookId: book.id })
-    } else {
+    } else if (book.status === 'reading' || book.status === 'complete') {
+      dispatch(setLastViewedBookId(book.id))
+      persistor.flush().catch(() => {})
       setView({ type: 'reading', book })
     }
+    // Otherwise (generating_toc, generating, failed): stay on library.
   }, [dispatch])
 
   // Full-text content search via backend
