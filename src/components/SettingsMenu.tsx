@@ -94,6 +94,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
   const [dialogProvider, setDialogProvider] = useState<ProviderId>(activeProvider)
   const [keyInputs, setKeyInputs] = useState<Partial<Record<ProviderId, string>>>({})
   const [profileConfigured, setProfileConfigured] = useState<boolean | null>(null)
+  const apiKeyInputRef = useRef<HTMLInputElement>(null)
 
   // Check if learning profile has been set up
   useEffect(() => {
@@ -141,6 +142,12 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
   const handleSelectDialogProvider = (id: ProviderId) => {
     setDialogProvider(id)
   }
+
+  useEffect(() => {
+    if (!dialogOpen) return
+    const t = setTimeout(() => apiKeyInputRef.current?.focus(), 0)
+    return () => clearTimeout(t)
+  }, [dialogOpen, dialogProvider])
 
   const saveTimeoutsRef = useRef<Partial<Record<ProviderId, ReturnType<typeof setTimeout>>>>({})
 
@@ -496,6 +503,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
               </label>
               <div className="relative">
                 <input
+                  ref={apiKeyInputRef}
                   id="api-key"
                   type="password"
                   value={keyInputs[dialogProvider] ?? ''}

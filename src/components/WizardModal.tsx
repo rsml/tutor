@@ -773,6 +773,7 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
             </div>
             <input
               id="topic"
+              autoFocus
               value={topic}
               onChange={e => setTopic(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleCreate()}

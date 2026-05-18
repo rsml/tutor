@@ -170,6 +170,7 @@ export function CoverGenerationModal({
               Image description
             </label>
             <textarea
+              autoFocus
               value={prompt}
               onChange={e => setPrompt(e.target.value)}
               placeholder="Describe the cover you want..."
