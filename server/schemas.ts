@@ -98,7 +98,7 @@ export const BookMetaSchema = z.object({
   subtitle: z.string().optional(),
   prompt: z.string(),
   status: BookStatusSchema,
-  totalChapters: z.number().int().positive(),
+  totalChapters: z.number().int().min(1).max(500),
   generatedUpTo: z.number().int().min(0),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -226,6 +226,20 @@ export const FeedbackBodySchema = z.object({
 export const GenerateNextBodySchema = AiRequestSchema.extend({
   quizModel: ModelSchema.optional(),
   quizProvider: ProviderSchema.optional(),
+  quizLength: z.number().int().min(1).max(10).optional(),
+})
+
+export const ReviseTocBodySchema = z.object({
+  feedback: z.string().min(1).max(4000),
+  model: z.string().min(1),
+  provider: z.string().min(1).optional(),
+})
+
+export const StartBookBodySchema = z.object({
+  model: z.string().min(1),
+  provider: z.string().min(1).optional(),
+  quizModel: z.string().min(1).optional(),
+  quizProvider: z.string().min(1).optional(),
   quizLength: z.number().int().min(1).max(10).optional(),
 })
 

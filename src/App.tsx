@@ -303,7 +303,18 @@ export default function App() {
     restoredOnceRef.current = true
     if (!lastViewedBookId) return
     const book = apiBooks.find(b => b.id === lastViewedBookId)
-    if (book) setView({ type: 'reading', book })
+    if (!book) return
+    // Only auto-restore into views that won't break for the book's state.
+    // - toc_review: resume into CreationView's approval flow.
+    // - reading/complete: open the reader (chapters exist).
+    // - generating_toc/generating/failed/undefined: stay on the library —
+    //   the reader has no chapter 1 to render, and these statuses either
+    //   reflect an interrupted stream or transient progress.
+    if (book.status === 'toc_review') {
+      setView({ type: 'resuming', bookId: book.id })
+    } else if (book.status === 'reading' || book.status === 'complete') {
+      setView({ type: 'reading', book })
+    }
   }, [hasLoaded, apiBooks, lastViewedBookId])
 
   // Safety-net: flush the redux-persist queue on page hide so nothing is lost on quit
@@ -318,14 +329,20 @@ export default function App() {
   }, [])
 
   const openBook = useCallback((book: Book) => {
-    dispatch(setLastViewedBookId(book.id))
-    // Force an immediate persist write so a quick Cmd+Q can't race the debounced write
-    persistor.flush().catch(() => {})
+    // Same gating as the auto-restore effect — never route a book without
+    // chapters into the reader. BookCard already disables clicks for the
+    // active-generation statuses, but this is the defensive backstop.
+    // Force an immediate persist write so a quick Cmd+Q can't race the debounced write.
     if (book.status === 'toc_review') {
+      dispatch(setLastViewedBookId(book.id))
+      persistor.flush().catch(() => {})
       setView({ type: 'resuming', bookId: book.id })
-    } else {
+    } else if (book.status === 'reading' || book.status === 'complete') {
+      dispatch(setLastViewedBookId(book.id))
+      persistor.flush().catch(() => {})
       setView({ type: 'reading', book })
     }
+    // Otherwise (generating_toc, generating, failed): stay on library.
   }, [dispatch])
 
   // Full-text content search via backend
@@ -441,7 +458,7 @@ export default function App() {
     setView({ type: 'creating', topic, details, chapterCount })
   }
 
-  const handleCreationComplete = (bookId: string) => {
+  const handleCreationComplete = async (bookId: string) => {
     // Fire cover generation if opted in during creation
     if (pendingCoverPrompt) {
       const { provider: imgProvider, model: imgModel } = selectFunctionModel('image')(store.getState())
@@ -452,23 +469,58 @@ export default function App() {
       }).catch(() => {}) // fire-and-forget
       setPendingCoverPrompt(null)
     }
+    // Navigate straight into the reader at chapter 1 — going back to the
+    // library after the user just sat through TOC + ch.1 generation is a dead-end.
+    try {
+      const res = await fetch(apiUrl(`/api/books/${bookId}`))
+      if (res.ok) {
+        const book = await res.json() as Book
+        dispatch(setLastViewedBookId(bookId))
+        persistor.flush().catch(() => {})
+        setView({ type: 'reading', book })
+        fetchBooks()
+        return
+      }
+    } catch {
+      // Fall through to library if the fetch fails
+    }
     fetchBooks()
     setView({ type: 'library' })
   }
 
-  const handleCreationCancel = () => {
-    // Delete any partially-created book from the server
-    const creatingBook = apiBooks.find(b => b.status === 'generating_toc' || b.status === 'generating')
-    if (creatingBook) {
-      fetch(apiUrl(`/api/books/${creatingBook.id}`), { method: 'DELETE' }).catch(() => {})
-      // Remove optimistic book immediately so it doesn't persist as a phantom
-      setApiBooks(prev => prev.filter(b => b.id !== creatingBook.id))
+  const handleCreationCancel = async () => {
+    // Find the candidate book from local state — but local state can lag
+    // behind the server (the 1s polling stops once status flips to
+    // toc_review, so a book that just finished TOC generation may still
+    // appear as generating_toc locally). Re-check the server before
+    // deleting so we don't blow away a book that has already advanced
+    // out of the cancellable window.
+    const candidate = apiBooks.find(b => b.status === 'generating_toc' || b.status === 'generating')
+    if (candidate) {
+      try {
+        const res = await fetch(apiUrl(`/api/books/${candidate.id}`))
+        if (res.ok) {
+          const fresh = await res.json()
+          if (fresh.status === 'generating_toc' || fresh.status === 'generating') {
+            fetch(apiUrl(`/api/books/${candidate.id}`), { method: 'DELETE' }).catch(() => {})
+            // Remove optimistic book immediately so it doesn't persist as a phantom
+            setApiBooks(prev => prev.filter(b => b.id !== candidate.id))
+          }
+        }
+      } catch {
+        // If the status check fails, err on the side of NOT deleting —
+        // the user can clean up manually rather than lose work to a flaky network.
+      }
     }
     fetchBooks()
     setView({ type: 'library' })
   }
 
   const handleBookCreated = useCallback((bookId: string, title: string, totalChapters?: number) => {
+    // Point lastViewedBookId at the new book so a refresh during creation
+    // restores to this book (auto-restore + routing gate will then send a
+    // toc_review book to the resume view rather than someone's old book).
+    dispatch(setLastViewedBookId(bookId))
     // Optimistically add the book to the library so it's visible during creation
     setApiBooks(prev => {
       if (prev.some(b => b.id === bookId)) return prev
@@ -483,7 +535,7 @@ export default function App() {
         tags: [],
       }]
     })
-  }, [])
+  }, [dispatch])
 
   const handleGenerateAll = async (book: Book) => {
     try {

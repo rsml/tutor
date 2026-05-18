@@ -630,7 +630,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
           <div className="flex items-center justify-between">
-            <nav ref={tocNavRef} className="flex min-w-0 overflow-x-auto scrollbar-none">
+            <nav ref={tocNavRef} tabIndex={-1} className="flex min-w-0 overflow-x-auto scrollbar-none outline-none focus:outline-none focus-visible:outline-none">
               <button
                 onMouseDown={e => e.preventDefault()}
                 onClick={() => setShowToc(true)}

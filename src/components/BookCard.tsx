@@ -95,6 +95,14 @@ export function BookCard({ title, subtitle, chaptersRead, totalChapters, status,
               </span>
             </div>
           )}
+          {/* Awaiting approval badge (toc_review status) */}
+          {status === 'toc_review' && (
+            <div className="absolute inset-x-3 bottom-3 flex items-center justify-center rounded-full border border-border-default/60 bg-transparent px-3 py-1 backdrop-blur-sm">
+              <span className="text-xs font-medium text-content-muted">
+                Awaiting approval
+              </span>
+            </div>
+          )}
           {/* Imported badge */}
           {imported && !isGenerating && !isFailed && progress === 0 && (
             <div className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 backdrop-blur-sm">

@@ -1,4 +1,4 @@
-import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
+import { createSelector, createSlice, type PayloadAction } from '@reduxjs/toolkit'
 import type { ChatMessage } from '@src/hooks/useStreamingChat'
 
 export interface ChatHistoryState {
@@ -22,7 +22,12 @@ const chatHistorySlice = createSlice({
 
 export const { setChatMessages, clearChatHistory } = chatHistorySlice.actions
 
+const EMPTY_MESSAGES: ChatMessage[] = []
+
 export const selectChatMessages = (bookId: string) =>
-  (state: { chatHistory: ChatHistoryState }) => state.chatHistory.histories[bookId] ?? []
+  createSelector(
+    (state: { chatHistory: ChatHistoryState }) => state.chatHistory.histories[bookId],
+    (messages): ChatMessage[] => messages ?? EMPTY_MESSAGES,
+  )
 
 export default chatHistorySlice.reducer

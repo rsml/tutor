@@ -328,11 +328,11 @@ questions. Idempotent. Rejects during active generation."
 **Files:**
 - Modify: `server/routes/books.ts`
 
-Add the endpoint adjacent to the existing `DELETE /api/books/:id` route at `server/routes/books.ts:597-600`.
+Add the endpoint adjacent to the existing `DELETE /api/books/:id` route (line refs in this plan are stale after the toc-revise merge — locate the `DELETE /api/books/:id` handler by name).
 
 - [ ] **Step 1: Add the endpoint**
 
-Insert this block in `server/routes/books.ts` immediately after the closing `})` of the `DELETE /api/books/:id` handler at line 600 (and before the blank line preceding the next `fastify.put<{` block):
+Insert this block in `server/routes/books.ts` immediately after the closing `})` of the `DELETE /api/books/:id` handler (and before the blank line preceding the next `fastify.put<{` block):
 
 ```ts
   fastify.post<{ Params: { id: string } }>(
