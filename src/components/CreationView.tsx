@@ -238,7 +238,7 @@ export function CreationView(props: CreationViewProps) {
   const chapterTabAvailable = phase === 'starting' || phase === 'done' || chapter.content.length > 0
 
   return (
-    <div className="relative flex h-screen overflow-hidden text-content-primary">
+    <div className="flex h-screen text-content-primary">
     <div className="flex h-screen flex-1 flex-col overflow-hidden">
       {/* Header */}
       <header
