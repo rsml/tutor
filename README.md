@@ -1,6 +1,8 @@
 # Tutor
 
-**AI-generated books that adapt chapter by chapter to your feedback, quiz results, and learning style.**
+**Read smarter — personal tutors disguised as books.**
+
+Books suggested and generated just for you based on your feedback, quiz results, and unique learning style.
 
 <p align="center">
   <img src="docs/screenshots/library.png" alt="Tutor library showing AI-generated books with custom covers" width="100%">
@@ -26,7 +28,7 @@ Enter any topic and a learning prompt, or let the AI suggest your next book base
 
 ### 03 — Read
 
-~1,500-word chapters, 5-10 min each. Select any text to open an inline AI chat for deeper explanation.
+~1,500-word chapters, 5–10 min each. Select any text to open an inline AI chat for deeper explanation.
 
 <p align="center">
   <img src="docs/screenshots/inline-chat.png" alt="Inline chat panel alongside chapter text" width="100%">
@@ -50,15 +52,35 @@ Give feedback on each chapter. The next one adapts to your quiz results and lear
 
 ## Features
 
-- **GPLv3 open source** — Inspect and modify the source on GitHub
-- **BYOK** — Bring your own API keys (Claude, ChatGPT, Gemini) and choose your preferred models
-- **Evolving chapters** — Every chapter is shaped by your feedback, quiz performance, and learning profile
-- **Inline chat** — Select any text for an AI-powered deeper explanation
-- **Rich content** — Mermaid diagrams, KaTeX math formulas, and syntax-highlighted code
-- **Skills tracking** — Discrete skills extracted from content, tracked and updated across all your books
-- **EPUB import & export** — Export books for any e-reader, or import EPUBs others created
-- **AI covers** — Generate unique cover images for any book
-- **Light & dark themes** — Native Electron desktop app with system theme support
+### Adaptive Learning
+
+- **Evolving Chapters** — Quiz results and feedback shape how future chapters are written
+- **Smart Review** — Spaced-repetition queue re-quizzes you on questions you missed
+- **Skill Tracking** — Automatically track progress and update your learning profile
+
+### Reading & Listening
+
+- **Audiobook Narration** — Generate offline M4B audiobooks with chapter markers using Kokoro TTS. Multiple voices, speed control, per-chapter Listen button in the reader, and one-click export to Apple Books.
+- **Inline Chat** — Select any text for a deeper AI-powered explanation
+- **Rich Content** — Mermaid diagrams, KaTeX math, and syntax-highlighted code
+
+### Library
+
+- **Organized Library** — Search, filter, sort, tag, group into series, and drag to reorder
+- **EPUB Import & Export** — Read in your favorite e-reader or import books others created
+- **AI Covers** — Generate a unique AI cover for any book
+
+### Generation
+
+- **TOC Revision** — Iterate on the table of contents with AI before generating chapters
+- **Background Generation** — Queue all chapters to generate in the background while you keep reading
+- **Agentic Generation** — Built-in MCP server lets Claude Code (or any MCP client) create and edit books programmatically
+
+### Open & Yours
+
+- **GPLv3 Open Source** — Inspect and modify the source on GitHub
+- **BYOK** — Bring your own API keys (Claude, ChatGPT, Gemini) and choose your preferred model
+- **Light & Dark Themes** — Switch themes across the entire app
 
 <p align="center">
   <img src="docs/screenshots/settings.png" alt="Learning profile and settings" width="100%">
