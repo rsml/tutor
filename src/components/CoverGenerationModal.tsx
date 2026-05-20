@@ -12,7 +12,7 @@ import {
   DialogDescription,
 } from '@src/components/ui/dialog'
 import { useAppSelector, selectFunctionModel } from '@src/store'
-import { apiUrl } from '@src/lib/api-base'
+import { apiUrl, tracedFetch } from '@src/lib/api-base'
 
 interface CoverGenerationModalProps {
   open: boolean
@@ -71,7 +71,7 @@ export function CoverGenerationModal({
     if (!prompt.trim() || generating) return
     setGenerating(true)
     try {
-      const res = await fetch(apiUrl(`/api/books/${bookId}/cover/generate`), {
+      const res = await tracedFetch(`/api/books/${bookId}/cover/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: prompt.trim(), provider, model }),

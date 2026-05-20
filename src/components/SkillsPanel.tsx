@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Sparkles, Loader2 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
-import { useAppSelector, selectFunctionModel, selectHasApiKey } from '@src/store'
+import { useAppSelector, selectFunctionModel, selectHasApiKeyForFunction } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
 
 interface Skill {
@@ -17,7 +17,7 @@ interface SkillsPanelProps {
 
 export function SkillsPanel({ open, onClose }: SkillsPanelProps) {
   const { provider, model } = useAppSelector(selectFunctionModel('profile'))
-  const hasApiKey = useAppSelector(selectHasApiKey)
+  const hasApiKey = useAppSelector(selectHasApiKeyForFunction('profile'))
 
   const [skills, setSkills] = useState<Skill[]>([])
   const [newSkillName, setNewSkillName] = useState('')
@@ -144,15 +144,19 @@ export function SkillsPanel({ open, onClose }: SkillsPanelProps) {
       />
 
       {/* Panel */}
-      <div className="fixed inset-y-0 right-0 z-50 flex w-[420px] flex-col border-l border-border-default/50 bg-surface-base/95 backdrop-blur-md shadow-2xl">
+      <div
+        className="fixed inset-y-0 right-0 z-50 flex w-[420px] flex-col border-l border-border-default/50 bg-surface-base/95 backdrop-blur-md shadow-2xl"
+        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+      >
         {/* Header */}
         <div className="flex h-11 shrink-0 items-center justify-between border-b border-border-default/50 px-4">
           <span className="text-sm font-medium text-content-primary">Prior Knowledge</span>
           <button
             onClick={onClose}
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
             className="rounded-md p-1 text-content-muted transition-colors hover:text-content-primary"
           >
-            <X className="size-4" />
+            <X className="size-4 pointer-events-none" />
           </button>
         </div>
 

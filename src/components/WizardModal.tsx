@@ -18,7 +18,7 @@ import {
   DropdownMenuItem,
 } from '@src/components/ui/dropdown-menu'
 import { TickSlider } from '@src/components/ui/tick-slider'
-import { useAppSelector, useAppDispatch, selectFunctionModel, selectHasApiKey, selectDefaultChapterCount, selectAdvancedMode, setAdvancedMode } from '@src/store'
+import { useAppSelector, useAppDispatch, selectFunctionModel, selectHasApiKeyForFunction, selectDefaultChapterCount, selectAdvancedMode, setAdvancedMode } from '@src/store'
 import { apiUrl, getApiPort } from '@src/lib/api-base'
 import { generateMcpConfig } from '@src/lib/mcp-config'
 import { cn } from '@src/lib/utils'
@@ -594,7 +594,7 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
   const [countError, setCountError] = useState('')
   const [agenticCreating, setAgenticCreating] = useState(false)
   const { provider, model } = useAppSelector(selectFunctionModel('profile'))
-  const hasApiKey = useAppSelector(selectHasApiKey)
+  const hasApiKey = useAppSelector(selectHasApiKeyForFunction('profile'))
 
   // Reset chapter count when default changes or dialog opens
   useEffect(() => {

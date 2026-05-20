@@ -166,7 +166,7 @@ const settingsSlice = createSlice({
   initialState: {
     activeProvider: 'anthropic',
     providers: {
-      anthropic: { apiKey: null, model: 'claude-sonnet-4-20250514' },
+      anthropic: { apiKey: null, model: 'claude-sonnet-4-6' },
       openai: { apiKey: null, model: 'gpt-4o' },
       google: { apiKey: null, model: 'gemini-2.0-flash' },
     },
@@ -305,6 +305,20 @@ export const selectFunctionModel = (group: AiFunctionGroup) =>
       return { provider: p, model: settings.providers[p]?.model ?? '' }
     },
   )
+
+// Checks whether the provider RESOLVED for a given AI function has a key.
+// Necessary because selectFunctionModel(group) may return an override provider
+// that differs from settings.activeProvider — selectHasApiKey only sees the
+// active provider, so a UI gated on it can enable an action whose request
+// would then fail with "invalid x-api-key" against the override's provider.
+export const selectHasApiKeyForFunction = (group: AiFunctionGroup) => {
+  const fnModel = selectFunctionModel(group)
+  return createSelector(
+    fnModel,
+    (state: RootState) => state.settings.providers,
+    ({ provider }, providers) => !!providers[provider]?.apiKey,
+  )
+}
 
 // --- Background Tasks ---
 
@@ -449,7 +463,7 @@ const stripApiKeysTransform = createTransform(
         ...outbound,
         activeProvider: 'anthropic' as ProviderId,
         providers: {
-          anthropic: { apiKey: null, model: outbound.model || 'claude-sonnet-4-20250514' },
+          anthropic: { apiKey: null, model: outbound.model || 'claude-sonnet-4-6' },
           openai: { apiKey: null, model: 'gpt-4o' },
           google: { apiKey: null, model: 'gemini-2.0-flash' },
         },
@@ -475,6 +489,43 @@ const migratePositionsTransform = createTransform(
     return migrated
   },
   { whitelist: ['readingProgress'] },
+)
+
+// Auto-upgrade outdated model IDs on rehydrate so users following the default
+// move forward when a new model ships. To bump a model, add the old -> new
+// entry here; users with that exact stored model get migrated next launch.
+// Users who explicitly picked a model that isn't a key in this map are left
+// alone — they made a deliberate choice.
+const MODEL_ID_MIGRATIONS: Record<string, string> = {
+  // May 2025 → Nov 2025 family
+  'claude-sonnet-4-20250514': 'claude-sonnet-4-6',
+  'claude-opus-4-20250514': 'claude-opus-4-7',
+}
+
+const migrateModelIdsTransform = createTransform(
+  (inbound: SettingsState) => inbound,
+  (outbound: SettingsState) => {
+    if (!outbound?.providers) return outbound
+    let changed = false
+    const providers = { ...outbound.providers }
+    for (const [pid, pcfg] of Object.entries(providers) as [ProviderId, { apiKey: string | null; model: string }][]) {
+      const next = MODEL_ID_MIGRATIONS[pcfg.model]
+      if (next) {
+        providers[pid] = { ...pcfg, model: next }
+        changed = true
+      }
+    }
+    const fnModels: Record<string, { provider: ProviderId; model: string }> = { ...(outbound.functionModels ?? {}) }
+    for (const [group, override] of Object.entries(fnModels)) {
+      const next = MODEL_ID_MIGRATIONS[override.model]
+      if (next) {
+        fnModels[group] = { ...override, model: next }
+        changed = true
+      }
+    }
+    return changed ? { ...outbound, providers, functionModels: fnModels } : outbound
+  },
+  { whitelist: ['settings'] },
 )
 
 // Migrate legacy libraryTab to libraryFilters on rehydrate
@@ -511,7 +562,7 @@ const persistConfig = {
   key: 'tutor',
   storage: electronStorage,
   blacklist: ['backgroundTasks'],
-  transforms: [stripApiKeysTransform, migratePositionsTransform, migrateLibraryTabTransform],
+  transforms: [stripApiKeysTransform, migrateModelIdsTransform, migratePositionsTransform, migrateLibraryTabTransform],
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

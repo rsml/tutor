@@ -20,10 +20,11 @@ export const PROVIDERS: Record<ProviderId, ProviderDef> = {
     name: 'Anthropic',
     label: 'Claude',
     models: [
-      { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
-      { value: 'claude-opus-4-20250514', label: 'Claude Opus 4' },
+      { value: 'claude-opus-4-7', label: 'Claude Opus 4.7' },
+      { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+      { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
     ],
-    defaultModel: 'claude-sonnet-4-20250514',
+    defaultModel: 'claude-sonnet-4-6',
     placeholder: 'sk-ant-...',
   },
   openai: {

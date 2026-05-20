@@ -11,6 +11,7 @@ interface ElectronAPI {
   showInFinder: (filePath: string) => Promise<boolean>
   openInDefaultApp: (filePath: string) => Promise<boolean>
   setBusyState: (count: number, labels: string[]) => Promise<void>
+  logDiagnostic: (entry: unknown) => Promise<void>
 }
 
 interface Window {

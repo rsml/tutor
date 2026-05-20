@@ -519,7 +519,7 @@ Write this chapter now.`,
 
       // On-demand quiz generation
       const chapterContent = await store.getChapter(bookId, chapterNum)
-      const model = request.query.model || 'claude-sonnet-4-20250514'
+      const model = request.query.model || 'claude-sonnet-4-6'
       const provider = request.query.provider || 'anthropic'
       const quizLen = request.query.quizLength ? parseInt(request.query.quizLength) : 3
 
@@ -1113,7 +1113,14 @@ ${MARKDOWN_FORMATTING_RULES}`,
       const chapters = truncateChapters(parsedChapters, targetCount)
 
       if (chapters.length === 0) {
-        send({ type: 'error', message: 'Failed to parse table of contents from AI response' })
+        const snippet = tocText.trim().slice(0, 300)
+        console.error(`[POST /api/books] TOC parse failed for "${bookId}". Raw model output:\n---\n${tocText}\n---`)
+        send({
+          type: 'error',
+          message: snippet
+            ? `Failed to parse table of contents — model returned: "${snippet}${tocText.length > 300 ? '…' : ''}"`
+            : 'Failed to parse table of contents — model returned empty response',
+        })
         reply.raw.end()
         return
       }

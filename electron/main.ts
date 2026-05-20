@@ -359,6 +359,23 @@ app.whenReady().then(async () => {
     busyTaskLabels = Array.isArray(labels) ? labels.slice(0, 8).map(String) : []
   })
 
+  // Append-only JSONL log of failed-fetch diagnostics. The renderer's
+  // tracedFetch wrapper writes one entry per failure (with optional follow-up
+  // entries when a transparent retry recovers or fails). Useful for the next
+  // reproduction: tail the file to see exactly which seam of the request
+  // lifecycle broke. Best-effort — write failures are silently ignored so
+  // diagnostic logging never breaks the app.
+  ipcMain.handle('debug:log-diagnostic', async (_event, entry: unknown) => {
+    try {
+      const dir = getDataDir()
+      if (!existsSync(dir)) await mkdir(dir, { recursive: true, mode: 0o700 })
+      const file = path.join(dir, 'fetch-diagnostics.log')
+      const payload = entry && typeof entry === 'object' ? entry : { value: entry }
+      const line = JSON.stringify({ ts: new Date().toISOString(), ...payload }) + '\n'
+      await writeFile(file, line, { flag: 'a' })
+    } catch { /* swallow */ }
+  })
+
   // Override mermaid renderer with Electron BrowserWindow-based renderer
   // (faster and works offline, unlike the kroki.io API fallback).
   // Renders to PNG <img> tags — SVGs render poorly in most e-readers.

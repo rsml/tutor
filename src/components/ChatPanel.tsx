@@ -4,7 +4,7 @@ import { X, SendHorizontal, Copy, ClipboardCopy } from 'lucide-react'
 import { ChatMessage } from '@src/components/ChatMessage'
 import { toast } from '@src/lib/toast'
 import { useStreamingChat } from '@src/hooks/useStreamingChat'
-import { useAppDispatch, useAppSelector, selectHasApiKey, selectFunctionModel, setChatMessages, selectChatMessages } from '@src/store'
+import { useAppDispatch, useAppSelector, selectHasApiKeyForFunction, selectFunctionModel, setChatMessages, selectChatMessages } from '@src/store'
 
 interface ChatPanelProps {
   open: boolean
@@ -19,7 +19,7 @@ interface ChatPanelProps {
 
 export function ChatPanel({ open, onClose, selectedText, chapterContent, initialPrompt, chatKey, onMissingApiKey, bookId }: ChatPanelProps) {
   const dispatch = useAppDispatch()
-  const hasApiKey = useAppSelector(selectHasApiKey)
+  const hasApiKey = useAppSelector(selectHasApiKeyForFunction('chat'))
   const { provider, model } = useAppSelector(selectFunctionModel('chat'))
   const persistedMessages = useAppSelector(selectChatMessages(bookId))
   const { messages, isStreaming, sendMessage, restartChat } = useStreamingChat({

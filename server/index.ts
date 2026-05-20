@@ -35,9 +35,11 @@ export async function startServer(port = 3147, host = '127.0.0.1') {
       },
       serializers: {
         req(request) {
+          const traceId = request.headers['x-trace-id']
           return {
             method: request.method,
             url: request.url,
+            ...(typeof traceId === 'string' && traceId ? { traceId } : {}),
           }
         },
       },
@@ -58,9 +60,13 @@ export async function startServer(port = 3147, host = '127.0.0.1') {
       reply.raw.setHeader('Access-Control-Allow-Origin', origin)
       reply.raw.setHeader('Vary', 'Origin')
     }
+    const traceId = request.headers['x-trace-id']
+    if (typeof traceId === 'string' && traceId) {
+      reply.raw.setHeader('X-Trace-Id', traceId)
+    }
     if (request.method === 'OPTIONS') {
       reply.raw.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
-      reply.raw.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+      reply.raw.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Trace-Id')
       reply.status(204).send()
       return
     }

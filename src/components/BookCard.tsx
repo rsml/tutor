@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { AlertTriangle, Loader2, FileDown, Headphones } from 'lucide-react'
 import { NoiseOverlay } from '@src/components/NoiseOverlay'
 import { StarRating } from '@src/components/StarRating'
@@ -25,7 +26,7 @@ interface BookCardProps {
   onContextMenu?: (e: React.MouseEvent) => void
 }
 
-export function BookCard({ title, subtitle, chaptersRead, totalChapters, status, rating, coverUrl, showTitleOnCover, imported, hasAudiobook, onClick, onContextMenu }: BookCardProps) {
+function BookCardInner({ title, subtitle, chaptersRead, totalChapters, status, rating, coverUrl, showTitleOnCover, imported, hasAudiobook, onClick, onContextMenu }: BookCardProps) {
   const hue = stringToHue(title)
   const progress = totalChapters > 0 ? chaptersRead / totalChapters : 0
   const isGenerating = status === 'generating_toc' || status === 'generating'
@@ -46,6 +47,7 @@ export function BookCard({ title, subtitle, chaptersRead, totalChapters, status,
               <img
                 src={coverUrl}
                 alt={title}
+                decoding="async"
                 className="absolute inset-0 h-full w-full object-cover"
               />
               {showTitleOnCover && (
@@ -148,3 +150,20 @@ export function BookCard({ title, subtitle, chaptersRead, totalChapters, status,
     </div>
   )
 }
+
+// Value-equality memo: BookCard is rendered inside a large list, and the parent
+// passes fresh onClick/onContextMenu closures plus an inline-computed coverUrl
+// string on every render. Compare by value so identical state skips re-render
+// (callback identity is irrelevant — they're invoked from DOM events, not stored).
+export const BookCard = memo(BookCardInner, (a, b) =>
+  a.title === b.title &&
+  a.subtitle === b.subtitle &&
+  a.chaptersRead === b.chaptersRead &&
+  a.totalChapters === b.totalChapters &&
+  a.status === b.status &&
+  a.rating === b.rating &&
+  a.coverUrl === b.coverUrl &&
+  a.showTitleOnCover === b.showTitleOnCover &&
+  a.imported === b.imported &&
+  a.hasAudiobook === b.hasAudiobook,
+)

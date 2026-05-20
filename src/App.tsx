@@ -885,7 +885,7 @@ export default function App() {
     }
   }, [librarySort.field, apiBooks, fetchBooks])
 
-  const apiBookIds = new Set(apiBooks.map(b => b.id))
+  const apiBookIds = useMemo(() => new Set(apiBooks.map(b => b.id)), [apiBooks])
   const allBooks = apiBooks
 
   const classifyBook = useCallback((book: Book): 'finished' | 'in-progress' | 'not-started' => {

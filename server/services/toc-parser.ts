@@ -11,6 +11,11 @@ export function parseTocFromMarkdown(text: string): ParsedToc {
   let titleFound = false
   const chapters: Array<{ title: string; description: string }> = []
 
+  // Accept variants: leading whitespace; "1." or "1)" numbering; optional **bold**
+  // or *italic* around the title; em-dash, en-dash, hyphen, or colon as separator.
+  // Numbered prefix is required to avoid matching prose like "- yes — fine".
+  const chapterRegex = /^\s*\d+[.)]\s+\**(.+?)\**\s*[—–\-:]\s*(.+)/
+
   for (const line of lines) {
     const titleMatch = line.match(/^#\s+(.+)/)
     if (titleMatch && !title) {
@@ -32,10 +37,10 @@ export function parseTocFromMarkdown(text: string): ParsedToc {
       }
     }
 
-    const chapterMatch = line.match(/^\d+\.\s+\*\*(.+?)\*\*\s*[—–\-:]\s*(.+)/)
+    const chapterMatch = line.match(chapterRegex)
     if (chapterMatch) {
       chapters.push({
-        title: chapterMatch[1].trim(),
+        title: chapterMatch[1].trim().replace(/^\**|\**$/g, '').trim(),
         description: chapterMatch[2].trim(),
       })
     }

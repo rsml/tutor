@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical } from 'lucide-react'
@@ -19,7 +20,7 @@ interface SortableBookCardProps {
   onContextMenu?: (e: React.MouseEvent) => void
 }
 
-export function SortableBookCard({ id, ...bookCardProps }: SortableBookCardProps) {
+function SortableBookCardInner({ id, ...bookCardProps }: SortableBookCardProps) {
   const {
     attributes,
     listeners,
@@ -54,3 +55,21 @@ export function SortableBookCard({ id, ...bookCardProps }: SortableBookCardProps
     </div>
   )
 }
+
+// Match BookCard's memo strategy: value-equality on the data props, skipping
+// the freshly-allocated onClick/onContextMenu closures from the parent.
+// useSortable subscribes to DnD context internally and bypasses React.memo,
+// so drag state still updates correctly when memoization skips a prop render.
+export const SortableBookCard = memo(SortableBookCardInner, (a, b) =>
+  a.id === b.id &&
+  a.title === b.title &&
+  a.subtitle === b.subtitle &&
+  a.chaptersRead === b.chaptersRead &&
+  a.totalChapters === b.totalChapters &&
+  a.status === b.status &&
+  a.rating === b.rating &&
+  a.coverUrl === b.coverUrl &&
+  a.showTitleOnCover === b.showTitleOnCover &&
+  a.imported === b.imported &&
+  a.hasAudiobook === b.hasAudiobook,
+)

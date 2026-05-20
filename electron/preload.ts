@@ -15,4 +15,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Renderer pushes the live count of long-running tasks so the main process
   // can intercept window close with a confirmation when work is in flight.
   setBusyState: (count: number, labels: string[]) => ipcRenderer.invoke('app:set-busy-state', count, labels) as Promise<void>,
+  logDiagnostic: (entry: unknown) => ipcRenderer.invoke('debug:log-diagnostic', entry) as Promise<void>,
 })

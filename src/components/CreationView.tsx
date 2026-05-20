@@ -3,7 +3,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 import { Button } from '@src/components/ui/button'
 import { SafeMarkdown } from '@src/components/SafeMarkdown'
 import { ReviseTocPanel } from '@src/components/ReviseTocPanel'
-import { useAppSelector, selectHasApiKey, selectFunctionModel, selectFontSize, selectQuizLength } from '@src/store'
+import { useAppSelector, selectHasApiKeyForFunction, selectFunctionModel, selectFontSize, selectQuizLength } from '@src/store'
 import { useStreamingContent } from '@src/hooks/useStreamingContent'
 import { parseSSEStream } from '@src/lib/parse-sse-stream'
 import { apiUrl } from '@src/lib/api-base'
@@ -38,7 +38,7 @@ export function CreationView(props: CreationViewProps) {
   const onBookCreated = props.mode === 'create' ? props.onBookCreated : undefined
   const resumeBookId = props.mode === 'resume' ? props.bookId : null
 
-  const hasApiKey = useAppSelector(selectHasApiKey)
+  const hasApiKey = useAppSelector(selectHasApiKeyForFunction('generation'))
   const { provider, model } = useAppSelector(selectFunctionModel('generation'))
   const { provider: quizProvider, model: quizModel } = useAppSelector(selectFunctionModel('quiz'))
   const quizLength = useAppSelector(selectQuizLength)
