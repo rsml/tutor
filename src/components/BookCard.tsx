@@ -26,6 +26,10 @@ interface BookCardProps {
   onContextMenu?: (e: React.MouseEvent) => void
 }
 
+// Layered drop-shadow halo painted behind the hovered card — same recipe as
+// SeriesStackCard so single books and series feel like the same physical object.
+const HALO_SHADOW = '0 24px 50px -12px rgba(0, 0, 0, 0.45), 0 10px 22px -8px rgba(0, 0, 0, 0.3)'
+
 function BookCardInner({ title, subtitle, chaptersRead, totalChapters, status, rating, coverUrl, showTitleOnCover, imported, hasAudiobook, onClick, onContextMenu }: BookCardProps) {
   const hue = stringToHue(title)
   const progress = totalChapters > 0 ? chaptersRead / totalChapters : 0
@@ -33,14 +37,21 @@ function BookCardInner({ title, subtitle, chaptersRead, totalChapters, status, r
   const isFailed = status === 'failed'
 
   return (
-    <div className={`group ${isGenerating ? 'cursor-default' : 'cursor-pointer'}`} onClick={isGenerating ? undefined : onClick} onContextMenu={isGenerating ? undefined : onContextMenu}>
-      {/* Cover */}
-      <div
-        className="aspect-[1/1.618] overflow-hidden rounded-xl shadow-md transition-all duration-200 group-hover:scale-[1.02] group-hover:shadow-xl"
-        style={coverUrl ? undefined : {
-          background: `linear-gradient(145deg, oklch(0.45 0.16 ${hue}), oklch(0.25 0.12 ${hue + 50}))`,
-        }}
-      >
+    <div className={`group relative ${isGenerating ? 'cursor-default' : 'cursor-pointer hover:z-10'}`} onClick={isGenerating ? undefined : onClick} onContextMenu={isGenerating ? undefined : onContextMenu}>
+      <div className="relative">
+        {/* Depth halo — fades in on hover to lift the card off the page.
+            Sits behind the cover (first DOM child → painted underneath). */}
+        <div
+          className="pointer-events-none absolute inset-0 rounded-xl opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100"
+          style={{ boxShadow: HALO_SHADOW }}
+        />
+        {/* Cover */}
+        <div
+          className="relative aspect-[1/1.618] overflow-hidden rounded-xl shadow-md transition-all duration-200 group-hover:scale-[1.02] group-hover:shadow-xl"
+          style={coverUrl ? undefined : {
+            background: `linear-gradient(145deg, oklch(0.45 0.16 ${hue}), oklch(0.25 0.12 ${hue + 50}))`,
+          }}
+        >
         <div className="relative flex h-full flex-col items-center justify-center p-2">
           {coverUrl ? (
             <>
@@ -123,6 +134,7 @@ function BookCardInner({ title, subtitle, chaptersRead, totalChapters, status, r
               />
             </div>
           )}
+        </div>
         </div>
       </div>
 

@@ -1063,6 +1063,21 @@ export default function App() {
     }
   }, [allBooks, libraryFilters, librarySort, classifyBook, deferredSearch, readingPositions, fullSearch, contentSearchResults])
 
+  // Pre-group books by series in a single pass so the grid/list loops don't
+  // run `filteredBooks.filter(...)` for each series encountered (O(n·s) →
+  // O(n)). Also gives a stable array reference per series across renders,
+  // which lets memoized series cards skip work when only unrelated state moves.
+  const seriesGroups = useMemo(() => {
+    const groups = new Map<string, Book[]>()
+    for (const book of filteredBooks) {
+      if (!book.series) continue
+      const list = groups.get(book.series)
+      if (list) list.push(book)
+      else groups.set(book.series, [book])
+    }
+    return groups
+  }, [filteredBooks])
+
   // Drag-and-drop handler for manual sort mode
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     setActiveDragId(null)
@@ -1981,7 +1996,7 @@ export default function App() {
                   if (renderedSeries.has(book.series)) continue
                   renderedSeries.add(book.series)
 
-                  const seriesBooks = filteredBooks.filter(b => b.series === book.series)
+                  const seriesBooks = seriesGroups.get(book.series) ?? []
                   listItems.push({
                     type: 'series',
                     seriesName: book.series,
@@ -2036,7 +2051,7 @@ export default function App() {
                       {activeDragId && (() => {
                         if (activeDragId.startsWith('series-')) {
                           const seriesName = activeDragId.slice(7)
-                          const seriesBooks = filteredBooks.filter(b => b.series === seriesName)
+                          const seriesBooks = seriesGroups.get(seriesName) ?? []
                           return (
                             <div className="flex items-center gap-2 px-4 py-2.5 bg-surface-raised rounded-lg shadow-lg ring-1 ring-border-focus/30">
                               <div className="flex -space-x-0.5">
@@ -2079,7 +2094,7 @@ export default function App() {
                   if (renderedSeries.has(book.series)) continue
                   renderedSeries.add(book.series)
 
-                  const seriesBooks = filteredBooks.filter(b => b.series === book.series)
+                  const seriesBooks = seriesGroups.get(book.series) ?? []
                   const totalChapters = seriesBooks.reduce((s, b) => s + b.totalChapters, 0)
                   const chaptersRead = seriesBooks.reduce((s, b) => {
                     if (b.status === 'complete') return s + b.totalChapters

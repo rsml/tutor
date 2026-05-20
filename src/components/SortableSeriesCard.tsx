@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical } from 'lucide-react'
@@ -21,7 +22,7 @@ interface SortableSeriesCardProps {
   onContextMenu?: (e: React.MouseEvent) => void
 }
 
-export function SortableSeriesCard({ id, ...cardProps }: SortableSeriesCardProps) {
+function SortableSeriesCardInner({ id, ...cardProps }: SortableSeriesCardProps) {
   const {
     attributes,
     listeners,
@@ -40,7 +41,7 @@ export function SortableSeriesCard({ id, ...cardProps }: SortableSeriesCardProps
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative ${isDragging ? 'z-50 opacity-90' : ''}`}
+      className={`relative ${isDragging ? 'z-50 opacity-90' : 'hover:z-10'}`}
     >
       <div className={isDragging ? 'scale-[1.03] shadow-2xl ring-1 ring-border-focus/30 rounded-xl transition-transform' : ''}>
         <SeriesStackCard {...cardProps} />
@@ -56,3 +57,26 @@ export function SortableSeriesCard({ id, ...cardProps }: SortableSeriesCardProps
     </div>
   )
 }
+
+// Match SortableBookCard's memo strategy: value-equality on the data props,
+// skipping the freshly-allocated onClick/onContextMenu closures from the parent
+// and the fresh `books` array (which is rebuilt every render via
+// `filteredBooks.filter(...)`). useSortable subscribes to DnD context
+// internally so drag state still updates correctly.
+export const SortableSeriesCard = memo(SortableSeriesCardInner, (a, b) => {
+  if (a.id !== b.id) return false
+  if (a.seriesName !== b.seriesName) return false
+  if (a.chaptersRead !== b.chaptersRead) return false
+  if (a.totalChapters !== b.totalChapters) return false
+  if (a.books.length !== b.books.length) return false
+  for (let i = 0; i < a.books.length; i++) {
+    const x = a.books[i]
+    const y = b.books[i]
+    if (x.id !== y.id) return false
+    if (x.title !== y.title) return false
+    if (x.hasCover !== y.hasCover) return false
+    if (x.coverUpdatedAt !== y.coverUpdatedAt) return false
+    if (x.showTitleOnCover !== y.showTitleOnCover) return false
+  }
+  return true
+})
