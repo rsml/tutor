@@ -41,7 +41,7 @@ function SortableSeriesCardInner({ id, ...cardProps }: SortableSeriesCardProps) 
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative ${isDragging ? 'z-50 opacity-90' : 'hover:z-10'}`}
+      className={`relative ${isDragging ? 'z-50 opacity-90' : 'hover:z-20'}`}
     >
       <div className={isDragging ? 'scale-[1.03] shadow-2xl ring-1 ring-border-focus/30 rounded-xl transition-transform' : ''}>
         <SeriesStackCard {...cardProps} />

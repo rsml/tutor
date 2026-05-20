@@ -45,7 +45,7 @@ function SeriesStackCardInner({ seriesName, books, chaptersRead, totalChapters, 
   const coverUrl = coverBook ? apiUrl(`/api/books/${coverBook.id}/cover?v=${coverBook.coverUpdatedAt ?? ''}`) : undefined
 
   return (
-    <div className="group relative cursor-pointer hover:z-10" onClick={onClick} onContextMenu={onContextMenu}>
+    <div className="group relative cursor-pointer hover:z-20" onClick={onClick} onContextMenu={onContextMenu}>
       {/* Stack effect — offset cards behind the main card. Hover fans them out
           to the upper-right via GPU transforms (no layout thrash); third card
           lags slightly behind the second so the spread feels staggered. */}
@@ -60,7 +60,7 @@ function SeriesStackCardInner({ seriesName, books, chaptersRead, totalChapters, 
           <>
             {bookCount > 2 && (
               <div
-                className="absolute top-2.5 -right-3.5 bottom-0 left-3.5 rotate-2 rounded-xl border border-white/10 opacity-40 will-change-transform transition-all group-hover:rotate-[7deg] group-hover:translate-x-3 group-hover:opacity-60"
+                className="absolute top-2.5 -right-3.5 bottom-0 left-3.5 rotate-2 rounded-xl border border-white/10 shadow-md will-change-transform transition-all group-hover:rotate-[7deg] group-hover:translate-x-3"
                 style={{
                   background: `linear-gradient(145deg, oklch(0.35 0.10 ${hue + 30}), oklch(0.20 0.06 ${hue + 60}))`,
                   aspectRatio: '1/1.618',
@@ -71,7 +71,7 @@ function SeriesStackCardInner({ seriesName, books, chaptersRead, totalChapters, 
               />
             )}
             <div
-              className="absolute top-1 -right-2 bottom-0 left-2 rotate-1 rounded-xl border border-white/10 opacity-60 will-change-transform transition-all group-hover:rotate-[4deg] group-hover:translate-x-1.5 group-hover:opacity-80"
+              className="absolute top-1 -right-2 bottom-0 left-2 rotate-1 rounded-xl border border-white/10 shadow-md will-change-transform transition-all group-hover:rotate-[4deg] group-hover:translate-x-1.5"
               style={{
                 background: `linear-gradient(145deg, oklch(0.40 0.13 ${hue + 15}), oklch(0.22 0.08 ${hue + 55}))`,
                 aspectRatio: '1/1.618',

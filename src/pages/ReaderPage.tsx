@@ -12,6 +12,7 @@ import { parseSSEStream } from '@src/lib/parse-sse-stream'
 import { store, useAppDispatch, useAppSelector, setChapterFeedback, setChapterQuizResult, recordQuizAttempt, selectFontSize, selectReadingWidth, selectQuizLength, selectFunctionModel } from '@src/store'
 import { apiUrl } from '@src/lib/api-base'
 import { cn } from '@src/lib/utils'
+import { stripStreamingUnclosedMermaid } from '@src/lib/strip-streaming-mermaid'
 import { SafeMarkdown } from '@src/components/SafeMarkdown'
 import { QuizPanel } from '@src/components/QuizPanel'
 import { FeedbackForm } from '@src/components/FeedbackForm'
@@ -898,7 +899,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
                 <div className="mx-auto px-8 pb-24" style={{ maxWidth: readingWidth }}>
                   {streaming.content ? (
                     <div className="reader-prose">
-                      <SafeMarkdown>{streaming.content}</SafeMarkdown>
+                      <SafeMarkdown>{stripStreamingUnclosedMermaid(streaming.content)}</SafeMarkdown>
                     </div>
                   ) : (
                     <div className="pt-8">

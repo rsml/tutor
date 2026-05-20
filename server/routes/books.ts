@@ -357,8 +357,8 @@ Write this chapter now.`,
     try {
       const quiz = await generateQuiz(opts.quizProvider, opts.quizModel, chapterText, opts.quizLength)
       await store.saveQuiz(bookId, 1, quiz)
-    } catch {
-      // Quiz generation failure is non-fatal
+    } catch (err) {
+      console.error(`[quiz-gen] first-chapter quiz failed for ${bookId} (${opts.quizProvider}/${opts.quizModel}):`, err)
     }
 
     // 6. Finalize

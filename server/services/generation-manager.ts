@@ -335,8 +335,8 @@ Write this chapter now.`,
   try {
     const quiz = await generateQuiz(quizProvider ?? provider, quizModel ?? model, content, quizLength)
     await store.saveQuiz(bookId, chapterNum, quiz)
-  } catch {
-    // Quiz generation failure is non-fatal
+  } catch (err) {
+    console.error(`[quiz-gen] failed for ${bookId} ch.${chapterNum} (${quizProvider ?? provider}/${quizModel ?? model}):`, err)
   }
 
   // Update meta

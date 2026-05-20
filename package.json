@@ -19,6 +19,7 @@
     "lint:fix": "eslint --fix src/ server/ electron/ lib/",
     "release": "scripts/release.sh",
     "mcp:dev": "tsx server/mcp-server.ts",
+    "diagnose:quiz": "tsx scripts/diagnose-quiz.ts",
     "dev.talk": "marp --theme talks/tutor-product-meetup/theme.css --html -w talks/tutor-product-meetup/deck.md -p",
     "build.talk": "marp --theme talks/tutor-product-meetup/theme.css --bespoke.progress --html talks/tutor-product-meetup/deck.md -o talks/tutor-product-meetup/dist/index.html"
   },
