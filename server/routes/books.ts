@@ -19,8 +19,6 @@ import {
   SuggestDetailsBodySchema,
   ReviseTocBodySchema,
   StartBookBodySchema,
-  TocBookSkillSchema,
-  TocChapterSkillSchema,
   ChapterProgressSchema,
   BookStatusSchema,
   GenerateAudiobookBodySchema,
@@ -136,9 +134,9 @@ async function generateQuiz(
       schema: z.object({
         questions: z.array(z.object({
           question: z.string(),
-          options: z.array(z.string()).length(4),
-          correctIndex: z.number().int().min(0).max(3),
-        })).length(quizLength),
+          options: z.array(z.string()),
+          correctIndex: z.number(),
+        })),
       }),
       prompt: `Based on this chapter content, generate exactly ${quizLength} multiple-choice quiz questions to test comprehension. Each question should have 4 options with exactly one correct answer.
 
@@ -273,10 +271,17 @@ export async function bookRoutes(fastify: FastifyInstance) {
         model: createModelClient(opts.provider, opts.model),
         abortSignal: skillTimeout.signal,
         schema: z.object({
-          skills: z.array(TocBookSkillSchema),
+          skills: z.array(z.object({
+            name: z.string(),
+            weight: z.number(),
+          })),
           chapters: z.array(z.object({
             chapterIndex: z.number(),
-            skills: z.array(TocChapterSkillSchema),
+            skills: z.array(z.object({
+              skill: z.string(),
+              subskill: z.string(),
+              weight: z.number(),
+            })),
           })),
         }),
         prompt: `You are classifying the learning content of a book's table of contents like a college course curriculum.
@@ -868,9 +873,9 @@ Write this chapter now.`,
         schema: z.object({
           questions: z.array(z.object({
             question: z.string(),
-            options: z.array(z.string()).length(4),
-            correctIndex: z.number().int().min(0).max(3),
-          })).length(questionCount),
+            options: z.array(z.string()),
+            correctIndex: z.number(),
+          })),
         }),
         prompt: `You are creating a final comprehensive quiz for a book the reader has just finished.
 
@@ -974,7 +979,7 @@ IMPORTANT: ONLY ask about concepts, facts, and ideas explicitly discussed in the
         schema: z.object({
           rationale: z.string().describe('1-3 sentence explanation of why these changes are suggested, citing evidence from quiz performance and feedback'),
           skills: z.object({
-            added: z.array(z.object({ name: z.string(), level: z.number().int().min(1).max(10) })),
+            added: z.array(z.object({ name: z.string(), level: z.number() })),
             removed: z.array(z.string()),
             updated: z.array(z.object({ name: z.string(), oldLevel: z.number(), newLevel: z.number() })),
           }),

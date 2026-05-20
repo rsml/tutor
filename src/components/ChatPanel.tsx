@@ -205,7 +205,7 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
     <div
       ref={panelRef}
       data-chat-panel
-      className={`relative flex shrink-0 flex-col border-l border-border-default/50 bg-surface-base/95 backdrop-blur-sm transition-[width] duration-300 overflow-hidden ${
+      className={`relative z-30 flex shrink-0 flex-col border-l border-border-default/50 bg-surface-base/95 backdrop-blur-sm transition-[width] duration-300 overflow-hidden ${
         !open ? 'w-0 border-l-0' : ''
       }`}
       style={{ width: open ? width : 0 }}

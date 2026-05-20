@@ -134,9 +134,9 @@ export async function generateQuiz(
       schema: z.object({
         questions: z.array(z.object({
           question: z.string(),
-          options: z.array(z.string()).length(4),
-          correctIndex: z.number().int().min(0).max(3),
-        })).length(quizLength),
+          options: z.array(z.string()),
+          correctIndex: z.number(),
+        })),
       }),
       prompt: `Based on this chapter content, generate exactly ${quizLength} multiple-choice quiz questions to test comprehension. Each question should have 4 options with exactly one correct answer.
 

@@ -5,7 +5,7 @@ import * as store from '../services/book-store.js'
 import { createModelClient } from '../services/model-client.js'
 import { z } from 'zod'
 import { generateObject } from 'ai'
-import { UpdateProfileBodySchema, InterviewChatBodySchema, CompleteProfileSchema, SuggestSkillsBodySchema, SkillSchema } from '../schemas.js'
+import { UpdateProfileBodySchema, InterviewChatBodySchema, CompleteProfileSchema, SuggestSkillsBodySchema } from '../schemas.js'
 import { MARKDOWN_FORMATTING_RULES } from '../prompts/formatting-rules.js'
 
 const AI_TIMEOUT_MS = 5 * 60 * 1000
@@ -93,7 +93,10 @@ export async function profileRoutes(fastify: FastifyInstance) {
         model: modelClient,
         abortSignal: controller.signal,
         schema: z.object({
-          skills: z.array(SkillSchema).min(3).max(8),
+          skills: z.array(z.object({
+            name: z.string(),
+            level: z.number(),
+          })),
         }),
         prompt: `Based on this person's background, suggest 3-8 skills/knowledge areas with estimated proficiency levels (1-10).
 
