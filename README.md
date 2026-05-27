@@ -8,6 +8,10 @@ Books suggested and generated just for you based on your feedback, quiz results,
   <img src="docs/screenshots/library.png" alt="Tutor library showing AI-generated books with custom covers" width="100%">
 </p>
 
+<p align="center">
+  🎥 <a href="https://www.youtube.com/watch?v=XIXhGluiswI"><strong>Watch the talk — "Books that Learn how your Learn"</strong></a>
+</p>
+
 ## How It Works
 
 ### 01 — Personalize
