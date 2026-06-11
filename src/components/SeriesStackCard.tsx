@@ -45,7 +45,7 @@ function SeriesStackCardInner({ seriesName, books, chaptersRead, totalChapters, 
   const coverUrl = coverBook ? apiUrl(`/api/books/${coverBook.id}/cover?v=${coverBook.coverUpdatedAt ?? ''}`) : undefined
 
   return (
-    <div className="group relative cursor-pointer hover:z-20" onClick={onClick} onContextMenu={onContextMenu}>
+    <div className="group relative cursor-pointer card-lift" onClick={onClick} onContextMenu={onContextMenu}>
       {/* Stack effect — offset cards behind the main card. Hover fans them out
           to the upper-right via GPU transforms (no layout thrash); third card
           lags slightly behind the second so the spread feels staggered. */}
@@ -84,7 +84,7 @@ function SeriesStackCardInner({ seriesName, books, chaptersRead, totalChapters, 
 
         {/* Main card */}
         <div
-          className="relative aspect-[1/1.618] overflow-hidden rounded-xl shadow-md transition-all group-hover:scale-[1.02] group-hover:shadow-xl"
+          className="relative aspect-[1/1.618] overflow-hidden rounded-xl shadow-md will-change-transform transition-all group-hover:scale-[1.02] group-hover:shadow-xl"
           style={{
             ...(coverUrl ? {} : {
               background: `linear-gradient(145deg, oklch(0.45 0.16 ${hue}), oklch(0.25 0.12 ${hue + 50}))`,
@@ -96,10 +96,12 @@ function SeriesStackCardInner({ seriesName, books, chaptersRead, totalChapters, 
           <div className="relative flex h-full flex-col items-center justify-center p-4">
             {coverUrl ? (
               <>
+                {/* decoding=sync — see BookCard: prevents dark-flash repaints
+                    after hover-end layer demotion. */}
                 <img
                   src={coverUrl}
                   alt={seriesName}
-                  decoding="async"
+                  decoding="sync"
                   className="absolute inset-0 h-full w-full object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/10" />

@@ -39,7 +39,7 @@ function SortableBookCardInner({ id, ...bookCardProps }: SortableBookCardProps) 
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative ${isDragging ? 'z-50 opacity-90' : 'hover:z-20'}`}
+      className={`relative ${isDragging ? 'z-50 opacity-90' : 'card-lift'}`}
     >
       <div className={isDragging ? 'scale-[1.03] shadow-2xl ring-1 ring-border-focus/30 rounded-xl transition-transform' : ''}>
         <BookCard {...bookCardProps} />
@@ -48,7 +48,7 @@ function SortableBookCardInner({ id, ...bookCardProps }: SortableBookCardProps) 
       <div
         {...attributes}
         {...listeners}
-        className="absolute top-2 left-2 z-10 cursor-grab rounded-md bg-black/20 p-1 opacity-40 backdrop-blur-sm transition-opacity hover:opacity-90 active:cursor-grabbing"
+        className="absolute top-2 left-2 z-30 cursor-grab rounded-md bg-black/20 p-1 opacity-40 backdrop-blur-sm transition-opacity hover:opacity-90 active:cursor-grabbing"
       >
         <GripVertical className="size-5 text-white drop-shadow-md" />
       </div>

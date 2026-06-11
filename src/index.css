@@ -653,3 +653,23 @@ input[type="range"]::-webkit-slider-thumb {
   border: none;
   opacity: 1;
 }
+
+/* ─── Library card hover lift ─── */
+/* Cards lift above neighbors on hover (halo shadow + series fan overlap
+   adjacent cells). Two constraints, both load-bearing:
+   1. z-index: 0 baseline — every cell is its own stacking context, so
+      in-cell z values (drag handle z-30, fan, halo) never compete across
+      cells. Also keeps the context alive through hover, avoiding compositor
+      layer churn that forces cover-image re-decodes (visible dark flash).
+   2. The drop back to 0 is DELAYED past the longest hover-out animation
+      (series fan: 450ms incl. delay). z-index isn't interpolable — the
+      transition just postpones the discrete flip — so without the delay the
+      still-extended fan/halo slices under later-DOM neighbors for a frame. */
+.card-lift {
+  z-index: 0;
+  transition: z-index 0s linear 500ms;
+}
+.card-lift:hover {
+  z-index: 20;
+  transition-delay: 0s;
+}
