@@ -214,7 +214,7 @@ function SummaryStrip({ bookId, correct, total, chaptersToReview }: {
         {segments.map((isCorrect, i) => (
           <div
             key={i}
-            className={`h-3 w-2 rounded-sm ${isCorrect ? 'bg-green-500/70' : 'bg-red-500/40'}`}
+            className={`h-3 w-2 rounded-sm ${isCorrect ? 'bg-status-ok/70' : 'bg-status-error/40'}`}
           />
         ))}
       </div>

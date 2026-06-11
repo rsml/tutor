@@ -65,7 +65,7 @@ export function BookOverviewModal({ open, onOpenChange, book }: BookOverviewModa
               return (
                 <div key={i} className="flex items-start gap-3">
                   {read ? (
-                    <CheckCircle2 className="size-4 shrink-0 mt-0.5 text-green-500" />
+                    <CheckCircle2 className="size-4 shrink-0 mt-0.5 text-status-ok" />
                   ) : (
                     <Circle className="size-4 shrink-0 mt-0.5 text-content-faint" />
                   )}

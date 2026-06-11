@@ -339,7 +339,7 @@ export function ProfileUpdatePage({ bookId, bookTitle, onComplete }: {
                 </div>
 
                 {error && (
-                  <p className="mt-3 text-xs text-red-400 text-right">{error}</p>
+                  <p className="mt-3 text-xs text-status-error text-right">{error}</p>
                 )}
               </>
             ) : null}

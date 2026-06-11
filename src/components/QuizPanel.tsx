@@ -60,9 +60,9 @@ export function QuizPanel({ questions, onComplete, onSkip, title, subtitle }: Qu
 
                 if (revealed) {
                   if (isCorrect) {
-                    optClass += ' border-green-500/50 bg-green-500/10 text-green-400'
+                    optClass += ' border-status-ok/50 bg-status-ok/10 text-status-ok'
                   } else if (selected && !isCorrect) {
-                    optClass += ' border-red-500/50 bg-red-500/10 text-red-400'
+                    optClass += ' border-status-error/50 bg-status-error/10 text-status-error'
                   } else {
                     optClass += ' border-border-default/30 text-content-muted'
                   }
@@ -85,10 +85,10 @@ export function QuizPanel({ questions, onComplete, onSkip, title, subtitle }: Qu
                     </span>
                     <span className="flex-1">{opt}</span>
                     {revealed && isCorrect && (
-                      <CheckCircle2 className="size-4 shrink-0 text-green-400" />
+                      <CheckCircle2 className="size-4 shrink-0 text-status-ok" />
                     )}
                     {revealed && selected && !isCorrect && (
-                      <XCircle className="size-4 shrink-0 text-red-400" />
+                      <XCircle className="size-4 shrink-0 text-status-error" />
                     )}
                   </div>
                 )

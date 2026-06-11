@@ -53,7 +53,7 @@ export function ChapterBreakdownList({ bookId, chapters, tocTitles, sortMode, on
                   {latest.answers.map((a, i) => (
                     <div
                       key={i}
-                      className={`size-2.5 rounded-full ${a.correct ? 'bg-green-500' : 'bg-red-500/60 ring-1 ring-red-500/40'}`}
+                      className={`size-2.5 rounded-full ${a.correct ? 'bg-status-ok' : 'bg-status-error/60 ring-1 ring-status-error/40'}`}
                     />
                   ))}
                 </div>
@@ -86,22 +86,22 @@ export function ChapterBreakdownList({ bookId, chapters, tocTitles, sortMode, on
                   return (
                     <div key={qi} className="flex items-start gap-3">
                       {answer.correct ? (
-                        <CheckCircle2 className="size-4 shrink-0 mt-0.5 text-green-500" />
+                        <CheckCircle2 className="size-4 shrink-0 mt-0.5 text-status-ok" />
                       ) : (
-                        <XCircle className="size-4 shrink-0 mt-0.5 text-red-500" />
+                        <XCircle className="size-4 shrink-0 mt-0.5 text-status-error" />
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-content-primary">{q.question}</p>
                         {answer.correct ? (
-                          <p className="mt-1 text-xs text-green-400">
+                          <p className="mt-1 text-xs text-status-ok">
                             {q.options[q.correctIndex]}
                           </p>
                         ) : (
                           <div className="mt-1 space-y-0.5">
-                            <p className="text-xs text-red-400">
+                            <p className="text-xs text-status-error">
                               Your answer: {q.options[answer.selectedAnswer]}
                             </p>
-                            <p className="text-xs text-green-400">
+                            <p className="text-xs text-status-ok">
                               Correct: {q.options[q.correctIndex]}
                             </p>
                           </div>
@@ -109,8 +109,8 @@ export function ChapterBreakdownList({ bookId, chapters, tocTitles, sortMode, on
                       </div>
                       {improving !== null && (
                         <span className="shrink-0">
-                          {improving === true && <TrendingUp className="size-3.5 text-green-500" />}
-                          {improving === false && <TrendingDown className="size-3.5 text-red-500" />}
+                          {improving === true && <TrendingUp className="size-3.5 text-status-ok" />}
+                          {improving === false && <TrendingDown className="size-3.5 text-status-error" />}
                           {improving === 'stable' && <Minus className="size-3.5 text-content-muted" />}
                         </span>
                       )}

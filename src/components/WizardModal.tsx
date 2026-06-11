@@ -860,7 +860,7 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
                     }}
                     className={cn(
                       "w-[3.5rem] h-6 rounded-md border bg-surface-raised px-2 text-center text-xs text-content-primary outline-none tabular-nums",
-                      countError ? "border-red-500 ring-1 ring-red-500/30" : "border-border-focus ring-1 ring-border-focus/30"
+                      countError ? "border-status-error ring-1 ring-status-error/30" : "border-border-focus ring-1 ring-border-focus/30"
                     )}
                   />
                 ) : (
@@ -876,7 +876,7 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
                 <span className="ml-1.5 text-content-muted/60">{getChapterLabel(chapterCount)}</span>
               </span>
               {countError && (
-                <span className="absolute right-0 top-full text-[10px] text-red-400 mt-0.5">{countError}</span>
+                <span className="absolute right-0 top-full text-[10px] text-status-error mt-0.5">{countError}</span>
               )}
             </div>
             <TickSlider

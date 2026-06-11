@@ -16,7 +16,7 @@ function TaskIcon({ status }: { status: ClientTask['status'] }) {
     case 'running':
       return <Loader2 className="size-3.5 animate-spin text-[oklch(0.55_0.20_285)]" />
     case 'done':
-      return <CheckCircle2 className="size-3.5 text-green-500" />
+      return <CheckCircle2 className="size-3.5 text-status-ok" />
     case 'error':
       return <XCircle className="size-3.5 text-status-error" />
     case 'cancelled':

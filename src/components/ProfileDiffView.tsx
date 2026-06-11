@@ -28,8 +28,8 @@ function DecisionButtons({ id, decisions, onDecision }: { id: string; decisions:
         className={cn(
           'rounded-md p-1 transition-colors',
           decision === 'accepted'
-            ? 'text-emerald-400 bg-emerald-400/10'
-            : 'text-content-muted/40 hover:text-emerald-400',
+            ? 'text-emerald-600 bg-emerald-600/10 dark:text-emerald-400 dark:bg-emerald-400/10'
+            : 'text-content-muted/40 hover:text-emerald-600 dark:hover:text-emerald-400',
         )}
         aria-label="Accept change"
       >
@@ -40,8 +40,8 @@ function DecisionButtons({ id, decisions, onDecision }: { id: string; decisions:
         className={cn(
           'rounded-md p-1 transition-colors',
           decision === 'rejected'
-            ? 'text-red-400 bg-red-400/10'
-            : 'text-content-muted/40 hover:text-red-400',
+            ? 'text-red-600 bg-red-600/10 dark:text-red-400 dark:bg-red-400/10'
+            : 'text-content-muted/40 hover:text-red-600 dark:hover:text-red-400',
         )}
         aria-label="Reject change"
       >
@@ -77,17 +77,17 @@ function DiffSection({ title, changes, decisions, onDecision }: { title: string;
             >
               <div className="flex-1 min-w-0 text-sm">
                 {change.type === 'added' && (
-                  <span className="text-emerald-400">+ {change.label} {change.newValue && <span className="text-content-muted">({change.newValue})</span>}</span>
+                  <span className="font-medium text-emerald-700 dark:text-emerald-400">+ {change.label} {change.newValue && <span className="font-normal text-content-muted">({change.newValue})</span>}</span>
                 )}
                 {change.type === 'removed' && (
-                  <span className="text-red-400">- {change.label}</span>
+                  <span className="font-medium text-red-600 dark:text-red-400">- {change.label}</span>
                 )}
                 {change.type === 'changed' && (
                   <span>
                     <span className="text-content-secondary">{change.label}: </span>
-                    <span className="text-red-400/80 line-through">{change.oldValue}</span>
+                    <span className="text-red-600 line-through dark:text-red-400/80">{change.oldValue}</span>
                     <span className="text-content-muted mx-1.5">&rarr;</span>
-                    <span className="text-emerald-400">{change.newValue}</span>
+                    <span className="font-medium text-emerald-700 dark:text-emerald-400">{change.newValue}</span>
                   </span>
                 )}
               </div>
@@ -124,10 +124,10 @@ function AboutMeDiff({ oldText, newText, decisions, onDecision }: { oldText: str
       )}>
         {segments.map((segment, i) => {
           if (segment.removed) {
-            return <span key={i} className="text-red-400/80 bg-red-500/10 line-through rounded-sm">{segment.value}</span>
+            return <span key={i} className="text-red-700 dark:text-red-400/80 bg-red-500/10 line-through rounded-sm">{segment.value}</span>
           }
           if (segment.added) {
-            return <span key={i} className="text-emerald-400/80 bg-emerald-500/10 rounded-sm">{segment.value}</span>
+            return <span key={i} className="text-emerald-700 dark:text-emerald-400/80 bg-emerald-500/10 rounded-sm">{segment.value}</span>
           }
           return <span key={i} className="text-content-muted/70">{segment.value}</span>
         })}

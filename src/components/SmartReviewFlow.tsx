@@ -139,8 +139,8 @@ export function SmartReviewFlow({ queue, tocTitles, onRecordAttempt, onComplete 
         <div className="flex justify-center gap-2 mb-4">
           {Array.from({ length: state.groupTotal }).map((_, i) => (
             i < state.groupScore
-              ? <CheckCircle2 key={i} className="size-6 text-green-500" />
-              : <XCircle key={i} className="size-6 text-red-500/60" />
+              ? <CheckCircle2 key={i} className="size-6 text-status-ok" />
+              : <XCircle key={i} className="size-6 text-status-error/70" />
           ))}
         </div>
         <h3 className="text-lg font-semibold">

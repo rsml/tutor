@@ -1,10 +1,10 @@
-import { AlertTriangle, ArrowLeft, BarChart3, ChevronLeft, ChevronRight, Loader2, MessageSquare, RefreshCw } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, Loader2, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from '@src/lib/toast'
 import { Button } from '@src/components/ui/button'
 import { SelectionTooltip } from '@src/components/SelectionTooltip'
 import { ChatPanel } from '@src/components/ChatPanel'
-import { SettingsMenu } from '@src/components/SettingsMenu'
+import { ReaderHeader } from '@src/components/ReaderHeader'
 import { useTextSelection } from '@src/hooks/useTextSelection'
 import { useSectionNavigation } from '@src/hooks/useSectionNavigation'
 import { useStreamingContent } from '@src/hooks/useStreamingContent'
@@ -243,6 +243,14 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     setChatOpen(false)
     setChatPrompt(null)
   }, [])
+
+  const handleChatToggle = useCallback(() => {
+    if (!chatOpen) {
+      setChatSelectedText('')
+      setChatPrompt(null)
+    }
+    setChatOpen(o => !o)
+  }, [chatOpen])
 
   const syncChapterCompleted = useCallback((chapNum: number) => {
     fetch(apiUrl(`/api/books/${book.id}/progress/${chapNum}`), {
@@ -580,49 +588,12 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
 
   return (
     <div className="flex h-screen flex-col text-content-primary">
-      {/* Header — drag region */}
-      <header
-        className="relative z-30 flex h-12 shrink-0 items-center border-b border-border-default/50 bg-surface-base/90 px-4 backdrop-blur-sm"
-        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-      >
-        <span className="absolute inset-x-0 pointer-events-none text-center text-sm font-semibold tracking-tight">
-          {book.title}
-        </span>
-
-        {/* Right controls */}
-        <div
-          className="ml-auto flex items-center gap-1"
-          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-        >
-          {onQuizReview && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={onQuizReview}
-              aria-label="Quiz review"
-              className="text-content-faint hover:text-content-muted"
-            >
-              <BarChart3 className="size-4" />
-            </Button>
-          )}
-          <SettingsMenu subtle />
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => {
-              if (!chatOpen) {
-                setChatSelectedText('')
-                setChatPrompt(null)
-              }
-              setChatOpen(o => !o)
-            }}
-            aria-label="Toggle chat"
-            className="text-content-faint hover:text-content-muted"
-          >
-            <MessageSquare className="size-4" />
-          </Button>
-        </div>
-      </header>
+      <ReaderHeader
+        title={book.title}
+        onQuizReview={onQuizReview}
+        chatOpen={chatOpen}
+        onChatToggle={handleChatToggle}
+      />
 
       {/* Chapter tabs */}
       {(phase === 'reading' || phase === 'generating' || phase === 'generation-error') && (

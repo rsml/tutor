@@ -100,7 +100,7 @@ export function GenerateAllModal({ open, onOpenChange, taskId, bookTitle, totalC
           )}
 
           {status === 'done' && (
-            <div className="flex items-center gap-2 text-sm text-green-500">
+            <div className="flex items-center gap-2 text-sm text-status-ok">
               <CheckCircle2 className="size-4" />
               All chapters generated!
             </div>
