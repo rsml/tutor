@@ -18,6 +18,7 @@ export function InterviewPanel({ open, onClose, onMissingApiKey }: InterviewPane
   const { messages, isStreaming, isComplete, profileResult, sendMessage, clearMessages } = useInterviewChat({ model, provider })
   const [input, setInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const sentInitialRef = useRef(false)
 
   // Auto-start interview when panel opens
@@ -46,6 +47,11 @@ export function InterviewPanel({ open, onClose, onMissingApiKey }: InterviewPane
     if (el) el.scrollTop = el.scrollHeight
   }, [messages])
 
+  // Focus the input when the panel opens
+  useEffect(() => {
+    if (open) requestAnimationFrame(() => inputRef.current?.focus())
+  }, [open])
+
   // Escape closes
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -64,6 +70,13 @@ export function InterviewPanel({ open, onClose, onMissingApiKey }: InterviewPane
     }
     sendMessage(trimmed)
     setInput('')
+    // Autosize only runs on user input, so collapse the height manually; refocus
+    // so clicking the send button doesn't strand focus on the button
+    const el = inputRef.current
+    if (el) {
+      el.style.height = 'auto'
+      el.focus()
+    }
   }
 
   if (!open) return null
@@ -116,6 +129,7 @@ export function InterviewPanel({ open, onClose, onMissingApiKey }: InterviewPane
           ) : (
             <div className="flex items-end gap-2 rounded-xl border border-border-default/50 bg-surface-raised px-3 py-2">
               <textarea
+                ref={inputRef}
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => {
@@ -126,8 +140,7 @@ export function InterviewPanel({ open, onClose, onMissingApiKey }: InterviewPane
                 }}
                 placeholder="Your answer..."
                 rows={1}
-                disabled={isStreaming}
-                className="flex-1 resize-none bg-transparent text-sm text-content-primary placeholder:text-content-muted/50 outline-none disabled:opacity-50"
+                className="flex-1 resize-none bg-transparent text-sm text-content-primary placeholder:text-content-muted/50 outline-none"
                 style={{ maxHeight: '120px' }}
                 onInput={e => {
                   const target = e.target as HTMLTextAreaElement

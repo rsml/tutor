@@ -34,6 +34,7 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
   const [contextMenu, setContextMenu] = useState<{ content: string; x: number; y: number } | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const isDraggingRef = useRef(false)
   const sentInitialRef = useRef(false)
   const userHasScrolledRef = useRef(false)
@@ -43,6 +44,11 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
     if (!open) {
       sentInitialRef.current = false
     }
+  }, [open])
+
+  // Focus the input when the panel opens
+  useEffect(() => {
+    if (open) requestAnimationFrame(() => inputRef.current?.focus())
   }, [open])
 
   // Sync messages to Redux for persistence (skip empty streaming placeholders)
@@ -199,6 +205,13 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
     }
     sendMessage(trimmed)
     setInput('')
+    // Autosize only runs on user input, so collapse the height manually; refocus
+    // so clicking the send button doesn't strand focus on the button
+    const el = inputRef.current
+    if (el) {
+      el.style.height = 'auto'
+      el.focus()
+    }
   }
 
   return (
@@ -286,6 +299,7 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
       <div className="shrink-0 border-t border-border-default/50 p-3">
         <div className="flex items-end gap-2 rounded-xl border border-border-default/50 bg-surface-raised px-3 py-2">
           <textarea
+            ref={inputRef}
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => {
