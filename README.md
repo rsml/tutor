@@ -12,6 +12,10 @@ Books suggested and generated just for you based on your feedback, quiz results,
   🎥 <a href="https://www.youtube.com/watch?v=XIXhGluiswI"><strong>Watch the talk — "Books that Learn how your Learn"</strong></a>
 </p>
 
+<p align="center">
+  🎥 <a href="https://rossmiller.dev/craft/tutor/"><strong>Read a blog post on how this works</strong></a>
+</p>
+
 ## How It Works
 
 ### 01 — Personalize
