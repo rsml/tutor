@@ -13,7 +13,7 @@ Books suggested and generated just for you based on your feedback, quiz results,
 </p>
 
 <p align="center">
-  🎥 <a href="https://rossmiller.dev/craft/tutor/"><strong>Read a blog post on how this works</strong></a>
+  📖 <a href="https://rossmiller.dev/craft/tutor/"><strong>Read a blog post on how this works</strong></a>
 </p>
 
 ## How It Works
