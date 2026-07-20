@@ -6,7 +6,8 @@ Make the repo mechanically verifiable before any code moves: characterization te
 
 ## Verified baseline (re-checked against the repo, not the digest)
 
-- `pnpm test` → 33 files, 384 tests, 2.43s, green. `npx tsc --noEmit` → exit 0, 2.7s wall. `pnpm lint` → 14 warnings, 0 errors (exact list in S4).
+- ~~`pnpm test` → 33 files, 384 tests, 2.43s, green.~~ **Corrected during execution:** that figure was measured in a checkout containing nested full-repo copies under `.worktrees/` and `.claude/worktrees/`, and vitest was collecting their test files too. 18 of the 33 files were not this project's. The true baseline is **15 files, 194 tests**. `tsconfig.json` `include` and the `lint` script were already scoped correctly, so only vitest was affected. Fixed by an `exclude` in `vitest.config.ts`, and the S3 acceptance target moved from ≥419 to ≥229 total tests accordingly.
+- `npx tsc --noEmit` → exit 0, 2.7s wall. `pnpm lint` → 14 warnings, 0 errors (exact list in S4).
 - `server/index.ts` exports only `startServer(port, host)`, which calls `recoverFromCrash()` then `fastify.listen()`. No injectable factory → S1 is required.
 - Filesystem seam already exists: `lib/data-dir.ts:getDataDir()` honours `process.env.TUTOR_DATA_DIR`. `book-store.ts` resolves it lazily per call; `key-store.ts` resolves it **at module load** (`const keysFile = join(getDataDir(), …)`), so env must be set before any import — a vitest `setupFiles` entry, not a `beforeEach`.
 - AI seam: `server/services/model-client.ts:createModelClient()` throws `No API key configured for provider: X` before constructing any SDK client. With `ANTHROPIC_API_KEY`/`OPENAI_API_KEY`/`GOOGLE_API_KEY` unset and an empty temp data dir (no `api-keys.json`), **no AI route can reach the network**. `models.ts` returns 400 before `fetch` when no key.
