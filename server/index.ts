@@ -11,6 +11,7 @@ import { importRoutes } from './routes/import.js'
 import { modelsRoutes } from './routes/models.js'
 import { audiobookRoutes } from './routes/audiobook.js'
 import { recoverFromCrash } from './services/book-store.js'
+import { registerErrorHandler } from './http/error-handler.js'
 
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
@@ -120,6 +121,12 @@ export async function buildServer(): Promise<FastifyInstance> {
     return results
   }) as (charts: string[]) => Promise<string[]>)
 
+  // MUST come before the route plugins below. Fastify only propagates an error
+  // handler to encapsulation contexts created after it is set, so registering
+  // it afterwards, as this file used to, left every route on Fastify's default
+  // handler and the app's own handler dead.
+  registerErrorHandler(fastify)
+
   await fastify.register(rateLimit, { global: false })
 
   await fastify.register(chatRoutes)
@@ -131,21 +138,6 @@ export async function buildServer(): Promise<FastifyInstance> {
   await fastify.register(importRoutes)
   await fastify.register(modelsRoutes)
   await fastify.register(audiobookRoutes)
-
-  // Global error handler — clean 404 for ENOENT, no path leak
-  fastify.setErrorHandler((error: Error & { code?: string; statusCode?: number }, request, reply) => {
-    if (error.code === 'ENOENT') {
-      return reply.status(404).send({ error: 'Not found' })
-    }
-    const statusCode = error.statusCode ?? 500
-    if (statusCode >= 500) {
-      fastify.log.error({ err: error, req: { method: request.method, url: request.url } }, 'Unhandled server error')
-      return reply.status(500).send({ error: 'Internal server error' })
-    }
-    reply.status(statusCode).send({
-      error: error.message || 'Internal server error',
-    })
-  })
 
   fastify.get('/api/health', async () => ({ status: 'ok' }))
 

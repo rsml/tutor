@@ -15,7 +15,7 @@ import { RequestValidationError } from './parse.js'
 
 describe('toErrorResponse', () => {
   it('renders a validation failure as the exact body the routes used to send', () => {
-    const issues = [{ path: ['topic'], message: 'Required' }]
+    const issues = [{ code: 'custom' as const, path: ['topic'], message: 'Required' }]
     const res = toErrorResponse(new RequestValidationError(issues))
     expect(res.status).toBe(400)
     expect(res.body).toEqual({ error: 'Invalid request', details: issues })

@@ -60,10 +60,13 @@ describe('audiobook engine routes (characterization)', () => {
       expect(res.json()).toEqual({ error: 'Unknown voice' })
     })
 
-    it('returns 400 via the AJV pattern shape for a voiceId that violates the pattern', async () => {
+    // CHANGED IN PHASE 2, sanctioned. Still 400, but the body moved from
+    // Fastify's raw validation shape to the app's `{error}` convention now
+    // that the error handler is registered ahead of the route plugins.
+    it('returns 400 in the app error shape for a voiceId that violates the pattern', async () => {
       const res = await app.inject({ method: 'GET', url: '/api/audiobook/voices/1/preview' })
       expect(res.statusCode).toBe(400)
-      expect(res.json().code).toBe('FST_ERR_VALIDATION')
+      expect(Object.keys(res.json())).toEqual(['error'])
     })
 
     it('returns 409 needsInstall for a known voice when the engine is not installed', async () => {
