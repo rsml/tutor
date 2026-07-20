@@ -11,7 +11,7 @@ interface ChapterBreakdownListProps {
   onRetake: (chapterNum: number) => void
 }
 
-export function ChapterBreakdownList({ bookId, chapters, tocTitles, sortMode, onRetake }: ChapterBreakdownListProps) {
+export function ChapterBreakdownList({ bookId: _bookId, chapters, tocTitles, sortMode, onRetake }: ChapterBreakdownListProps) {
   const [expandedChapter, setExpandedChapter] = useState<string | null>(null)
 
   const entries = Object.entries(chapters).map(([key, ch]) => ({

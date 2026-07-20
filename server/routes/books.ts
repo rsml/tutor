@@ -170,7 +170,7 @@ async function validateChapterNum(bookId: string, num: number): Promise<void> {
   const meta = await store.getBook(bookId)
   if (num < 1 || num > meta.totalChapters) {
     const err = new Error(`Chapter ${num} out of range (1-${meta.totalChapters})`)
-    ;(err as any).statusCode = 400
+    ;(err as Error & { statusCode?: number }).statusCode = 400
     throw err
   }
 }
@@ -1041,7 +1041,7 @@ Suggest profile updates based on this completed book. Return the complete update
       throw err
     }
 
-    const { topic, details, chapterCount, model, provider, quizModel, quizProvider, quizLength } = body
+    const { topic, details, chapterCount, model, provider } = body
 
     const bookId = randomUUID().slice(0, 12)
 
@@ -2056,7 +2056,7 @@ ${profileContext || 'No profile available.'}
 
   // --- MCP CRUD routes ---
 
-  fastify.post<{ Body: unknown }>('/api/books/create-skeleton', async (request, reply) => {
+  fastify.post<{ Body: unknown }>('/api/books/create-skeleton', async (request, _reply) => {
     const body = z.object({
       title: z.string().min(1),
       prompt: z.string().min(1),
@@ -2085,7 +2085,7 @@ ${profileContext || 'No profile available.'}
   fastify.put<{ Params: { id: string; num: string }; Body: unknown }>(
     '/api/books/:id/chapters/:num/content',
     { schema: { params: bookChapterSchema } },
-    async (request, reply) => {
+    async (request, _reply) => {
       const body = z.object({ content: z.string().min(1) }).parse(request.body)
       const chapterNum = parseInt(request.params.num)
       await validateChapterNum(request.params.id, chapterNum)
@@ -2097,7 +2097,7 @@ ${profileContext || 'No profile available.'}
   fastify.patch<{ Params: { id: string }; Body: unknown }>(
     '/api/books/:id/meta',
     { schema: { params: bookIdSchema } },
-    async (request, reply) => {
+    async (request, _reply) => {
       const body = z.object({
         status: BookStatusSchema.optional(),
         generatedUpTo: z.number().int().min(0).optional(),
@@ -2119,7 +2119,7 @@ ${profileContext || 'No profile available.'}
   fastify.put<{ Params: { id: string }; Body: unknown }>(
     '/api/books/:id/brief',
     { schema: { params: bookIdSchema } },
-    async (request, reply) => {
+    async (request, _reply) => {
       const body = z.object({ content: z.string().min(1) }).parse(request.body)
       await store.saveBrief(request.params.id, body.content)
       return { ok: true }
@@ -2138,7 +2138,7 @@ ${profileContext || 'No profile available.'}
   fastify.put<{ Params: { id: string; num: string }; Body: unknown }>(
     '/api/books/:id/summaries/:num',
     { schema: { params: bookChapterSchema } },
-    async (request, reply) => {
+    async (request, _reply) => {
       const body = z.object({
         summary: z.string().min(1),
         keyPoints: z.array(z.string()),
@@ -2162,7 +2162,7 @@ ${profileContext || 'No profile available.'}
   fastify.put<{ Params: { id: string }; Body: unknown }>(
     '/api/books/:id/toc',
     { schema: { params: bookIdSchema } },
-    async (request, reply) => {
+    async (request, _reply) => {
       const body = z.object({
         chapters: z.array(z.object({
           title: z.string(),
@@ -2190,7 +2190,7 @@ ${profileContext || 'No profile available.'}
   fastify.put<{ Params: { id: string; name: string }; Body: unknown }>(
     '/api/books/:id/references/:name',
     { schema: { params: bookRefSchema } },
-    async (request, reply) => {
+    async (request, _reply) => {
       const body = z.object({ content: z.string().min(1) }).parse(request.body)
       await store.saveReference(request.params.id, request.params.name, body.content)
       return { ok: true }
@@ -2227,7 +2227,7 @@ ${profileContext || 'No profile available.'}
   fastify.put<{ Params: { id: string; num: string }; Body: unknown }>(
     '/api/books/:id/quiz/:num',
     { schema: { params: bookChapterSchema } },
-    async (request, reply) => {
+    async (request, _reply) => {
       const body = z.object({
         questions: z.array(z.object({
           question: z.string(),
