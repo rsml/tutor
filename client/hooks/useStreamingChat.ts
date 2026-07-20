@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { apiUrl } from '@client/lib/api-base'
+import { apiUrl } from '@client/api/http'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'

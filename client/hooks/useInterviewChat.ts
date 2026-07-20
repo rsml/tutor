@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { apiUrl } from '@client/lib/api-base'
+import { apiUrl } from '@client/api/http'
 import type { ChatMessage } from '@client/hooks/useStreamingChat'
 
 interface ProfileResult {

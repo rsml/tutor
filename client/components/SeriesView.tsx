@@ -1,7 +1,7 @@
 import { ArrowLeft } from 'lucide-react'
 import { BookCard } from '@client/components/BookCard'
 import { NoiseOverlay } from '@client/components/NoiseOverlay'
-import { apiUrl } from '@client/lib/api-base'
+import { apiUrl } from '@client/api/http'
 import { isComplete } from '@shared/book-status'
 
 interface Book {

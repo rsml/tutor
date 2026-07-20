@@ -53,7 +53,7 @@ import {
   setModelAssignmentSeen,
 } from '@client/store'
 import { PROVIDERS, PROVIDER_IDS, type ProviderId } from '@client/lib/providers'
-import { apiUrl } from '@client/lib/api-base'
+import { apiUrl } from '@client/api/http'
 
 const CHAPTER_COUNTS = [1, 3, 6, 12, 25, 50]
 const CHAPTER_LABELS = ['Essay', 'Short', 'Novella', 'Standard', 'Long', 'Epic']

@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@client/components/ui/dialog'
-import { apiUrl } from '@client/lib/api-base'
+import { apiUrl } from '@client/api/http'
 import { type Preferences, DEFAULT_PREFS } from '@client/lib/profile-constants'
 
 interface VoiceInfo {

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { X, Sparkles, Loader2 } from 'lucide-react'
 import { Button } from '@client/components/ui/button'
 import { useAppSelector, selectFunctionModel, selectHasApiKeyForFunction } from '@client/store'
-import { apiUrl } from '@client/lib/api-base'
+import { apiUrl } from '@client/api/http'
 
 interface Skill {
   name: string

@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@client/components/ui/dialog'
 import { TickSlider } from '@client/components/ui/tick-slider'
-import { apiUrl } from '@client/lib/api-base'
+import { apiUrl } from '@client/api/http'
 import { type Skill, type Preferences, BOOL_PREF_LABELS, BOOL_KEYS, SLIDER_PREFS, DEFAULT_PREFS } from '@client/lib/profile-constants'
 
 interface ProfileDialogProps {

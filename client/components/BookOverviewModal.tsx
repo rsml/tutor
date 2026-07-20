@@ -9,7 +9,7 @@ import {
   DialogDescription,
 } from '@client/components/ui/dialog'
 import { useAppSelector } from '@client/store'
-import { apiUrl } from '@client/lib/api-base'
+import { apiUrl } from '@client/api/http'
 
 interface BookOverviewModalProps {
   open: boolean

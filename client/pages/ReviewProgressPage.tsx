@@ -3,7 +3,7 @@ import { ArrowLeft, Loader2, BookOpen } from 'lucide-react'
 import { ProgressStats } from '@client/components/ProgressStats'
 import { OverlaidBar } from '@client/components/OverlaidBar'
 import { NoiseOverlay } from '@client/components/NoiseOverlay'
-import { apiUrl } from '@client/lib/api-base'
+import { apiUrl } from '@client/api/http'
 
 interface SkillProgress {
   name: string

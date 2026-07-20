@@ -19,7 +19,7 @@ import {
 } from '@client/components/ui/dropdown-menu'
 import { TickSlider } from '@client/components/ui/tick-slider'
 import { useAppSelector, useAppDispatch, selectFunctionModel, selectHasApiKeyForFunction, selectDefaultChapterCount, selectAdvancedMode, setAdvancedMode } from '@client/store'
-import { apiUrl, getApiPort } from '@client/lib/api-base'
+import { apiUrl, getApiPort } from '@client/api/http'
 import { generateMcpConfig } from '@client/lib/mcp-config'
 import { cn } from '@client/lib/utils'
 import { store } from '@client/store'

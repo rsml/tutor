@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-// api-base holds module-scoped readiness + base-url state. Each test imports
-// a fresh copy via vi.resetModules() so cases can't leak _base/_ready between
-// each other.
-type ApiBase = typeof import('./api-base')
+// The http transport holds module-scoped readiness and base-url state. Each
+// test imports a fresh copy via vi.resetModules() so cases can't leak
+// _base/_ready between each other.
+type Http = typeof import('./http')
 
-async function loadFresh(): Promise<ApiBase> {
+async function loadFresh(): Promise<Http> {
   vi.resetModules()
-  return await import('./api-base')
+  return await import('./http')
 }
 
 interface FakeElectronAPI {
