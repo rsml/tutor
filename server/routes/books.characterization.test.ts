@@ -11,26 +11,26 @@ import * as store from '../services/book-store.js'
 // under test — see ai-routes.characterization.test.ts for the AI paths).
 //
 // FROZEN QUIRK — confirmed with a real listening server + real HTTP fetch,
-// not just fastify.inject: buildServer() in server/index.ts calls
-// fastify.setErrorHandler(...) AFTER every route plugin has already been
-// awaited through fastify.register(...). Because each register() call fully
-// resolves before the next line runs, every route inside those plugins
-// (this includes all nine registered plugins, not just bookRoutes) boots
-// against Fastify's OWN default error handler, never the app's custom one.
-// Concretely, for any error that isn't caught and hand-formatted inside the
-// route handler itself:
-//   - An uncaught ENOENT (e.g. store.getBook on a missing book) returns 500
-//     with Fastify's generic shape, not the intended 404 { error: 'Not
-//     found' }. "Not found" is not reachable today for this class of error.
-//   - AJV param-schema violations (id/num pattern mismatches) return
-//     Fastify's own validation-error shape, not a reformatted one.
-//   - A manually-thrown Error with only `.statusCode` set (no `.code`), like
-//     validateChapterNum's out-of-range error, still lands on the right
-//     status code (Fastify's default handler also reads `.statusCode`), but
-//     in Fastify's own shape rather than the custom { error: message } one.
-// This is not something this chain's spec is allowed to fix — S1 only
-// permits extracting buildServer() verbatim, and this ordering was already
-// present in the pre-extraction startServer(). It is recorded here as-is.
+// RESOLVED IN PHASE 2 — this note is kept because it explains why several
+// assertions below carry a "CHANGED IN PHASE 2" comment.
+//
+// Phase 0 recorded a real defect here: buildServer() called
+// fastify.setErrorHandler(...) AFTER every route plugin had already been
+// awaited through fastify.register(...). Fastify only propagates an error
+// handler to encapsulation contexts created after it is set, so every route
+// in all nine plugins booted against Fastify's OWN default handler and the
+// app's handler never ran. Phase 0 froze that broken behaviour deliberately,
+// since its remit was to extract buildServer() verbatim, not to fix it.
+//
+// Phase 2 moved the registration ahead of the route plugins, which was the
+// sanctioned fix. The behaviours that changed, all recorded individually
+// below, are:
+//   - An uncaught ENOENT now returns 404 { error: 'Not found' } instead of a
+//     500 whose message contained an absolute filesystem path.
+//   - AJV param violations and manually-thrown errors carrying only
+//     `.statusCode` keep their status code but now render in the app's
+//     { error } shape rather than Fastify's { statusCode, code, error,
+//     message }. That shape is what client/lib/api.ts already reads.
 
 describe('books routes (characterization)', () => {
   let app: FastifyInstance
@@ -72,20 +72,25 @@ describe('books routes (characterization)', () => {
       expect(body.generation).toEqual({ active: false })
     })
 
-    it('returns 500 (not the intended 404) for an unknown id — see FROZEN QUIRK above', async () => {
+    // CHANGED IN PHASE 2, sanctioned. Was 500 with Fastify's generic shape and
+    // an absolute filesystem path in `message`. The error handler is now
+    // registered before the route plugins, so ENOENT reaches it and 404s.
+    it('returns 404 for an unknown id, without leaking a filesystem path', async () => {
       const res = await app.inject({ method: 'GET', url: '/api/books/does-not-exist' })
-      expect(res.statusCode).toBe(500)
-      const body = res.json()
-      expect(body.code).toBe('ENOENT')
-      expect(Object.keys(body).sort()).toEqual(['code', 'error', 'message', 'statusCode'])
+      expect(res.statusCode).toBe(404)
+      expect(res.json()).toEqual({ error: 'Not found' })
+      expect(res.body).not.toContain('/Users/')
     })
 
-    it('returns 400 via Fastify\'s own validation shape for an id that violates the id pattern', async () => {
+    // CHANGED IN PHASE 2, sanctioned. Status is still 400. Only the body shape
+    // moved, from Fastify's raw `{statusCode, code, error, message}` to the
+    // app's own `{error}` convention, which is what client/lib/api.ts reads.
+    it('returns 400 in the app error shape for an id that violates the id pattern', async () => {
       const res = await app.inject({ method: 'GET', url: '/api/books/UPPERCASE' })
       expect(res.statusCode).toBe(400)
       const body = res.json()
-      expect(body.code).toBe('FST_ERR_VALIDATION')
-      expect(Object.keys(body).sort()).toEqual(['code', 'error', 'message', 'statusCode'])
+      expect(Object.keys(body)).toEqual(['error'])
+      expect(body.error).toContain('params/id')
     })
   })
 
@@ -117,15 +122,17 @@ describe('books routes (characterization)', () => {
   })
 
   describe('DELETE /api/books/:id', () => {
-    it('deletes the book; a follow-up GET hits the same 500 ENOENT quirk as an unknown id', async () => {
+    // CHANGED IN PHASE 2, sanctioned. The follow-up GET now 404s like any
+    // other missing book, rather than 500ing through the ENOENT quirk.
+    it('deletes the book; a follow-up GET now returns a clean 404', async () => {
       const meta = await seedBook()
       const res = await app.inject({ method: 'DELETE', url: `/api/books/${meta.id}` })
       expect(res.statusCode).toBe(200)
       expect(res.json()).toEqual({ ok: true })
 
       const getRes = await app.inject({ method: 'GET', url: `/api/books/${meta.id}` })
-      expect(getRes.statusCode).toBe(500)
-      expect(getRes.json().code).toBe('ENOENT')
+      expect(getRes.statusCode).toBe(404)
+      expect(getRes.json()).toEqual({ error: 'Not found' })
     })
   })
 
@@ -177,27 +184,32 @@ describe('books routes (characterization)', () => {
       expect(typeof res.json().content).toBe('string')
     })
 
-    it('returns 400 when the chapter number exceeds totalChapters, via the same non-custom shape (statusCode + message, no code)', async () => {
+    // CHANGED IN PHASE 2, sanctioned. Status and message text are unchanged.
+    // The thrown error carries only `.statusCode`, so it now renders through
+    // the app's `{error: message}` shape instead of Fastify's default one.
+    it('returns 400 in the app error shape when the chapter number exceeds totalChapters', async () => {
       const meta = await seedBook({ totalChapters: 2, generatedUpTo: 1 })
       const res = await app.inject({ method: 'GET', url: `/api/books/${meta.id}/chapters/5` })
       expect(res.statusCode).toBe(400)
       const body = res.json()
-      expect(body.message).toContain('Chapter 5 out of range')
-      expect(Object.keys(body).sort()).toEqual(['error', 'message', 'statusCode'])
+      expect(Object.keys(body)).toEqual(['error'])
+      expect(body.error).toContain('Chapter 5 out of range')
     })
 
-    it('returns 400 via the AJV pattern shape for a non-numeric chapter param', async () => {
+    // CHANGED IN PHASE 2, sanctioned. Still 400, now in the app error shape.
+    it('returns 400 in the app error shape for a non-numeric chapter param', async () => {
       const meta = await seedBook()
       const res = await app.inject({ method: 'GET', url: `/api/books/${meta.id}/chapters/abc` })
       expect(res.statusCode).toBe(400)
-      expect(res.json().code).toBe('FST_ERR_VALIDATION')
+      expect(Object.keys(res.json())).toEqual(['error'])
     })
 
-    it('returns 400 via the AJV pattern shape for chapter 0', async () => {
+    // CHANGED IN PHASE 2, sanctioned. Still 400, now in the app error shape.
+    it('returns 400 in the app error shape for chapter 0', async () => {
       const meta = await seedBook()
       const res = await app.inject({ method: 'GET', url: `/api/books/${meta.id}/chapters/0` })
       expect(res.statusCode).toBe(400)
-      expect(res.json().code).toBe('FST_ERR_VALIDATION')
+      expect(Object.keys(res.json())).toEqual(['error'])
     })
   })
 
