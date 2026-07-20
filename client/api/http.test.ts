@@ -114,7 +114,7 @@ describe('initApiBase', () => {
   })
 })
 
-describe('tracedFetch', () => {
+describe('apiFetch', () => {
   let fetchSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
@@ -134,7 +134,7 @@ describe('tracedFetch', () => {
 
     const api = await loadFresh()
     await api.initApiBase()
-    const res = await api.tracedFetch('/api/test', { method: 'POST' })
+    const res = await api.apiFetch('/api/test', { method: 'POST' })
 
     expect(res.status).toBe(200)
     const actualCall = fetchSpy.mock.calls[1]
@@ -153,7 +153,7 @@ describe('tracedFetch', () => {
       .mockResolvedValueOnce(new Response('{"ok":true}', { status: 200 })) // retry
 
     const api = await loadFresh()
-    const res = await api.tracedFetch('/api/test', { method: 'POST' })
+    const res = await api.apiFetch('/api/test', { method: 'POST' })
 
     expect(res.status).toBe(200)
     // logDiagnostic called twice: initial failure, then recovered
@@ -184,7 +184,7 @@ describe('tracedFetch', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    await expect(api.tracedFetch('/api/test', { method: 'POST' })).rejects.toThrow('Failed to fetch')
+    await expect(api.apiFetch('/api/test', { method: 'POST' })).rejects.toThrow('Failed to fetch')
 
     expect(electron.logDiagnostic).toHaveBeenCalledTimes(2)
     const fatal = electron.logDiagnostic.mock.calls[1][0]
@@ -207,8 +207,138 @@ describe('tracedFetch', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const api = await loadFresh()
-    await expect(api.tracedFetch('/api/test', { method: 'POST' })).rejects.toThrow()
+    await expect(api.apiFetch('/api/test', { method: 'POST' })).rejects.toThrow()
     // We can't assert on logDiagnostic because window.electronAPI is absent in this
     // case — but the probe runs and the URL-resolved field tells the story.
+  })
+
+  it('omits the trace header when tracing is switched off', async () => {
+    // A GET carrying a custom header stops being a CORS-simple request, which
+    // costs a preflight round trip. The hot polls opt out for that reason, so
+    // the header has to be genuinely absent rather than merely empty.
+    const api = await loadFresh()
+    fetchSpy.mockResolvedValueOnce(new Response('[]', { status: 200 }))
+
+    await api.apiFetch('/api/books', { trace: false })
+
+    const headers = new Headers((fetchSpy.mock.calls[0][1] as RequestInit).headers)
+    expect(headers.has('X-Trace-Id')).toBe(false)
+  })
+
+  it('serialises a non-string body as JSON and declares the content type', async () => {
+    const api = await loadFresh()
+    fetchSpy.mockResolvedValueOnce(new Response('{}', { status: 200 }))
+
+    await api.apiFetch('/api/books', { method: 'POST', body: { title: 'Ada' } })
+
+    const init = fetchSpy.mock.calls[0][1] as RequestInit
+    expect(init.body).toBe('{"title":"Ada"}')
+    expect(new Headers(init.headers).get('Content-Type')).toBe('application/json')
+  })
+
+  it('sends no body at all when none was supplied', async () => {
+    const api = await loadFresh()
+    fetchSpy.mockResolvedValueOnce(new Response('{}', { status: 200 }))
+
+    await api.apiFetch('/api/books', { method: 'DELETE' })
+
+    const init = fetchSpy.mock.calls[0][1] as RequestInit
+    expect(init.body).toBeUndefined()
+    expect(new Headers(init.headers).has('Content-Type')).toBe(false)
+  })
+
+  it('forwards the abort signal', async () => {
+    const api = await loadFresh()
+    fetchSpy.mockResolvedValueOnce(new Response('{}', { status: 200 }))
+    const controller = new AbortController()
+
+    await api.apiFetch('/api/books', { signal: controller.signal })
+
+    expect((fetchSpy.mock.calls[0][1] as RequestInit).signal).toBe(controller.signal)
+  })
+})
+
+describe('request', () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch')
+  })
+  afterEach(() => {
+    fetchSpy.mockRestore()
+    uninstallWindow()
+    vi.restoreAllMocks()
+  })
+
+  it('parses the JSON body of a successful response', async () => {
+    const api = await loadFresh()
+    fetchSpy.mockResolvedValueOnce(new Response('{"id":"ada","title":"Ada"}', { status: 200 }))
+
+    await expect(api.request('/api/books/ada')).resolves.toEqual({ id: 'ada', title: 'Ada' })
+  })
+
+  it('resolves undefined for a no-content response', async () => {
+    // Several mutating routes answer 204. Calling json() on those throws, so
+    // the helper has to treat an empty body as an absent value.
+    const api = await loadFresh()
+    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }))
+
+    await expect(api.request('/api/books/ada')).resolves.toBeUndefined()
+  })
+
+  it('throws an ApiError carrying the status and the reason the server gave', async () => {
+    const api = await loadFresh()
+    fetchSpy.mockResolvedValueOnce(
+      new Response('{"error":"No API key configured for anthropic"}', { status: 400 }),
+    )
+
+    const failure = await api.request('/api/books/ada/generate-next', { method: 'POST' }).catch((e: unknown) => e)
+
+    expect(failure).toBeInstanceOf(api.ApiError)
+    expect(failure).toBeInstanceOf(Error)
+    expect((failure as InstanceType<typeof api.ApiError>).status).toBe(400)
+    expect((failure as Error).message).toBe('No API key configured for anthropic')
+  })
+
+  it('prefers the framework message field over the generic error field', async () => {
+    // Routes answer { error }. Fastify's own error serialiser answers
+    // { statusCode, error, message } where error is only the status name, so
+    // message is the more specific of the two whenever both are present.
+    const api = await loadFresh()
+    fetchSpy.mockResolvedValueOnce(new Response(
+      '{"statusCode":500,"error":"Internal Server Error","message":"read ENOENT"}',
+      { status: 500 },
+    ))
+
+    await expect(api.request('/api/books')).rejects.toThrow('read ENOENT')
+  })
+
+  it('falls back to the supplied message when the body carries no reason', async () => {
+    const api = await loadFresh()
+    fetchSpy.mockResolvedValueOnce(new Response('<html>gateway</html>', { status: 502 }))
+
+    await expect(api.request('/api/books', { fallbackMessage: 'Could not load books' }))
+      .rejects.toThrow('Could not load books')
+  })
+
+  it('falls back to the status when nothing else describes the failure', async () => {
+    const api = await loadFresh()
+    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 503 }))
+
+    await expect(api.request('/api/books')).rejects.toThrow('503')
+  })
+
+  it('keeps the parsed body on the error for callers that need the detail', async () => {
+    const api = await loadFresh()
+    fetchSpy.mockResolvedValueOnce(
+      new Response('{"error":"Invalid request","details":[{"path":["title"]}]}', { status: 400 }),
+    )
+
+    const failure = await api.request('/api/books', { method: 'POST' }).catch((e: unknown) => e)
+
+    expect((failure as InstanceType<typeof api.ApiError>).body).toEqual({
+      error: 'Invalid request',
+      details: [{ path: ['title'] }],
+    })
   })
 })
