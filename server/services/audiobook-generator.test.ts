@@ -8,7 +8,7 @@ import { stringify as stringifyYaml, parse as parseYaml } from 'yaml'
 
 // data-dir mock — every test gets its own temp dir.
 let testDir: string
-vi.mock('../../lib/data-dir.js', () => ({
+vi.mock('@shared/node/data-dir.js', () => ({
   getDataDir: () => testDir,
 }))
 

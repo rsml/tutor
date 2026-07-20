@@ -1,4 +1,4 @@
-import { getDataDir } from '../../lib/data-dir.js'
+import { getDataDir } from '@shared/node/data-dir.js'
 import { join } from 'node:path'
 import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync } from 'node:fs'
 

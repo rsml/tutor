@@ -7,7 +7,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { env } from '@huggingface/transformers'
 import { KokoroTTS } from 'kokoro-js'
-import { getDataDir } from '../../lib/data-dir.js'
+import { getDataDir } from '@shared/node/data-dir.js'
 
 const execFileAsync = promisify(execFile)
 

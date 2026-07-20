@@ -15,11 +15,11 @@ export default tseslint.config(
     },
   },
   {
-    files: ['client/**/*.{ts,tsx}'],
+    files: ['client/**/*.{ts,tsx}', 'shared/*.ts'],
     languageOptions: { globals: globals.browser },
   },
   {
-    files: ['server/**/*.ts', 'electron/**/*.ts', 'lib/**/*.ts'],
+    files: ['server/**/*.ts', 'electron/**/*.ts', 'shared/node/**/*.ts'],
     languageOptions: { globals: globals.node },
   },
   {
