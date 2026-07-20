@@ -3,8 +3,99 @@ import tseslint from 'typescript-eslint'
 import reactHooks from 'eslint-plugin-react-hooks'
 import globals from 'globals'
 
+/**
+ * Import boundaries between the four zones.
+ *
+ * client and server never touch each other. shared is the only meeting point
+ * and depends on neither. Inside shared, `shared/node/` is the Node-only corner
+ * and must never reach browser code, because importing it from the client would
+ * pull `process` into the renderer bundle.
+ *
+ * Each group lists both the alias form and the relative-escape form, since this
+ * rule matches on the import string rather than resolving paths. That pairing is
+ * what closes the gap for every form this repo can actually produce. The
+ * typescript-eslint version of the rule is used rather than the core one so that
+ * `import type` is covered too, and ESLint applies it to dynamic `import()` with
+ * a literal argument, which is the exact shape of the old electron to renderer
+ * violation this refactor removed.
+ */
+const forbid = (patterns) => ({
+  '@typescript-eslint/no-restricted-imports': ['error', { patterns }],
+})
+
+// shared/ may not reach outward into either application zone.
+const NO_APP_ZONES = {
+  group: ['@client/**', '**/client/**', '@server/**', '**/server/**'],
+  message: 'shared/ is the dependency root, so it may not import client or server.',
+}
+
+// Flat config replaces a rule rather than merging it when a later block matches
+// the same file, so the narrower shared/*.ts block below must restate the
+// patterns from the broader shared/**/*.ts block. Leaving them out silently
+// disabled the client and server restriction for every top-level shared file.
+const NO_NODE_CORNER = {
+  group: ['@shared/node/**', './node/**'],
+  message: 'Files directly in shared/ are browser-safe and may not import the Node-only shared/node/ corner.',
+}
+
+const boundaries = [
+  {
+    files: ['client/**/*.{ts,tsx}'],
+    rules: forbid([
+      {
+        group: ['@server/**', '**/server/**'],
+        message: 'client to server is forbidden. Call the API through the client API module, and share types via @shared/*.',
+      },
+      {
+        group: ['@shared/node/**', '**/shared/node/**'],
+        message: '@shared/node/* is Node-only and cannot run in the browser.',
+      },
+    ]),
+  },
+  {
+    files: ['server/**/*.ts'],
+    rules: forbid([
+      {
+        group: ['@client/**', '**/client/**'],
+        message: 'server to client is forbidden. Move anything both sides need into shared/.',
+      },
+    ]),
+  },
+  {
+    files: ['shared/**/*.ts'],
+    rules: forbid([NO_APP_ZONES]),
+  },
+  {
+    // Browser-safe shared modules only, meaning the files directly in shared/.
+    // shared/node/** is deliberately not matched here because it is allowed,
+    // and required, to use Node built-ins.
+    files: ['shared/*.ts'],
+    rules: forbid([NO_APP_ZONES, NO_NODE_CORNER]),
+  },
+  {
+    files: ['electron/**/*.ts'],
+    rules: forbid([
+      {
+        group: ['@client/**', '**/client/**'],
+        message: 'The Electron main process may not import renderer code. Put shared logic in shared/.',
+      },
+    ]),
+  },
+]
+
 export default tseslint.config(
-  { ignores: ['dist/**', 'dist-electron/**', 'release/**', 'books/**'] },
+  {
+    ignores: [
+      'dist/**',
+      'dist-electron/**',
+      'release/**',
+      'books/**',
+      // Nested git worktrees can hold full copies of this repo, including their
+      // own source tree. Linting them would report another branch's problems.
+      '.worktrees/**',
+      '.claude/worktrees/**',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -31,4 +122,5 @@ export default tseslint.config(
       }],
     },
   },
+  ...boundaries,
 )
