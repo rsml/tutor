@@ -2,6 +2,7 @@ import { ArrowLeft } from 'lucide-react'
 import { BookCard } from '@client/components/BookCard'
 import { NoiseOverlay } from '@client/components/NoiseOverlay'
 import { apiUrl } from '@client/lib/api-base'
+import { isComplete } from '@shared/book-status'
 
 interface Book {
   id: string
@@ -38,7 +39,7 @@ export function SeriesView({ seriesName, books, readingPositions, onBookClick, o
 
   const totalChapters = sortedBooks.reduce((sum, b) => sum + b.totalChapters, 0)
   const totalRead = sortedBooks.reduce((sum, b) => {
-    if (b.status === 'complete') return sum + b.totalChapters
+    if (isComplete(b.status)) return sum + b.totalChapters
     const pos = readingPositions[b.id]
     return sum + (pos != null ? pos.chapter + 1 : b.chaptersRead)
   }, 0)
@@ -82,7 +83,7 @@ export function SeriesView({ seriesName, books, readingPositions, onBookClick, o
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 lg:gap-8 xl:grid-cols-5">
             {sortedBooks.map((book) => {
               const pos = readingPositions[book.id]
-              const chaptersRead = book.status === 'complete'
+              const chaptersRead = isComplete(book.status)
                 ? book.totalChapters
                 : pos != null ? pos.chapter + 1 : book.chaptersRead
               return (

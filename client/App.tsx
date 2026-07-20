@@ -46,6 +46,7 @@ import { store, persistor, useAppSelector, useAppDispatch, setProviderApiKey, se
 import { PROVIDER_IDS } from '@client/lib/providers'
 import { apiUrl } from '@client/lib/api-base'
 import { previewEpub as previewEpubApi, confirmImport, type EpubPreview } from '@client/lib/api'
+import { isGenerating, isGeneratingToc, isAwaitingTocApproval, isReadable, isComplete } from '@shared/book-status'
 
 interface Book {
   id: string
@@ -247,7 +248,7 @@ export default function App() {
         const books = await res.json()
         setApiBooks(prev => {
           // Preserve optimistic generating books not yet on server
-          const generatingBooks = prev.filter(b => (b.status === 'generating' || b.status === 'generating_toc') && !books.some((sb: { id: string }) => sb.id === b.id))
+          const generatingBooks = prev.filter(b => isGenerating(b.status) && !books.some((sb: { id: string }) => sb.id === b.id))
           const serverBooks = books.map((b: { id: string; title: string; subtitle?: string; prompt?: string; totalChapters: number; generatedUpTo: number; status?: string; rating?: number; finalQuizScore?: number; finalQuizTotal?: number; hasCover?: boolean; showTitleOnCover?: boolean; coverUpdatedAt?: string | null; createdAt: string; tags: string[]; series?: string; seriesOrder?: number; sortOrder?: number; imported?: boolean; chaptersRead?: number; hasAudiobook?: boolean }) => ({
             id: b.id,
             title: b.title,
@@ -310,9 +311,9 @@ export default function App() {
     // - generating_toc/generating/failed/undefined: stay on the library —
     //   the reader has no chapter 1 to render, and these statuses either
     //   reflect an interrupted stream or transient progress.
-    if (book.status === 'toc_review') {
+    if (isAwaitingTocApproval(book.status)) {
       setView({ type: 'resuming', bookId: book.id })
-    } else if (book.status === 'reading' || book.status === 'complete') {
+    } else if (isReadable(book.status)) {
       setView({ type: 'reading', book })
     }
   }, [hasLoaded, apiBooks, lastViewedBookId])
@@ -333,11 +334,11 @@ export default function App() {
     // chapters into the reader. BookCard already disables clicks for the
     // active-generation statuses, but this is the defensive backstop.
     // Force an immediate persist write so a quick Cmd+Q can't race the debounced write.
-    if (book.status === 'toc_review') {
+    if (isAwaitingTocApproval(book.status)) {
       dispatch(setLastViewedBookId(book.id))
       persistor.flush().catch(() => {})
       setView({ type: 'resuming', bookId: book.id })
-    } else if (book.status === 'reading' || book.status === 'complete') {
+    } else if (isReadable(book.status)) {
       dispatch(setLastViewedBookId(book.id))
       persistor.flush().catch(() => {})
       setView({ type: 'reading', book })
@@ -415,7 +416,7 @@ export default function App() {
 
   // Poll for status updates when any book is generating
   useEffect(() => {
-    const hasGenerating = apiBooks.some(b => b.status === 'generating_toc' || b.status === 'generating')
+    const hasGenerating = apiBooks.some(b => isGenerating(b.status))
     if (!hasGenerating) return
 
     const interval = setInterval(fetchBooks, 1000)
@@ -426,7 +427,7 @@ export default function App() {
   // handler can prompt before quitting and accidentally killing a long
   // generation. Also wires a web-side beforeunload as a backstop.
   const runningTasks = useAppSelector(selectRunningTasks)
-  const streamingBookIds = apiBooks.filter(b => b.status === 'generating_toc' || b.status === 'generating').map(b => b.id)
+  const streamingBookIds = apiBooks.filter(b => isGenerating(b.status)).map(b => b.id)
   useEffect(() => {
     const labels = runningTasks.map(t => `${taskBusyLabel(t.type)} — ${t.bookTitle}`)
     // Streaming TOC/chapter writes aren't task-manager tasks; surface them
@@ -434,7 +435,7 @@ export default function App() {
     for (const bid of streamingBookIds) {
       const book = apiBooks.find(b => b.id === bid)
       const title = book?.title ?? bid
-      labels.push(book?.status === 'generating_toc'
+      labels.push(isGeneratingToc(book?.status)
         ? `Generating table of contents — ${title}`
         : `Generating chapter — ${title}`,
       )
@@ -495,13 +496,13 @@ export default function App() {
     // appear as generating_toc locally). Re-check the server before
     // deleting so we don't blow away a book that has already advanced
     // out of the cancellable window.
-    const candidate = apiBooks.find(b => b.status === 'generating_toc' || b.status === 'generating')
+    const candidate = apiBooks.find(b => isGenerating(b.status))
     if (candidate) {
       try {
         const res = await fetch(apiUrl(`/api/books/${candidate.id}`))
         if (res.ok) {
           const fresh = await res.json()
-          if (fresh.status === 'generating_toc' || fresh.status === 'generating') {
+          if (isGenerating(fresh.status)) {
             fetch(apiUrl(`/api/books/${candidate.id}`), { method: 'DELETE' }).catch(() => {})
             // Remove optimistic book immediately so it doesn't persist as a phantom
             setApiBooks(prev => prev.filter(b => b.id !== candidate.id))
@@ -889,7 +890,7 @@ export default function App() {
   const allBooks = apiBooks
 
   const classifyBook = useCallback((book: Book): 'finished' | 'in-progress' | 'not-started' => {
-    if (book.status === 'complete') return 'finished'
+    if (isComplete(book.status)) return 'finished'
     if (readingPositions[book.id] != null) return 'in-progress'
     return 'not-started'
   }, [readingPositions])
@@ -2002,7 +2003,7 @@ export default function App() {
                     seriesName: book.series,
                     bookCount: seriesBooks.length,
                     books: seriesBooks.map(b => {
-                      if (b.status === 'complete') return { book: b, chaptersRead: b.totalChapters }
+                      if (isComplete(b.status)) return { book: b, chaptersRead: b.totalChapters }
                       const pos = readingPositions[b.id]
                       return { book: b, chaptersRead: Math.max(b.chaptersRead, pos != null ? pos.chapter + 1 : 0) }
                     }),
@@ -2012,7 +2013,7 @@ export default function App() {
                   listItems.push({
                     type: 'book',
                     book,
-                    chaptersRead: book.status === 'complete' ? book.totalChapters : Math.max(book.chaptersRead, pos != null ? pos.chapter + 1 : 0),
+                    chaptersRead: isComplete(book.status) ? book.totalChapters : Math.max(book.chaptersRead, pos != null ? pos.chapter + 1 : 0),
                   })
                 }
               }
@@ -2097,7 +2098,7 @@ export default function App() {
                   const seriesBooks = seriesGroups.get(book.series) ?? []
                   const totalChapters = seriesBooks.reduce((s, b) => s + b.totalChapters, 0)
                   const chaptersRead = seriesBooks.reduce((s, b) => {
-                    if (b.status === 'complete') return s + b.totalChapters
+                    if (isComplete(b.status)) return s + b.totalChapters
                     const pos = readingPositions[b.id]
                     return s + Math.max(b.chaptersRead, pos != null ? pos.chapter + 1 : 0)
                   }, 0)
@@ -2138,7 +2139,7 @@ export default function App() {
                   }
                 } else {
                   const pos = readingPositions[book.id]
-                  const chaptersRead = book.status === 'complete'
+                  const chaptersRead = isComplete(book.status)
                     ? book.totalChapters
                     : Math.max(book.chaptersRead, pos != null ? pos.chapter + 1 : 0)
                   gridItemIds.push(book.id)
