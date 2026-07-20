@@ -44,7 +44,7 @@ import { ProfileUpdatePage } from '@client/pages/ProfileUpdatePage'
 import { useBackgroundTasks } from '@client/hooks/useBackgroundTasks'
 import { store, persistor, useAppSelector, useAppDispatch, setProviderApiKey, selectHasApiKey, selectFontSize, selectLibraryFilters, selectLibrarySort, selectLibraryView, clearLibraryFilters, setLibraryFilters, selectFunctionModel, selectLastViewedBookId, setLastViewedBookId, selectRunningTasks, DEFAULT_LIBRARY_FILTERS } from '@client/store'
 import { PROVIDER_IDS } from '@client/lib/providers'
-import { apiUrl } from '@client/lib/api-base'
+import { apiUrl } from '@client/api/http'
 import { previewEpub as previewEpubApi, confirmImport, type EpubPreview } from '@client/lib/api'
 import { isGenerating, isGeneratingToc, isAwaitingTocApproval, isReadable, isComplete } from '@shared/book-status'
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAppDispatch, useAppSelector, setPosition, migratePosition } from '@client/store'
 import { splitChapterIntoSections, type Section } from '@client/lib/split-sections'
-import { apiUrl } from '@client/lib/api-base'
+import { apiUrl } from '@client/api/http'
 
 interface UseSectionNavigationOptions {
   bookId: string

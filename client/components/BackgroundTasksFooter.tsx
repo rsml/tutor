@@ -9,7 +9,7 @@ import {
 } from '@client/components/ui/dialog'
 import { Button } from '@client/components/ui/button'
 import { useAppSelector, useAppDispatch, selectBackgroundTasks, selectRunningTasks, taskRemoved, type ClientTask } from '@client/store'
-import { apiUrl } from '@client/lib/api-base'
+import { apiUrl } from '@client/api/http'
 
 function TaskIcon({ status }: { status: ClientTask['status'] }) {
   switch (status) {

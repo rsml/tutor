@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Headphones, X } from 'lucide-react'
-import { apiUrl } from '@client/lib/api-base'
+import { apiUrl } from '@client/api/http'
 import { cn } from '@client/lib/utils'
 
 interface Props {

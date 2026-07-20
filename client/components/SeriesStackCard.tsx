@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { NoiseOverlay } from '@client/components/NoiseOverlay'
-import { apiUrl } from '@client/lib/api-base'
+import { apiUrl } from '@client/api/http'
 
 function stringToHue(str: string): number {
   let hash = 0

@@ -6,7 +6,7 @@ import { ReviseTocPanel } from '@client/components/ReviseTocPanel'
 import { useAppSelector, selectHasApiKeyForFunction, selectFunctionModel, selectFontSize, selectQuizLength } from '@client/store'
 import { useStreamingContent } from '@client/hooks/useStreamingContent'
 import { parseSSEStream } from '@client/lib/parse-sse-stream'
-import { apiUrl } from '@client/lib/api-base'
+import { apiUrl } from '@client/api/http'
 import { formatTocAsMarkdown } from '@client/lib/format-toc'
 import { toast } from '@client/lib/toast'
 

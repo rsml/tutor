@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { apiUrl } from '@client/lib/api-base'
+import { apiUrl } from '@client/api/http'
 import { useAppSelector, selectRunningTasks } from '@client/store'
 
 interface AudiobookStatus {

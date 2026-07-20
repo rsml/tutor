@@ -1,4 +1,4 @@
-import { apiUrl } from './api-base'
+import { apiUrl } from '@client/api/http'
 
 export interface SearchMatch {
   type: 'title' | 'toc' | 'chapter'

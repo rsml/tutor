@@ -5,7 +5,7 @@ import { ProfileDiffView, type DiffChange } from '@client/components/ProfileDiff
 import { ProfileEditView } from '@client/components/ProfileEditView'
 import { type Skill, type Preferences, BOOL_PREF_LABELS, SLIDER_PREFS, DEFAULT_PREFS } from '@client/lib/profile-constants'
 import { useAppSelector, selectFunctionModel } from '@client/store'
-import { apiUrl } from '@client/lib/api-base'
+import { apiUrl } from '@client/api/http'
 import { cn } from '@client/lib/utils'
 
 interface ProfileSuggestions {

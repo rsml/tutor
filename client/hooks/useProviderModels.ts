@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { useAppDispatch, useAppSelector, selectProviderModels, providerModelsLoading, providerModelsSuccess, providerModelsError } from '@client/store'
 import { PROVIDERS, IMAGE_MODELS, type ProviderId, type ModelOption } from '@client/lib/providers'
-import { apiUrl } from '@client/lib/api-base'
+import { apiUrl } from '@client/api/http'
 
 interface UseProviderModelsResult {
   chat: ModelOption[]

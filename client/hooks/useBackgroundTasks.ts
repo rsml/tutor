@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { toast } from '@client/lib/toast'
 import { store, useAppDispatch } from '@client/store'
 import { taskCreated, taskProgressUpdated, taskCompleted, taskFailed, taskCancelled } from '@client/store'
-import { apiUrl } from '@client/lib/api-base'
+import { apiUrl } from '@client/api/http'
 
 function taskDoneMessage(taskType?: string): string {
   switch (taskType) {

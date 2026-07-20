@@ -12,7 +12,7 @@ import {
   DialogDescription,
 } from '@client/components/ui/dialog'
 import { useAppSelector, selectFunctionModel } from '@client/store'
-import { apiUrl, tracedFetch } from '@client/lib/api-base'
+import { apiUrl, tracedFetch } from '@client/api/http'
 
 interface CoverGenerationModalProps {
   open: boolean
