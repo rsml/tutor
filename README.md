@@ -4,6 +4,8 @@
 
 Books suggested and generated just for you based on your feedback, quiz results, and unique learning style.
 
+Talks about this project live in [rsml/talks](https://github.com/rsml/talks).
+
 <p align="center">
   <img src="docs/screenshots/library.png" alt="Tutor library showing AI-generated books with custom covers" width="100%">
 </p>
