@@ -7,3 +7,4 @@ books/
 *.log
 .worktrees/
 .claude/worktrees/
+.DS_Store
