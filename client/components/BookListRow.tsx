@@ -1,6 +1,7 @@
 import { Headphones } from 'lucide-react'
 import { Badge } from '@client/components/ui/badge'
 import { StarRating } from '@client/components/StarRating'
+import { isGenerating as isGeneratingBook, isAwaitingTocApproval } from '@shared/book-status'
 
 interface Book {
   id: string
@@ -56,7 +57,7 @@ function formatRelativeDate(dateStr: string): string {
 
 export function BookListRow({ book, chaptersRead, onClick, onContextMenu, nested: _nested }: BookListRowProps) {
   const progress = book.totalChapters > 0 ? chaptersRead / book.totalChapters : 0
-  const isGenerating = book.status === 'generating_toc' || book.status === 'generating'
+  const isGenerating = isGeneratingBook(book.status)
   const maxVisibleTags = 3
 
   return (
@@ -81,7 +82,7 @@ export function BookListRow({ book, chaptersRead, onClick, onContextMenu, nested
               aria-label="Audiobook available"
             />
           )}
-          {book.status === 'toc_review' && (
+          {isAwaitingTocApproval(book.status) && (
             <Badge variant="outline" className="shrink-0 text-xs h-5 px-1.5">
               Awaiting approval
             </Badge>

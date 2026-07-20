@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { AlertTriangle, Loader2, FileDown, Headphones } from 'lucide-react'
 import { NoiseOverlay } from '@client/components/NoiseOverlay'
 import { StarRating } from '@client/components/StarRating'
+import { isGenerating as isGeneratingBook, isFailed as isFailedBook, isAwaitingTocApproval } from '@shared/book-status'
 
 function stringToHue(str: string): number {
   let hash = 0
@@ -33,8 +34,8 @@ const HALO_SHADOW = '0 24px 50px -12px rgba(0, 0, 0, 0.45), 0 10px 22px -8px rgb
 function BookCardInner({ title, subtitle, chaptersRead, totalChapters, status, rating, coverUrl, showTitleOnCover, imported, hasAudiobook, onClick, onContextMenu }: BookCardProps) {
   const hue = stringToHue(title)
   const progress = totalChapters > 0 ? chaptersRead / totalChapters : 0
-  const isGenerating = status === 'generating_toc' || status === 'generating'
-  const isFailed = status === 'failed'
+  const isGenerating = isGeneratingBook(status)
+  const isFailed = isFailedBook(status)
 
   return (
     <div className={`group relative card-lift ${isGenerating ? 'cursor-default' : 'cursor-pointer'}`} onClick={isGenerating ? undefined : onClick} onContextMenu={isGenerating ? undefined : onContextMenu}>
@@ -113,7 +114,7 @@ function BookCardInner({ title, subtitle, chaptersRead, totalChapters, status, r
             </div>
           )}
           {/* Awaiting approval badge (toc_review status) */}
-          {status === 'toc_review' && (
+          {isAwaitingTocApproval(status) && (
             <div className="absolute inset-x-3 bottom-3 flex items-center justify-center rounded-full border border-border-default/60 bg-transparent px-3 py-1 backdrop-blur-sm">
               <span className="text-xs font-medium text-content-muted">
                 Awaiting approval
