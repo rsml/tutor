@@ -3,7 +3,7 @@ import os from 'node:os'
 import { existsSync } from 'node:fs'
 import { readFile, mkdir, rename } from 'node:fs/promises'
 import { KokoroTTS, TextSplitterStream } from 'kokoro-js'
-import { getDataDir } from '../../lib/data-dir.js'
+import { getDataDir } from '@shared/node/data-dir.js'
 import {
   isInstalled as installerIsInstalled,
   getModelsDir,

@@ -11,7 +11,7 @@ import type { BookMeta, Feedback, LearningProfile, Quiz, Toc } from '../schemas.
 // This prevents tests from ever writing to the production data directory.
 let testDir: string
 
-vi.mock('../../lib/data-dir.js', () => ({
+vi.mock('@shared/node/data-dir.js', () => ({
   getDataDir: () => testDir,
 }))
 

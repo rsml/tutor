@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 // Mock data-dir so the installer always points at a temp dir.
 let testDir: string
 
-vi.mock('../../lib/data-dir.js', () => ({
+vi.mock('@shared/node/data-dir.js', () => ({
   getDataDir: () => testDir,
 }))
 

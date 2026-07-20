@@ -23,7 +23,7 @@ import {
   type ReferenceManifest,
   type AudiobookManifest,
 } from '../schemas.js'
-import { getDataDir } from '../../lib/data-dir.js'
+import { getDataDir } from '@shared/node/data-dir.js'
 
 function booksDir(): string {
   return join(getDataDir(), 'books')

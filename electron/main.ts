@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import { readFile, writeFile, mkdir, rm } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import { getDataDir } from '../lib/data-dir.js'
+import { getDataDir } from '@shared/node/data-dir.js'
 import { startServer } from '../server/index.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -379,8 +379,8 @@ app.whenReady().then(async () => {
   // Override mermaid renderer with Electron BrowserWindow-based renderer
   // (faster and works offline, unlike the kroki.io API fallback).
   // Renders to PNG <img> tags — SVGs render poorly in most e-readers.
-  const { sanitizeMermaidChart } = await import('../client/lib/sanitize-mermaid.js')
-  const { mermaidInitConfig } = await import('../lib/mermaid-theme.js')
+  const { sanitizeMermaidChart } = await import('@shared/sanitize-mermaid.js')
+  const { mermaidInitConfig } = await import('@shared/mermaid-theme.js')
 
   ;(server as unknown as { mermaidRenderer: unknown }).mermaidRenderer = async (charts: string[]) => {
     if (charts.length === 0) return []

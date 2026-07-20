@@ -21,6 +21,6 @@
       "@shared/*": ["./shared/*"]
     }
   },
-  "include": ["lib/**/*.ts", "server/**/*.ts", "client/**/*.ts", "client/**/*.tsx", "electron/**/*.ts"],
+  "include": ["shared/**/*.ts", "server/**/*.ts", "client/**/*.ts", "client/**/*.tsx", "electron/**/*.ts"],
   "exclude": ["node_modules", "dist", "dist-electron"]
 }

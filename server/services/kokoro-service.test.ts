@@ -6,7 +6,7 @@ import os from 'node:os'
 
 let testDir: string
 
-vi.mock('../../lib/data-dir.js', () => ({
+vi.mock('@shared/node/data-dir.js', () => ({
   getDataDir: () => testDir,
 }))
 

@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useState } from 'react'
 import mermaid from 'mermaid'
-import { mermaidInitConfig } from '../../lib/mermaid-theme'
-import { sanitizeMermaidChart } from '@client/lib/sanitize-mermaid'
+import { mermaidInitConfig } from '@shared/mermaid-theme'
+import { sanitizeMermaidChart } from '@shared/sanitize-mermaid'
 
 mermaid.initialize(mermaidInitConfig)
 
