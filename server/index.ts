@@ -1,4 +1,5 @@
 import Fastify from 'fastify'
+import type { FastifyInstance } from 'fastify'
 import rateLimit from '@fastify/rate-limit'
 import { chatRoutes } from './routes/chat.js'
 import { bookRoutes } from './routes/books.js'
@@ -25,7 +26,19 @@ function isAllowedOrigin(origin: string): boolean {
   return false
 }
 
-export async function startServer(port = 3147, host = '127.0.0.1') {
+/**
+ * Builds a fully wired Fastify instance: logger config, the CORS onRequest
+ * hook, the mermaidRenderer decoration, rate-limit registration, every route
+ * registration, and the global error handler plus health route.
+ *
+ * Does NOT call recoverFromCrash() and does NOT listen — the returned
+ * instance has not bound a port and has not run crash recovery. Callers
+ * (startServer, or tests/tooling via fastify.inject) own those steps
+ * themselves, so tests can inject requests against a real, fully-registered
+ * instance without starting a server or mutating on-disk book state via
+ * crash recovery.
+ */
+export async function buildServer(): Promise<FastifyInstance> {
   const fastify = Fastify({
     logger: {
       level: 'info',
@@ -135,6 +148,12 @@ export async function startServer(port = 3147, host = '127.0.0.1') {
   })
 
   fastify.get('/api/health', async () => ({ status: 'ok' }))
+
+  return fastify
+}
+
+export async function startServer(port = 3147, host = '127.0.0.1') {
+  const fastify = await buildServer()
 
   const recovery = await recoverFromCrash()
   if (recovery.booksReset.length > 0 || recovery.artifactsRemoved.length > 0) {
