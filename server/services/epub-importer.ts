@@ -6,7 +6,7 @@ import EPub_ from 'epub2'
 // epub2's default export is the module namespace; the actual class is on .default
 const EPub = (EPub_ as unknown as { default: typeof EPub_ }).default ?? EPub_
 import TurndownService from 'turndown'
-import type { BookMeta } from '../schemas.js'
+import type { BookMeta } from '@shared/domain.js'
 import { saveBook, saveToc, saveChapter, saveCover } from './book-store.js'
 
 export interface EpubPreview {

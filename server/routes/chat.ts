@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import { streamText } from 'ai'
 import { ZodError } from 'zod'
 import { createModelClient } from '../services/model-client.js'
-import { ChatBodySchema } from '../schemas.js'
+import { ChatBodySchema } from '@shared/domain.js'
 import { MARKDOWN_FORMATTING_RULES } from '../prompts/formatting-rules.js'
 
 const AI_TIMEOUT_MS = 5 * 60 * 1000

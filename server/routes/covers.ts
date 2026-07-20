@@ -6,7 +6,7 @@ import * as store from '../services/book-store.js'
 import { createModelClient } from '../services/model-client.js'
 import * as taskManager from '../services/task-manager.js'
 import { generateImageWithFallback } from '../services/image-generation.js'
-import { GenerateCoverBodySchema, UploadCoverBodySchema, SuggestCoverPromptBodySchema } from '../schemas.js'
+import { GenerateCoverBodySchema, UploadCoverBodySchema, SuggestCoverPromptBodySchema } from '@shared/domain.js'
 
 const bookIdSchema = {
   type: 'object' as const,

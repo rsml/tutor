@@ -5,7 +5,7 @@ import * as store from '../services/book-store.js'
 import { createModelClient } from '../services/model-client.js'
 import { z } from 'zod'
 import { generateObject } from 'ai'
-import { UpdateProfileBodySchema, InterviewChatBodySchema, CompleteProfileSchema, SuggestSkillsBodySchema } from '../schemas.js'
+import { UpdateProfileBodySchema, InterviewChatBodySchema, CompleteProfileSchema, SuggestSkillsBodySchema } from '@shared/domain.js'
 import { MARKDOWN_FORMATTING_RULES } from '../prompts/formatting-rules.js'
 
 const AI_TIMEOUT_MS = 5 * 60 * 1000

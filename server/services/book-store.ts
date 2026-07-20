@@ -22,7 +22,7 @@ import {
   type ChapterSummary,
   type ReferenceManifest,
   type AudiobookManifest,
-} from '../schemas.js'
+} from '@shared/domain.js'
 import { getDataDir } from '@shared/node/data-dir.js'
 
 function booksDir(): string {

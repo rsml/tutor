@@ -22,7 +22,7 @@ import {
   ChapterProgressSchema,
   BookStatusSchema,
   GenerateAudiobookBodySchema,
-} from '../schemas.js'
+} from '@shared/domain.js'
 import { isInstalled as isAudiobookEngineInstalled } from '../services/audiobook-installer.js'
 import { generateAudiobook } from '../services/audiobook-generator.js'
 import { listVoices } from '../services/kokoro-service.js'
