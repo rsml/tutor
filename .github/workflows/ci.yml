@@ -14,7 +14,13 @@ concurrency:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # macOS, not Linux. Tutor ships as a notarized macOS DMG and parts of the
+    # product are deliberately macOS only. server/services/audiobook-installer.ts
+    # throws "Automatic ffmpeg install not yet supported on linux", and its tests
+    # assert the macOS install paths and download sizes, so a Linux runner fails
+    # on correct code. Running CI on the platform the app actually targets keeps
+    # the suite honest instead of weakening those assertions.
+    runs-on: macos-14
     env:
       ELECTRON_SKIP_BINARY_DOWNLOAD: 1
     steps:
