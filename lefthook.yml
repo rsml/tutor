@@ -1,8 +1,15 @@
+# Mirrors the checks in .github/workflows/ci.yml. Keep this file in sync
+# with that workflow whenever the CI steps change.
 pre-commit:
   parallel: true
   commands:
     lint:
       glob: "*.{ts,tsx}"
-      run: npx eslint {staged_files}
+      run: pnpm exec eslint --max-warnings 0 {staged_files}
     typecheck:
-      run: npx tsc --noEmit
+      run: pnpm typecheck
+
+pre-push:
+  commands:
+    test:
+      run: pnpm test
