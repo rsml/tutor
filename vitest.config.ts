@@ -1,4 +1,7 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
+
+const zone = (name: string) => fileURLToPath(new URL(`./${name}`, import.meta.url))
 
 export default defineConfig({
   test: {
@@ -21,8 +24,9 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@server': new URL('./server', import.meta.url).pathname,
-      '@client': new URL('./client', import.meta.url).pathname,
+      '@server': zone('server'),
+      '@client': zone('client'),
+      '@shared': zone('shared'),
     },
   },
 })
