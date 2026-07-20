@@ -22,7 +22,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@server': new URL('./server', import.meta.url).pathname,
-      '@src': new URL('./src', import.meta.url).pathname,
+      '@client': new URL('./client', import.meta.url).pathname,
     },
   },
 })

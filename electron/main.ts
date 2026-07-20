@@ -379,7 +379,7 @@ app.whenReady().then(async () => {
   // Override mermaid renderer with Electron BrowserWindow-based renderer
   // (faster and works offline, unlike the kroki.io API fallback).
   // Renders to PNG <img> tags — SVGs render poorly in most e-readers.
-  const { sanitizeMermaidChart } = await import('../src/lib/sanitize-mermaid.js')
+  const { sanitizeMermaidChart } = await import('../client/lib/sanitize-mermaid.js')
   const { mermaidInitConfig } = await import('../lib/mermaid-theme.js')
 
   ;(server as unknown as { mermaidRenderer: unknown }).mermaidRenderer = async (charts: string[]) => {

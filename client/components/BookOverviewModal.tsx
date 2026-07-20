@@ -1,0 +1,87 @@
+import { useEffect, useState } from 'react'
+import { Loader2, CheckCircle2, Circle } from 'lucide-react'
+import {
+  Dialog,
+  ScrollableDialogContent,
+  ScrollableDialogHeader,
+  ScrollableDialogBody,
+  DialogTitle,
+  DialogDescription,
+} from '@client/components/ui/dialog'
+import { useAppSelector } from '@client/store'
+import { apiUrl } from '@client/lib/api-base'
+
+interface BookOverviewModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  book: { id: string; title: string; subtitle?: string; totalChapters: number }
+}
+
+interface TocChapter {
+  title: string
+  description: string
+}
+
+export function BookOverviewModal({ open, onOpenChange, book }: BookOverviewModalProps) {
+  const [toc, setToc] = useState<TocChapter[]>([])
+  const [prompt, setPrompt] = useState('')
+  const [loading, setLoading] = useState(true)
+  const currentChapter = useAppSelector(s => s.readingProgress.positions[book.id]?.chapter ?? -1)
+
+  useEffect(() => {
+    if (!open) return
+    setLoading(true)
+    Promise.all([
+      fetch(apiUrl(`/api/books/${book.id}/toc`)).then(r => r.json()),
+      fetch(apiUrl(`/api/books/${book.id}`)).then(r => r.json()),
+    ])
+      .then(([tocData, metaData]) => {
+        setToc(tocData.chapters || [])
+        setPrompt(metaData.prompt || '')
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [open, book.id])
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <ScrollableDialogContent className="sm:max-w-lg" maxHeight="80vh">
+        <ScrollableDialogHeader>
+          <DialogTitle>{book.title}</DialogTitle>
+          {book.subtitle && <p className="text-sm text-content-muted">{book.subtitle}</p>}
+          {prompt && <DialogDescription>{prompt}</DialogDescription>}
+        </ScrollableDialogHeader>
+        <ScrollableDialogBody>
+
+        {loading ? (
+          <div className="flex items-center gap-2 py-8 justify-center text-content-muted">
+            <Loader2 className="size-4 animate-spin" />
+            <span className="text-sm">Loading...</span>
+          </div>
+        ) : (
+          <div className="space-y-2 py-2">
+            {toc.map((ch, i) => {
+              const read = i <= currentChapter
+              return (
+                <div key={i} className="flex items-start gap-3">
+                  {read ? (
+                    <CheckCircle2 className="size-4 shrink-0 mt-0.5 text-status-ok" />
+                  ) : (
+                    <Circle className="size-4 shrink-0 mt-0.5 text-content-faint" />
+                  )}
+                  <div>
+                    <p className={`text-sm font-medium ${read ? 'text-content-primary' : 'text-content-muted'}`}>
+                      {i + 1}. {ch.title}
+                    </p>
+                    <p className="text-xs text-content-muted/70">{ch.description}</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+        </ScrollableDialogBody>
+      </ScrollableDialogContent>
+    </Dialog>
+  )
+}

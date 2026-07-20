@@ -55,7 +55,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@src': new URL('./src', import.meta.url).pathname,
+      '@client': new URL('./client', import.meta.url).pathname,
     },
   },
   server: {
