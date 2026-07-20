@@ -1,6 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
+import { BookStatusSchema } from '@shared/book-status.js'
 
 const API_URL = process.env.TUTOR_API_URL ?? 'http://127.0.0.1:3147'
 
@@ -59,7 +60,7 @@ server.tool(
   'Update book metadata fields (status, generatedUpTo, title, subtitle)',
   {
     bookId: z.string().describe('Book ID'),
-    status: z.enum(['generating_toc', 'toc_review', 'generating', 'reading', 'complete', 'failed']).optional().describe('New book status'),
+    status: BookStatusSchema.optional().describe('New book status'),
     generatedUpTo: z.number().int().min(0).optional().describe('Last generated chapter number'),
     title: z.string().optional().describe('New title'),
     subtitle: z.string().optional().describe('New subtitle'),

@@ -9,6 +9,10 @@ import * as genManager from '../services/generation-manager.js'
 import * as taskManager from '../services/task-manager.js'
 import { parseTocFromMarkdown, truncateChapters } from '../services/toc-parser.js'
 import {
+  ChapterProgressSchema,
+  BookStatusSchema,
+} from '@shared/domain.js'
+import {
   CreateBookBodySchema,
   FeedbackBodySchema,
   GenerateNextBodySchema,
@@ -19,10 +23,8 @@ import {
   SuggestDetailsBodySchema,
   ReviseTocBodySchema,
   StartBookBodySchema,
-  ChapterProgressSchema,
-  BookStatusSchema,
   GenerateAudiobookBodySchema,
-} from '@shared/domain.js'
+} from '@shared/contracts.js'
 import { isInstalled as isAudiobookEngineInstalled } from '../services/audiobook-installer.js'
 import { generateAudiobook } from '../services/audiobook-generator.js'
 import { listVoices } from '../services/kokoro-service.js'
