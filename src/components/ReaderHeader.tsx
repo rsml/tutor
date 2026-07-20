@@ -9,7 +9,7 @@ interface ReaderHeaderProps {
   onChatToggle: () => void
 }
 
-export function ReaderHeader({ title, onQuizReview, chatOpen, onChatToggle }: ReaderHeaderProps) {
+export function ReaderHeader({ title, onQuizReview, chatOpen: _chatOpen, onChatToggle }: ReaderHeaderProps) {
   return (
     <header
       className="relative z-30 flex h-12 shrink-0 items-center border-b border-border-default/50 bg-surface-base/90 px-4 backdrop-blur-sm"
