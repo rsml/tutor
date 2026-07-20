@@ -14,7 +14,7 @@ import {
 } from './kokoro-service.js'
 import { getFfmpegPath } from './audiobook-installer.js'
 import { updateProgress, completeTask } from './task-manager.js'
-import type { AudiobookManifest, AudiobookChapterEntry } from '../schemas.js'
+import type { AudiobookManifest, AudiobookChapterEntry } from '@shared/domain.js'
 
 export interface GenerateAudiobookOpts {
   voiceId: string

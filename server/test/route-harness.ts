@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { FastifyInstance } from 'fastify'
-import type { BookMeta, Toc } from '../schemas.js'
+import type { BookMeta, Toc } from '@shared/domain.js'
 import { buildServer } from '../index.js'
 import * as store from '../services/book-store.js'
 

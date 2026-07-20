@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { SetApiKeyBodySchema, RemoveApiKeyBodySchema } from '../schemas.js'
+import { SetApiKeyBodySchema, RemoveApiKeyBodySchema } from '@shared/domain.js'
 import { setKey, removeKey, keyStatus } from '../services/key-store.js'
 import { ZodError } from 'zod'
 

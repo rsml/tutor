@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { ZodError } from 'zod'
-import { ImportEpubBodySchema, ImportEpubConfirmBodySchema } from '../schemas.js'
+import { ImportEpubBodySchema, ImportEpubConfirmBodySchema } from '@shared/domain.js'
 import { previewEpub, importEpub } from '../services/epub-importer.js'
 
 const BODY_LIMIT = 20 * 1024 * 1024 // 20MB to accommodate ~10MB EPUB as base64

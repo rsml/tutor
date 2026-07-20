@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { stringify as stringifyYaml } from 'yaml'
-import type { BookMeta, Feedback, LearningProfile, Quiz, Toc } from '../schemas.js'
+import type { BookMeta, Feedback, LearningProfile, Quiz, Toc } from '@shared/domain.js'
 
 // Mock getDataDir at module level so book-store ALWAYS uses temp dir.
 // This prevents tests from ever writing to the production data directory.

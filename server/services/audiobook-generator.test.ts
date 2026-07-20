@@ -3,7 +3,7 @@ import { mkdtemp, rm, mkdir, writeFile, readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import type { BookMeta, Toc, LearningProfile } from '../schemas.js'
+import type { BookMeta, Toc, LearningProfile } from '@shared/domain.js'
 import { stringify as stringifyYaml, parse as parseYaml } from 'yaml'
 
 // data-dir mock — every test gets its own temp dir.
