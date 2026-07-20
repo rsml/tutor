@@ -17,9 +17,9 @@
     "isolatedModules": true,
     "paths": {
       "@server/*": ["./server/*"],
-      "@src/*": ["./src/*"]
+      "@client/*": ["./client/*"]
     }
   },
-  "include": ["lib/**/*.ts", "server/**/*.ts", "src/**/*.ts", "src/**/*.tsx", "electron/**/*.ts"],
+  "include": ["lib/**/*.ts", "server/**/*.ts", "client/**/*.ts", "client/**/*.tsx", "electron/**/*.ts"],
   "exclude": ["node_modules", "dist", "dist-electron"]
 }

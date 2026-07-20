@@ -160,7 +160,7 @@ pnpm dev:server        # Fastify standalone on port 3147
 - YAML for all metadata, Markdown for chapter content
 - Vercel AI SDK (`ai` package) for all AI calls — prefer `generateObject()` for structured output
 - Tests colocated with source files (`*.test.ts`)
-- Path aliases: `@src/*` → `src/*`, `@server/*` → `server/*`
+- Path aliases: `@client/*` → `client/*`, `@server/*` → `server/*`
 
 ## Domain & Architecture (Aspirational)
 
