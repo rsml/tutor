@@ -17,7 +17,8 @@
     "isolatedModules": true,
     "paths": {
       "@server/*": ["./server/*"],
-      "@client/*": ["./client/*"]
+      "@client/*": ["./client/*"],
+      "@shared/*": ["./shared/*"]
     }
   },
   "include": ["lib/**/*.ts", "server/**/*.ts", "client/**/*.ts", "client/**/*.tsx", "electron/**/*.ts"],
