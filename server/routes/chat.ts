@@ -1,71 +1,12 @@
 import type { FastifyInstance } from 'fastify'
-import { streamText } from 'ai'
-import { ZodError } from 'zod'
-import { createModelClient } from '../services/model-client.js'
 import { ChatBodySchema } from '@shared/contracts.js'
-import { DEFAULT_PROVIDER } from '@shared/provider.js'
-import { MARKDOWN_FORMATTING_RULES } from '../prompts/formatting-rules.js'
-import { AI_GENERATION_TIMEOUT_MS, CHAT_CONTEXT_CHARS } from '../constants.js'
+import { parseBody } from '../http/parse.js'
+import { explainPassage } from '../services/explain-passage.js'
+import type { Ports } from '../composition-root.js'
 
-export async function chatRoutes(fastify: FastifyInstance) {
+export async function chatRoutes(fastify: FastifyInstance, opts: { ports: Ports }) {
   fastify.post<{ Body: unknown }>('/api/chat', { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (request, reply) => {
-    let body: {
-      model: string
-      provider?: string
-      chapterContent: string
-      selectedText: string
-      userMessage: string
-      history: Array<{ role: 'user' | 'assistant'; content: string }>
-    }
-    try {
-      body = ChatBodySchema.parse(request.body)
-    } catch (err) {
-      if (err instanceof ZodError) {
-        return reply.status(400).send({ error: 'Invalid request', details: err.issues })
-      }
-      throw err
-    }
-
-    const { model, provider, chapterContent, selectedText, userMessage, history } = body
-
-    const modelClient = createModelClient(provider ?? DEFAULT_PROVIDER, model)
-
-    const selectedTextSection = selectedText
-      ? `\n## The user specifically highlighted this passage:\n"${selectedText}"\n`
-      : ''
-
-    const noRepeatInstruction = selectedText
-      ? '\n- Never repeat the full selected passage back — the learner can see it'
-      : ''
-
-    const systemPrompt = `You are a concise, knowledgeable tutor helping a learner understand a book they are reading.
-
-## Full chapter content (for reference):
-${chapterContent.slice(0, CHAT_CONTEXT_CHARS)}
-${selectedTextSection}
-## Instructions:
-- Be concise and clear — aim for 2-4 short paragraphs max
-- Use concrete examples and analogies
-- If the learner asks a follow-up, build on your previous answers
-- Use markdown formatting where helpful (bold, lists, code blocks)${noRepeatInstruction}
-- Use the full chapter content above to inform your answers with surrounding context
-
-${MARKDOWN_FORMATTING_RULES}`
-
-    const messages = [
-      ...history.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
-      { role: 'user' as const, content: userMessage },
-    ]
-
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), AI_GENERATION_TIMEOUT_MS)
-
-    const result = streamText({
-      model: modelClient,
-      system: systemPrompt,
-      messages,
-      abortSignal: controller.signal,
-    })
+    const body = parseBody(ChatBodySchema, request.body)
 
     reply.raw.writeHead(200, {
       'Content-Type': 'text/plain; charset=utf-8',
@@ -74,10 +15,9 @@ ${MARKDOWN_FORMATTING_RULES}`
       Connection: 'keep-alive',
     })
 
-    for await (const chunk of result.textStream) {
+    for await (const chunk of explainPassage({ textGeneration: opts.ports.textGeneration }, body)) {
       reply.raw.write(chunk)
     }
-    clearTimeout(timer)
 
     reply.raw.end()
   })
