@@ -44,13 +44,14 @@ export function describeJobJournalContract(label: string, makeSubject: () => Job
     })
 
     // A record still present on disk can only mean the process died before
-    // clear() ran, so the reader reports the truth rather than echoing
-    // whatever status happened to be written at record time, 'running' in
-    // real use, but the contract proves this holds for any recorded value.
+    // clear() ran, so the reader reports the truth rather than echoing the
+    // status written at record time. Both values in the union are recorded
+    // here, and both must read back as 'interrupted', which pins that the
+    // reader overwrites rather than passes through.
     it("a recorded job comes back with status 'interrupted', whatever status it was recorded with", async () => {
       const subject = await makeSubject()
       subject.record({ ...JOB, id: 'job-a', status: 'running' })
-      subject.record({ ...JOB, id: 'job-b', status: 'some-other-status' })
+      subject.record({ ...JOB, id: 'job-b', status: 'interrupted' })
       await subject.flush()
 
       const jobs = await subject.listInterrupted()
