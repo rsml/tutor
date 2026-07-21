@@ -37,10 +37,17 @@ export type AiErrorKind =
   | 'content-refused'
   | 'unknown'
 
-/** GET /api/books/:id/generation-status — background chapter generation progress for one book. */
+/**
+ * GET /api/books/:id/generation-status — background chapter generation
+ * progress for one book. `error` is set on the active variant when a
+ * generation ended in error, including one that was interrupted by a
+ * server restart and seeded that way at boot rather than having actually
+ * streamed and failed live. The reader surfaces it through its existing
+ * generation-error panel either way.
+ */
 export type GenerationStatus =
   | { active: false }
-  | { active: true; chapterNum: number; stage: GenerationStage; contentLength: number }
+  | { active: true; chapterNum: number; stage: GenerationStage; contentLength: number; error?: string }
 
 /** GET /api/books/:id — book meta plus the current generation status. */
 export type BookDetail = BookMeta & { generation: GenerationStatus }
