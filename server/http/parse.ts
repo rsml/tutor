@@ -4,9 +4,10 @@ import type { z } from 'zod'
  * One way to validate a request body.
  *
  * Every route used to wrap `Schema.parse(request.body)` in its own try/catch,
- * check `err instanceof ZodError`, and hand-write the same 400 response. That
- * was repeated about thirty times, and the eight MCP authoring routes forgot
- * the guard entirely, so bad input there surfaced as a 500.
+ * check whether the caught error was a Zod validation error, and hand-write
+ * the same 400 response. That was repeated about thirty times, and the eight
+ * MCP authoring routes forgot the guard entirely, so bad input there
+ * surfaced as a 500.
  *
  * Fastify's own ajv `schema.body` validation was considered and rejected. It
  * produces a different 400 payload, which the client already depends on, and

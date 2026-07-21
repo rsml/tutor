@@ -16,9 +16,9 @@ import type { ProviderId } from '@shared/provider.js'
  * `signal` on every method means CANCELLATION ONLY, e.g. a "generate all
  * chapters" background task being cancelled. It is never a timeout. The
  * adapter owns the five-minute request timeout, by combining this signal
- * with its own `AbortSignal.timeout(...)`. Every current call site
- * hand-rolls a `createTimeout()`/`AbortController` pair for that timeout
- * today; this port is what lets all of those collapse into the adapter.
+ * with its own `AbortSignal.timeout(...)`. Every call site used to hand-roll
+ * its own timeout/`AbortController` pair; this port is what let all of those
+ * collapse into the adapter.
  */
 
 /** Which provider and model to call. Validating that the pair is well-formed is the adapter's job. */
