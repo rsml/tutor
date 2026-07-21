@@ -1,5 +1,5 @@
 import { createSelector, createSlice, type PayloadAction } from '@reduxjs/toolkit'
-import type { ChatMessage } from '@client/hooks/useStreamingChat'
+import type { ChatMessage } from '@client/features/chat/hooks/useStreamingChat'
 
 export interface ChatHistoryState {
   histories: Record<string, ChatMessage[]>
