@@ -1,10 +1,11 @@
-import type { GenerationStage, GenerationStatus } from '@shared/responses.js'
+import type { AiErrorKind, GenerationStage, GenerationStatus } from '@shared/responses.js'
 import type { GenerateChapterEvent } from '@shared/events.js'
 import type { GenerationJobParams } from '@shared/domain.js'
 import type { ProviderId } from '@shared/provider.js'
 import type { BookRepository } from '../ports/book-repository.js'
 import type { JobJournal } from '../ports/job-journal.js'
 import type { Clock } from '../ports/clock.js'
+import { TextGenerationError } from '../ports/text-generation.js'
 import { GENERATION_STREAM_CLEANUP_MS } from '../constants.js'
 import type { GenerateNextChapter, GenerateNextChapterOptions } from './generate-next-chapter.js'
 
@@ -35,6 +36,7 @@ interface GenerationState {
   cleanupTimer?: ReturnType<typeof setTimeout>
   doneData?: { chapterNum: number }
   error?: string
+  errorKind?: AiErrorKind
 }
 
 export interface GenerationOptions extends GenerateNextChapterOptions {
@@ -148,7 +150,14 @@ export function createChapterGenerationStream(deps: {
     } catch (error) {
       state.stage = 'error'
       state.error = error instanceof Error ? error.message : 'Generation failed'
-      emit(state, { type: 'error', message: state.error })
+      // Carry the failure class through to the client when the provider
+      // gave us one. The reader uses it to tell an unusable API key apart
+      // from a transient overload, so it can open the missing-key dialog
+      // instead of a toast the user cannot act on. Anything that is not a
+      // TextGenerationError, such as a parse failure this app raised
+      // itself, has no class and simply omits the field.
+      state.errorKind = error instanceof TextGenerationError ? error.kind : undefined
+      emit(state, { type: 'error', message: state.error, ...(state.errorKind ? { kind: state.errorKind } : {}) })
       scheduleCleanup(bookId, state)
     } finally {
       if (jobId && deps.journal) deps.journal.clear(jobId)
@@ -170,6 +179,7 @@ export function createChapterGenerationStream(deps: {
         stage: state.stage,
         contentLength: state.content.length,
         ...(state.error !== undefined ? { error: state.error } : {}),
+        ...(state.errorKind !== undefined ? { errorKind: state.errorKind } : {}),
       }
     },
 
@@ -195,7 +205,7 @@ export function createChapterGenerationStream(deps: {
         return () => {}
       }
       if (state.stage === 'error' && state.error) {
-        callback({ type: 'error', message: state.error })
+        callback({ type: 'error', message: state.error, ...(state.errorKind ? { kind: state.errorKind } : {}) })
         scheduleCleanup(bookId, state)
         return () => {}
       }

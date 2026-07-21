@@ -47,7 +47,7 @@ export type AiErrorKind =
  */
 export type GenerationStatus =
   | { active: false }
-  | { active: true; chapterNum: number; stage: GenerationStage; contentLength: number; error?: string }
+  | { active: true; chapterNum: number; stage: GenerationStage; contentLength: number; error?: string; errorKind?: AiErrorKind }
 
 /** GET /api/books/:id — book meta plus the current generation status. */
 export type BookDetail = BookMeta & { generation: GenerationStatus }
