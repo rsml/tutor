@@ -7,7 +7,9 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@client/components/ui/dialog'
-import { apiUrl } from '@client/api/http'
+import { subscribeToTaskEvents } from '@client/api'
+import { GENERATE_ALL_CANCELLED_CLOSE_MS, GENERATE_ALL_DONE_CLOSE_MS } from '@client/lib/constants'
+import type { TaskEvent } from '@shared/events'
 
 interface GenerateAllModalProps {
   open: boolean
@@ -15,6 +17,11 @@ interface GenerateAllModalProps {
   taskId: string
   bookTitle: string
   totalChapters: number
+}
+
+/** Only `task_created` nests its task id under `task` rather than at the top level. */
+function eventTaskId(event: TaskEvent): string {
+  return event.type === 'task_created' ? event.task.id : event.taskId
 }
 
 export function GenerateAllModal({ open, onOpenChange, taskId, bookTitle, totalChapters }: GenerateAllModalProps) {
@@ -25,42 +32,32 @@ export function GenerateAllModal({ open, onOpenChange, taskId, bookTitle, totalC
   useEffect(() => {
     if (!open || !taskId) return
 
-    const evtSource = new EventSource(apiUrl('/api/tasks/stream'))
+    return subscribeToTaskEvents(event => {
+      // Filter to our task
+      if (eventTaskId(event) !== taskId) return
 
-    evtSource.onmessage = (e) => {
-      try {
-        const event = JSON.parse(e.data)
-        // Filter to our task
-        if (event.taskId && event.taskId !== taskId) return
-        if (event.task && event.task.id !== taskId) return
-
-        switch (event.type) {
-          case 'task_progress':
-            setCurrent(event.progress.current)
-            break
-          case 'task_done':
-            setStatus('done')
-            // Auto-close after brief delay
-            setTimeout(() => onOpenChange(false), 1500)
-            break
-          case 'task_error':
-            setStatus('error')
-            setError(event.error)
-            break
-          case 'task_cancelled':
-            setStatus('cancelled')
-            setTimeout(() => onOpenChange(false), 1000)
-            break
-          case 'task_created':
-            if (event.task.id === taskId) {
-              setCurrent(event.task.progress.current)
-            }
-            break
-        }
-      } catch { /* ignore parse errors */ }
-    }
-
-    return () => evtSource.close()
+      switch (event.type) {
+        case 'task_progress':
+          setCurrent(event.progress.current)
+          break
+        case 'task_done':
+          setStatus('done')
+          // Auto-close after brief delay
+          setTimeout(() => onOpenChange(false), GENERATE_ALL_DONE_CLOSE_MS)
+          break
+        case 'task_error':
+          setStatus('error')
+          setError(event.error)
+          break
+        case 'task_cancelled':
+          setStatus('cancelled')
+          setTimeout(() => onOpenChange(false), GENERATE_ALL_CANCELLED_CLOSE_MS)
+          break
+        case 'task_created':
+          setCurrent(event.task.progress.current)
+          break
+      }
+    })
   }, [open, taskId, onOpenChange])
 
   const progress = totalChapters > 0 ? (current / totalChapters) * 100 : 0

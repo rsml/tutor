@@ -1,8 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { toast } from '@client/lib/toast'
 import { store, useAppDispatch } from '@client/store'
 import { taskCreated, taskProgressUpdated, taskCompleted, taskFailed, taskCancelled } from '@client/store'
-import { apiUrl } from '@client/api/http'
+import { subscribeToTaskEvents } from '@client/api'
+import type { TaskEvent } from '@shared/events'
 
 function taskDoneMessage(taskType?: string): string {
   switch (taskType) {
@@ -36,95 +37,76 @@ interface UseBackgroundTasksOptions {
   onAudiobookTaskFailed?: (taskType: 'install-audiobook' | 'generate-audiobook', bookId: string) => void
 }
 
-export function useBackgroundTasks({
-  onCoverGenerated,
-  onEpubExported,
-  onGenerateAllCompleted,
-  onAudiobookGenerated,
-  onAudiobookInstalled,
-  onAudiobookTaskFailed,
-}: UseBackgroundTasksOptions = {}) {
+export function useBackgroundTasks(options: UseBackgroundTasksOptions = {}) {
   const dispatch = useAppDispatch()
 
+  // App.tsx passes inline callbacks that get a new identity on every render,
+  // which used to sit directly in this effect's dependency array — tearing
+  // down and reopening the task stream on every unrelated App re-render
+  // rather than only when the stream itself needs to change. Reading the
+  // latest callbacks through a ref instead lets the effect depend on nothing
+  // but `dispatch`, so the subscription opens once and stays open.
+  const optionsRef = useRef(options)
+  optionsRef.current = options
+
   useEffect(() => {
-    let evtSource: EventSource | null = null
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
-
-    function connect() {
-      evtSource = new EventSource(apiUrl('/api/tasks/stream'))
-
-      evtSource.onmessage = (e) => {
-        try {
-          const event = JSON.parse(e.data)
-          switch (event.type) {
-            case 'task_created':
-              dispatch(taskCreated(event.task))
+    const handleEvent = (event: TaskEvent) => {
+      switch (event.type) {
+        case 'task_created':
+          dispatch(taskCreated(event.task))
+          break
+        case 'task_progress':
+          dispatch(taskProgressUpdated({ taskId: event.taskId, progress: event.progress }))
+          break
+        case 'task_done':
+          dispatch(taskCompleted({ taskId: event.taskId, result: event.result }))
+          toast.success(taskDoneMessage(event.taskType))
+          switch (event.taskType) {
+            case 'generate-cover':
+              optionsRef.current.onCoverGenerated?.()
               break
-            case 'task_progress':
-              dispatch(taskProgressUpdated({ taskId: event.taskId, progress: event.progress }))
+            case 'generate-all':
+              optionsRef.current.onGenerateAllCompleted?.()
               break
-            case 'task_done':
-              dispatch(taskCompleted({ taskId: event.taskId, result: event.result }))
-              toast.success(taskDoneMessage(event.taskType))
-              switch (event.taskType) {
-                case 'generate-cover':
-                  onCoverGenerated?.()
-                  break
-                case 'generate-all':
-                  onGenerateAllCompleted?.()
-                  break
-                case 'generate-epub': {
-                  const task = store.getState().backgroundTasks.tasks[event.taskId]
-                  if (task) onEpubExported?.(task.bookId, task.bookTitle)
-                  break
-                }
-                case 'generate-audiobook': {
-                  const task = store.getState().backgroundTasks.tasks[event.taskId]
-                  if (task) onAudiobookGenerated?.(task.bookId, task.bookTitle)
-                  break
-                }
-                case 'install-audiobook':
-                  onAudiobookInstalled?.()
-                  break
-              }
-              break
-            case 'task_error': {
+            case 'generate-epub': {
               const task = store.getState().backgroundTasks.tasks[event.taskId]
-              dispatch(taskFailed({ taskId: event.taskId, error: event.error }))
-              // Don't auto-dismiss audiobook/install errors -- they're long
-              // and the user needs to act on them. Other task errors keep
-              // the default duration.
-              const isStickyError = event.taskType === 'generate-audiobook' || event.taskType === 'install-audiobook'
-              toast.error(taskErrorMessage(event.taskType, event.error), isStickyError ? { duration: Infinity } : undefined)
-              if (task && (event.taskType === 'install-audiobook' || event.taskType === 'generate-audiobook')) {
-                onAudiobookTaskFailed?.(event.taskType, task.bookId)
-              }
+              if (task) optionsRef.current.onEpubExported?.(task.bookId, task.bookTitle)
               break
             }
-            case 'task_cancelled': {
+            case 'generate-audiobook': {
               const task = store.getState().backgroundTasks.tasks[event.taskId]
-              dispatch(taskCancelled({ taskId: event.taskId }))
-              if (task && (task.type === 'install-audiobook' || task.type === 'generate-audiobook')) {
-                onAudiobookTaskFailed?.(task.type, task.bookId)
-              }
+              if (task) optionsRef.current.onAudiobookGenerated?.(task.bookId, task.bookTitle)
               break
             }
+            case 'install-audiobook':
+              optionsRef.current.onAudiobookInstalled?.()
+              break
           }
-        } catch { /* ignore parse errors */ }
-      }
-
-      evtSource.onerror = () => {
-        evtSource?.close()
-        // Reconnect after 3s
-        reconnectTimer = setTimeout(connect, 3000)
+          break
+        case 'task_error': {
+          const task = store.getState().backgroundTasks.tasks[event.taskId]
+          dispatch(taskFailed({ taskId: event.taskId, error: event.error }))
+          // Don't auto-dismiss audiobook/install errors -- they're long
+          // and the user needs to act on them. Other task errors keep
+          // the default duration.
+          const isStickyError = event.taskType === 'generate-audiobook' || event.taskType === 'install-audiobook'
+          toast.error(taskErrorMessage(event.taskType, event.error), isStickyError ? { duration: Infinity } : undefined)
+          if (task && (event.taskType === 'install-audiobook' || event.taskType === 'generate-audiobook')) {
+            optionsRef.current.onAudiobookTaskFailed?.(event.taskType, task.bookId)
+          }
+          break
+        }
+        case 'task_cancelled': {
+          const task = store.getState().backgroundTasks.tasks[event.taskId]
+          dispatch(taskCancelled({ taskId: event.taskId }))
+          if (task && (task.type === 'install-audiobook' || task.type === 'generate-audiobook')) {
+            optionsRef.current.onAudiobookTaskFailed?.(task.type as 'install-audiobook' | 'generate-audiobook', task.bookId)
+          }
+          break
+        }
       }
     }
 
-    connect()
-
-    return () => {
-      evtSource?.close()
-      if (reconnectTimer) clearTimeout(reconnectTimer)
-    }
-  }, [dispatch, onCoverGenerated, onEpubExported, onGenerateAllCompleted, onAudiobookGenerated, onAudiobookInstalled, onAudiobookTaskFailed])
+    return subscribeToTaskEvents(handleEvent)
+  }, [dispatch])
 }
