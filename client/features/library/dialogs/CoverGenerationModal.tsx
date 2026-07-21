@@ -12,7 +12,7 @@ import {
   DialogDescription,
 } from '@client/components/ui/dialog'
 import { useAppSelector, selectFunctionModel } from '@client/store'
-import { apiUrl, apiFetch } from '@client/api/http'
+import { deleteCover, generateCover, suggestCoverPrompt, updateBook, uploadCover } from '@client/api'
 
 interface CoverGenerationModalProps {
   open: boolean
@@ -49,16 +49,7 @@ export function CoverGenerationModal({
     if (suggesting) return
     setSuggesting(true)
     try {
-      const res = await fetch(apiUrl(`/api/books/${bookId}/cover/suggest-prompt`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: textModel.provider, model: textModel.model }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Suggestion failed' }))
-        throw new Error(err.error)
-      }
-      const data = await res.json()
+      const data = await suggestCoverPrompt(bookId, { provider: textModel.provider, model: textModel.model })
       setPrompt(data.prompt)
     } catch (err) {
       toast.error('Failed to suggest cover prompt: ' + (err instanceof Error ? err.message : 'Unknown error'))
@@ -71,15 +62,7 @@ export function CoverGenerationModal({
     if (!prompt.trim() || generating) return
     setGenerating(true)
     try {
-      const res = await apiFetch(`/api/books/${bookId}/cover/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: prompt.trim(), provider, model }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Generation failed' }))
-        throw new Error(err.error)
-      }
+      await generateCover(bookId, { prompt: prompt.trim(), provider, model })
       toast.success('Cover generation started — check background tasks')
       onOpenChange(false)
     } catch (err) {
@@ -101,15 +84,7 @@ export function CoverGenerationModal({
         : file.type === 'image/webp' ? 'image/webp'
         : 'image/png'
 
-      const res = await fetch(apiUrl(`/api/books/${bookId}/cover/upload`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ base64, mediaType }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => null)
-        throw new Error(err?.message || 'Upload failed')
-      }
+      await uploadCover(bookId, { base64, mediaType })
       toast.success('Cover uploaded')
       onCoverChanged()
       onOpenChange(false)
@@ -123,11 +98,7 @@ export function CoverGenerationModal({
   const handleDelete = async () => {
     setDeleting(true)
     try {
-      const res = await fetch(apiUrl(`/api/books/${bookId}/cover`), { method: 'DELETE' })
-      if (!res.ok) {
-        const err = await res.json().catch(() => null)
-        throw new Error(err?.message || 'Delete failed')
-      }
+      await deleteCover(bookId)
       toast.success('Cover deleted')
       onCoverChanged()
       onOpenChange(false)
@@ -141,11 +112,7 @@ export function CoverGenerationModal({
   const handleToggleShowTitle = async (checked: boolean) => {
     setShowTitle(checked)
     try {
-      await fetch(apiUrl(`/api/books/${bookId}`), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ showTitleOnCover: checked }),
-      })
+      await updateBook(bookId, { showTitleOnCover: checked })
       onCoverChanged()
     } catch {
       toast.error('Failed to update setting')
