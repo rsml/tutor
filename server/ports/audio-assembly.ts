@@ -33,6 +33,17 @@ import type { AudiobookChapterEntry } from '@shared/domain.js'
  * internal resilience, so an adapter that cannot embed the cover must
  * still produce a coverless M4B rather than reject, and callers never see
  * the difference.
+ *
+ * bookTitle is a second, narrower widening made while building the real
+ * ffmpeg adapter (S5). The current M4B stitch tags the file with the
+ * book's title as both the container's title/album metadata and the
+ * FFMETADATA1 file's own title line, alongside the chapter markers built
+ * from AudiobookChapterEntry. AudiobookChapterEntry carries only
+ * per-chapter titles, so without this field the adapter would have no way
+ * to reproduce that tagging and the M4B would silently lose its
+ * title/album metadata. Optional, the same shape as coverPath above, so
+ * an adapter given no bookTitle still produces a valid M4B, just without
+ * those two tags.
  */
 
 export interface ConcatToM4bRequest {
@@ -46,6 +57,8 @@ export interface ConcatToM4bRequest {
   bitrate: string
   /** Cover art to embed, when the book has one. An adapter that cannot embed it still produces a coverless M4B rather than rejecting. */
   coverPath?: string
+  /** The book's title, embedded as the M4B's title/album metadata and the FFMETADATA1 title line. Omit to skip those tags. */
+  bookTitle?: string
   signal: AbortSignal
 }
 
