@@ -21,6 +21,7 @@ import {
   type ReferenceManifest,
 } from '@shared/domain.js'
 import type { SkillProgress } from '@shared/responses.js'
+import { CURRENT_BOOK_SCHEMA_VERSION, CURRENT_PROFILE_SCHEMA_VERSION } from '@shared/schema-version.js'
 import type { BookRepository } from '../ports/book-repository.js'
 import { booksDir, bookDir, padChapter, readYaml, writeYaml } from './fs-paths.js'
 
@@ -95,12 +96,21 @@ export function createFsBookRepository(opts: { dataDir: string }): BookRepositor
     // --- Learning profile ---
 
     async getProfile(): Promise<LearningProfile> {
-      return readYaml(join(booksDir(dataDir), 'learning-profile.yml'), LearningProfileSchema)
+      return readYaml(join(booksDir(dataDir), 'learning-profile.yml'), LearningProfileSchema, {
+        maxSchemaVersion: CURRENT_PROFILE_SCHEMA_VERSION,
+      })
     },
 
     async saveProfile(profile: LearningProfile): Promise<void> {
       LearningProfileSchema.parse(profile)
-      await writeYaml(join(booksDir(dataDir), 'learning-profile.yml'), profile)
+      // Stamping here is what makes everything the running app writes
+      // current by construction, which is why the schema field can stay
+      // optional and why the migrator never has to revisit a freshly
+      // written file.
+      await writeYaml(join(booksDir(dataDir), 'learning-profile.yml'), {
+        ...profile,
+        schemaVersion: CURRENT_PROFILE_SCHEMA_VERSION,
+      })
     },
 
     async getProfileUpdatedAt(): Promise<string | null> {
@@ -137,7 +147,9 @@ export function createFsBookRepository(opts: { dataDir: string }): BookRepositor
     },
 
     async getBook(bookId: string): Promise<BookMeta> {
-      return readYaml(join(bookDir(dataDir, bookId), 'meta.yml'), BookMetaSchema)
+      return readYaml(join(bookDir(dataDir, bookId), 'meta.yml'), BookMetaSchema, {
+        maxSchemaVersion: CURRENT_BOOK_SCHEMA_VERSION,
+      })
     },
 
     async saveBook(meta: BookMeta): Promise<void> {
@@ -146,7 +158,11 @@ export function createFsBookRepository(opts: { dataDir: string }): BookRepositor
       await mkdir(dir, { recursive: true })
       await mkdir(join(dir, 'chapters'), { recursive: true })
       await mkdir(join(dir, 'feedback'), { recursive: true })
-      await writeYaml(join(dir, 'meta.yml'), meta)
+      // Stamping here is what makes everything the running app writes
+      // current by construction, which is why the schema field can stay
+      // optional and why the migrator never has to revisit a freshly
+      // written file.
+      await writeYaml(join(dir, 'meta.yml'), { ...meta, schemaVersion: CURRENT_BOOK_SCHEMA_VERSION })
     },
 
     async deleteBook(bookId: string): Promise<void> {

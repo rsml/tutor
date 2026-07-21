@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir, rename } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
+import { assertSchemaVersionSupported } from '@shared/schema-version.js'
 
 /**
  * Path and YAML helpers shared by fs-book-repository.ts and
@@ -31,9 +32,26 @@ export function padChapter(chapterNum: number): string {
   return String(chapterNum).padStart(2, '0')
 }
 
-export async function readYaml<T>(path: string, schema: { parse: (data: unknown) => T }): Promise<T> {
+/**
+ * Reads and parses a YAML file, then validates it against `schema`. When
+ * `opts.maxSchemaVersion` is given, the raw parsed document is checked with
+ * assertSchemaVersionSupported before `schema.parse` runs. The guard sits
+ * above Zod on purpose, because a file from a newer build may hold fields
+ * this build's schema would silently coerce or drop, and failing loudly
+ * beats mangling a user's library. Only callers that read a versioned
+ * document pass the option, every other YAML the app reads has no version
+ * field.
+ */
+export async function readYaml<T>(
+  path: string,
+  schema: { parse: (data: unknown) => T },
+  opts?: { maxSchemaVersion?: number },
+): Promise<T> {
   const content = await readFile(path, 'utf-8')
   const data = parseYaml(content)
+  if (opts?.maxSchemaVersion !== undefined) {
+    assertSchemaVersionSupported(data, opts.maxSchemaVersion, path)
+  }
   return schema.parse(data)
 }
 
