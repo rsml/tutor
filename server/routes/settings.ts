@@ -1,42 +1,24 @@
 import type { FastifyInstance } from 'fastify'
 import { SetApiKeyBodySchema, RemoveApiKeyBodySchema } from '@shared/contracts.js'
-import { setKey, removeKey, keyStatus } from '../services/key-store.js'
-import { ZodError } from 'zod'
+import { parseBody } from '../http/parse.js'
+import type { Ports } from '../composition-root.js'
 
-export async function settingsRoutes(fastify: FastifyInstance) {
-  fastify.post<{ Body: { provider: string; apiKey: string } }>(
-    '/api/settings/api-key',
-    async (request, reply) => {
-      try {
-        const body = SetApiKeyBodySchema.parse(request.body)
-        setKey(body.provider, body.apiKey)
-        return { ok: true }
-      } catch (err) {
-        if (err instanceof ZodError) {
-          return reply.status(400).send({ error: 'Invalid request', details: err.issues })
-        }
-        throw err
-      }
-    },
-  )
+export async function settingsRoutes(fastify: FastifyInstance, opts: { ports: Ports }) {
+  const { ports } = opts
 
-  fastify.delete<{ Body: { provider: string } }>(
-    '/api/settings/api-key',
-    async (request, reply) => {
-      try {
-        const body = RemoveApiKeyBodySchema.parse(request.body)
-        removeKey(body.provider)
-        return { ok: true }
-      } catch (err) {
-        if (err instanceof ZodError) {
-          return reply.status(400).send({ error: 'Invalid request', details: err.issues })
-        }
-        throw err
-      }
-    },
-  )
+  fastify.post<{ Body: unknown }>('/api/settings/api-key', async (request) => {
+    const body = parseBody(SetApiKeyBodySchema, request.body)
+    ports.keyVault.set(body.provider, body.apiKey)
+    return { ok: true }
+  })
+
+  fastify.delete<{ Body: unknown }>('/api/settings/api-key', async (request) => {
+    const body = parseBody(RemoveApiKeyBodySchema, request.body)
+    ports.keyVault.remove(body.provider)
+    return { ok: true }
+  })
 
   fastify.get('/api/settings/api-key-status', async () => {
-    return keyStatus()
+    return ports.keyVault.status()
   })
 }
