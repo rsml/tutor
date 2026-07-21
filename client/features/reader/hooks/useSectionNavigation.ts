@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAppDispatch, useAppSelector, setPosition, migratePosition } from '@client/store'
 import { splitChapterIntoSections, type Section } from '@client/lib/split-sections'
-import { apiUrl } from '@client/api/http'
+import { getChapter, saveChapterProgress } from '@client/api'
 
 interface UseSectionNavigationOptions {
   bookId: string
@@ -70,10 +70,8 @@ export function useSectionNavigation({
     if (cached !== undefined) return cached
 
     try {
-      const res = await fetch(apiUrl(`/api/books/${bookId}/chapters/${chapIdx + 1}`))
-      if (!res.ok) return null
-      const data = await res.json()
-      const content = data.content as string
+      const data = await getChapter(bookId, chapIdx + 1)
+      const content = data.content
 
       // Maintain cache size
       cacheRef.current.set(chapIdx, content)
@@ -157,11 +155,7 @@ export function useSectionNavigation({
       dispatch(setPosition({ bookId, ...next }))
     } else if (!isLastChapter && viewChapter + 1 < generatedUpTo) {
       // Mark current chapter as completed on the server
-      fetch(apiUrl(`/api/books/${bookId}/progress/${viewChapter + 1}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scroll: 1, completed: true, completedAt: new Date().toISOString() }),
-      }).catch(() => {})
+      saveChapterProgress(bookId, viewChapter + 1, { scroll: 1, completed: true, completedAt: new Date().toISOString() }).catch(() => {})
       const next = { chapter: viewChapter + 1, section: 0 }
       setViewChapter(next.chapter)
       setViewSection(next.section)

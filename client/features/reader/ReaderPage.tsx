@@ -8,10 +8,11 @@ import { ReaderHeader } from '@client/features/reader/components/ReaderHeader'
 import { useTextSelection } from '@client/hooks/useTextSelection'
 import { useSectionNavigation } from '@client/features/reader/hooks/useSectionNavigation'
 import { useStreamingContent } from '@client/hooks/useStreamingContent'
-import { parseSSEStream } from '@client/lib/parse-sse-stream'
-import type { GenerateChapterEvent } from '@shared/events'
 import { store, useAppDispatch, useAppSelector, setChapterFeedback, setChapterQuizResult, recordQuizAttempt, selectFontSize, selectReadingWidth, selectQuizLength, selectFunctionModel } from '@client/store'
-import { apiUrl } from '@client/api/http'
+import {
+  ApiError, getBook, getToc, streamGenerationResume, streamNextChapter, streamChapterRegeneration,
+  generateFinalQuiz, getChapterQuiz, submitChapterFeedback, saveChapterProgress, rateBook,
+} from '@client/api'
 import { cn } from '@client/lib/utils'
 import { stripStreamingUnclosedMermaid } from '@client/features/markdown/strip-streaming-mermaid'
 import { SafeMarkdown } from '@client/features/markdown/SafeMarkdown'
@@ -82,16 +83,16 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
 
   // Fetch book metadata (with merged generation status) and TOC on mount
   useEffect(() => {
+    let cancelled = false
     const controller = new AbortController()
 
-    fetch(apiUrl(`/api/books/${book.id}`), { signal: controller.signal })
-      .then(res => res.json())
+    getBook(book.id)
       .then(async (data) => {
-        if (controller.signal.aborted) return
+        if (cancelled) return
         setGeneratedUpTo(data.generatedUpTo)
 
         // Check merged generation status
-        if (data.generation?.active) {
+        if (data.generation.active) {
           const gen = data.generation
           // If already done/error, just use the metadata we already have
           if (gen.stage === 'done' || gen.stage === 'error') return
@@ -103,51 +104,48 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
           setGenerationStage(null)
           bufferBoundaryRef.current = 0
 
-          const res = await fetch(apiUrl(`/api/books/${book.id}/generation-stream`), { signal: controller.signal })
-          if (!res.ok || controller.signal.aborted) return
-
-          await parseSSEStream<GenerateChapterEvent>(res, {
-            onEvent: (event) => {
-              if (event.type === 'chapter') {
-                if (event.buffered) {
-                  // Buffered content from reconnect: render immediately, disable auto-scroll
-                  streaming.appendChunk(event.text)
-                  streaming.flushNow()
-                  bufferBoundaryRef.current = streaming.bufferRef.current.length
-                  userHasScrolledRef.current = true
-                } else {
-                  streaming.appendChunk(event.text)
-                }
-              } else if (event.type === 'stage') {
-                setGenerationStage(event.stage)
-              } else if (event.type === 'done' && event.chapterNum != null) {
+          await streamGenerationResume(book.id, controller.signal, (event) => {
+            if (event.type === 'chapter') {
+              if (event.buffered) {
+                // Buffered content from reconnect: render immediately, disable auto-scroll
+                streaming.appendChunk(event.text)
                 streaming.flushNow()
-                setGenerationStage(null)
-                setGeneratedUpTo(event.chapterNum)
-                setGeneratingChapterNum(null)
-                setReadingPosition(event.chapterNum - 1, 0)
-                setPhase('reading')
-                scrollRef.current?.scrollTo({ top: 0 })
-              } else if (event.type === 'error') {
-                setGenerationStage(null)
-                setGenerationError(event.message)
-                setPhase('generation-error')
+                bufferBoundaryRef.current = streaming.bufferRef.current.length
+                userHasScrolledRef.current = true
+              } else {
+                streaming.appendChunk(event.text)
               }
-            },
+            } else if (event.type === 'stage') {
+              setGenerationStage(event.stage)
+            } else if (event.type === 'done' && event.chapterNum != null) {
+              streaming.flushNow()
+              setGenerationStage(null)
+              setGeneratedUpTo(event.chapterNum)
+              setGeneratingChapterNum(null)
+              setReadingPosition(event.chapterNum - 1, 0)
+              setPhase('reading')
+              scrollRef.current?.scrollTo({ top: 0 })
+            } else if (event.type === 'error') {
+              setGenerationStage(null)
+              setGenerationError(event.message)
+              setPhase('generation-error')
+            }
           })
         }
       })
       .catch(() => {})
 
-    fetch(apiUrl(`/api/books/${book.id}/toc`), { signal: controller.signal })
-      .then(res => res.json())
+    getToc(book.id)
       .then(data => {
-        if (controller.signal.aborted) return
-        setTocChapters(data.chapters?.map((c: { title: string; description?: string }) => ({ title: c.title, description: c.description ?? '' })) ?? [])
+        if (cancelled) return
+        setTocChapters(data.chapters.map(c => ({ title: c.title, description: c.description ?? '' })))
       })
       .catch(() => {})
 
-    return () => controller.abort()
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
   }, [book.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Poll for external chapter updates (e.g. from Claude Code via MCP)
@@ -158,9 +156,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
 
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(apiUrl(`/api/books/${book.id}`))
-        if (!res.ok) return
-        const data = await res.json()
+        const data = await getBook(book.id)
         if (data.generatedUpTo > generatedUpTo) {
           setGeneratedUpTo(data.generatedUpTo)
         }
@@ -254,11 +250,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
   }, [chatOpen])
 
   const syncChapterCompleted = useCallback((chapNum: number) => {
-    fetch(apiUrl(`/api/books/${book.id}/progress/${chapNum}`), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ scroll: 1, completed: true, completedAt: new Date().toISOString() }),
-    }).catch(() => {})
+    saveChapterProgress(book.id, chapNum, { scroll: 1, completed: true, completedAt: new Date().toISOString() }).catch(() => {})
   }, [book.id])
 
   const [quizLoading, setQuizLoading] = useState(false)
@@ -267,21 +259,21 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     syncChapterCompleted(chapterIndex + 1)
     setQuizLoading(true)
     try {
-      const params = new URLSearchParams({ model: quizModel, provider: quizProvider })
-      if (quizLength) params.set('quizLength', String(quizLength))
-      const res = await fetch(apiUrl(`/api/books/${book.id}/chapters/${chapterIndex + 1}/quiz?${params}`))
-      if (res.ok) {
-        const data = await res.json()
-        if (data.questions?.length > 0) {
-          setQuizQuestions(data.questions)
-          setQuizLoading(false)
-          setPhase('quiz')
-          scrollRef.current?.scrollTo({ top: 0 })
-          return
-        }
+      const data = await getChapterQuiz(book.id, chapterIndex + 1, { model: quizModel, provider: quizProvider, quizLength })
+      if (data.questions.length > 0) {
+        setQuizQuestions(data.questions)
+        setQuizLoading(false)
+        setPhase('quiz')
+        scrollRef.current?.scrollTo({ top: 0 })
+        return
       }
-    } catch {
-      toast.error('Failed to load quiz — skipping to feedback')
+    } catch (err) {
+      // A non-2xx answer (ApiError) degrades to feedback the same way an
+      // empty question list does, silently. Only a genuine transport failure
+      // (no response at all) is worth telling the reader about.
+      if (!(err instanceof ApiError)) {
+        toast.error('Failed to load quiz — skipping to feedback')
+      }
     }
     setQuizLoading(false)
     setPhase('feedback')
@@ -295,16 +287,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     scrollRef.current?.scrollTo({ top: 0 })
 
     try {
-      const res = await fetch(apiUrl(`/api/books/${book.id}/final-quiz`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: quizModel, provider: quizProvider }),
-      })
-      if (!res.ok) {
-        const body = await res.json().catch(() => null)
-        throw new Error(body?.message || 'Final quiz generation failed')
-      }
-      const data = await res.json()
+      const data = await generateFinalQuiz(book.id, { model: quizModel, provider: quizProvider })
       setFinalQuizQuestions(data.questions)
     } catch (err) {
       setFinalQuizError(err instanceof Error ? err.message : 'An unexpected error occurred.')
@@ -327,11 +310,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
 
   const handleRatingSubmit = useCallback(async () => {
     try {
-      await fetch(apiUrl(`/api/books/${book.id}/rating`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rating: bookRating, finalQuizScore, finalQuizTotal }),
-      })
+      await rateBook(book.id, { rating: bookRating, finalQuizScore, finalQuizTotal })
     } catch { /* fire-and-forget */ }
     setPhase('complete')
     scrollRef.current?.scrollTo({ top: 0 })
@@ -376,19 +355,10 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     scrollRef.current?.scrollTo({ top: 0 })
 
     try {
-      const res = await fetch(apiUrl(`/api/books/${book.id}/generate-next`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: genModel, provider: genProvider, quizModel, quizProvider, quizLength }),
-      })
-
-      if (!res.ok || !res.body) {
-        const body = await res.json().catch(() => null)
-        throw new Error(body?.message || 'Generation failed')
-      }
-
-      await parseSSEStream<GenerateChapterEvent>(res, {
-        onEvent: (event) => {
+      await streamNextChapter(
+        book.id,
+        { model: genModel, provider: genProvider, quizModel, quizProvider, quizLength },
+        (event) => {
           if (event.type === 'chapter') {
             streaming.appendChunk(event.text)
           } else if (event.type === 'stage') {
@@ -407,7 +377,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
             setPhase('generation-error')
           }
         },
-      })
+      )
     } catch (err) {
       setGenerationStage(null)
       setGenerationError(err instanceof Error ? err.message : 'An unexpected error occurred.')
@@ -419,11 +389,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     dispatch(setChapterFeedback({ bookId: book.id, chapterNum: chapterIndex + 1, liked, disliked }))
 
     try {
-      await fetch(apiUrl(`/api/books/${book.id}/chapters/${chapterIndex + 1}/feedback`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ liked, disliked, quizAnswers }),
-      })
+      await submitChapterFeedback(book.id, chapterIndex + 1, { liked, disliked, quizAnswers })
     } catch { /* fire-and-forget */ }
 
     // If next chapter already exists, skip generation and advance directly
@@ -453,19 +419,11 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     scrollRef.current?.scrollTo({ top: 0 })
 
     try {
-      const res = await fetch(apiUrl(`/api/books/${book.id}/chapters/${chapterNum}/regenerate`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: genModel, provider: genProvider, quizModel, quizProvider, quizLength }),
-      })
-
-      if (!res.ok || !res.body) {
-        const body = await res.json().catch(() => null)
-        throw new Error(body?.message || 'Regeneration failed')
-      }
-
-      await parseSSEStream<GenerateChapterEvent>(res, {
-        onEvent: (event) => {
+      await streamChapterRegeneration(
+        book.id,
+        chapterNum,
+        { model: genModel, provider: genProvider, quizModel, quizProvider, quizLength },
+        (event) => {
           if (event.type === 'chapter') {
             streaming.appendChunk(event.text)
           } else if (event.type === 'stage') {
@@ -484,7 +442,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
             setPhase('generation-error')
           }
         },
-      })
+      )
     } catch (err) {
       setGenerationStage(null)
       setGenerationError(err instanceof Error ? err.message : 'An unexpected error occurred.')
