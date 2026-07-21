@@ -3,12 +3,10 @@ import { createPortal } from 'react-dom'
 import { X, Sparkles, Loader2 } from 'lucide-react'
 import { Button } from '@client/components/ui/button'
 import { useAppSelector, selectFunctionModel, selectHasApiKeyForFunction } from '@client/store'
-import { apiUrl } from '@client/api/http'
-
-interface Skill {
-  name: string
-  level: number
-}
+import { saveProfile, suggestSkills } from '@client/api'
+import { useLearningProfile } from '@client/features/profile/hooks/useLearningProfile'
+import { type Skill, type Preferences, DEFAULT_PREFS } from '@client/lib/profile-constants'
+import { SKILL_SAVE_DEBOUNCE_MS } from '@client/lib/constants'
 
 interface SkillsPanelProps {
   open: boolean
@@ -18,6 +16,7 @@ interface SkillsPanelProps {
 export function SkillsPanel({ open, onClose }: SkillsPanelProps) {
   const { provider, model } = useAppSelector(selectFunctionModel('profile'))
   const hasApiKey = useAppSelector(selectHasApiKeyForFunction('profile'))
+  const { refresh } = useLearningProfile()
 
   const [skills, setSkills] = useState<Skill[]>([])
   const [newSkillName, setNewSkillName] = useState('')
@@ -25,9 +24,9 @@ export function SkillsPanel({ open, onClose }: SkillsPanelProps) {
   const [loaded, setLoaded] = useState(false)
 
   // Cache profile data for saves
-  const profileCache = useRef<{ aboutMe: string; preferences: Record<string, unknown> }>({
+  const profileCache = useRef<{ aboutMe: string; preferences: Preferences }>({
     aboutMe: '',
-    preferences: {},
+    preferences: DEFAULT_PREFS,
   })
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -36,34 +35,29 @@ export function SkillsPanel({ open, onClose }: SkillsPanelProps) {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(async () => {
       try {
-        await fetch(apiUrl('/api/profile'), {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            aboutMe: profileCache.current.aboutMe,
-            preferences: profileCache.current.preferences,
-            skills: updatedSkills,
-          }),
+        await saveProfile({
+          aboutMe: profileCache.current.aboutMe,
+          preferences: profileCache.current.preferences,
+          skills: updatedSkills,
         })
       } catch { /* silent */ }
-    }, 300)
+    }, SKILL_SAVE_DEBOUNCE_MS)
   }, [])
 
   useEffect(() => {
     if (!open) return
     setLoaded(false)
-    fetch(apiUrl('/api/profile'))
-      .then(res => res.json())
-      .then(data => {
+    refresh().then(data => {
+      if (data) {
         profileCache.current = {
           aboutMe: data.aboutMe ?? '',
-          preferences: data.preferences ?? {},
+          preferences: { ...DEFAULT_PREFS, ...data.preferences },
         }
         setSkills(data.skills ?? [])
-        setLoaded(true)
-      })
-      .catch(() => setLoaded(true))
-  }, [open])
+      }
+      setLoaded(true)
+    })
+  }, [open, refresh])
 
   // Escape closes
   useEffect(() => {
@@ -107,22 +101,15 @@ export function SkillsPanel({ open, onClose }: SkillsPanelProps) {
     if (!hasApiKey || suggesting) return
     setSuggesting(true)
     try {
-      const res = await fetch(apiUrl('/api/profile/suggest-skills'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model,
-          provider,
-          aboutMe: profileCache.current.aboutMe,
-          existingSkills: skills,
-        }),
+      const suggested = await suggestSkills({
+        model,
+        provider,
+        aboutMe: profileCache.current.aboutMe,
+        existingSkills: skills,
       })
-      const data = await res.json()
-      if (data.skills?.length) {
+      if (suggested.length) {
         const existingNames = new Set(skills.map(s => s.name.toLowerCase()))
-        const newSkills = data.skills.filter(
-          (s: Skill) => !existingNames.has(s.name.toLowerCase())
-        )
+        const newSkills = suggested.filter(s => !existingNames.has(s.name.toLowerCase()))
         if (newSkills.length > 0) {
           const updated = [...skills, ...newSkills]
           setSkills(updated)

@@ -1,14 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Settings, Sun, Moon, Monitor, Type, Layers, Check, CheckCircle2, User, BarChart3, Sliders, MoveHorizontal, ListOrdered, BookOpen, Headphones, Trash2 } from 'lucide-react'
+import { Settings, Sun, Moon, Monitor, Type, User, BarChart3, Sliders, MoveHorizontal, ListOrdered, BookOpen, Headphones } from 'lucide-react'
 import { Button } from '@client/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@client/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -20,7 +12,9 @@ import {
   DropdownMenuItem,
   DropdownMenuGroup,
 } from '@client/components/ui/dropdown-menu'
-import { TickSlider } from '@client/components/ui/tick-slider'
+import { ApiKeyDialog } from '@client/features/settings/components/ApiKeyDialog'
+import { SettingsSlider } from '@client/features/settings/components/SettingsSlider'
+import { TextureControl } from '@client/features/settings/components/TextureControl'
 import { ModelAssignmentDialog } from '@client/features/settings/components/ModelAssignmentDialog'
 import { ProfileDialog } from '@client/features/profile/components/ProfileDialog'
 import { InterviewPanel } from '@client/features/profile/components/InterviewPanel'
@@ -52,8 +46,10 @@ import {
   selectModelAssignmentSeen,
   setModelAssignmentSeen,
 } from '@client/store'
-import { PROVIDERS, PROVIDER_IDS, type ProviderId } from '@client/lib/providers'
-import { apiUrl } from '@client/api/http'
+import { PROVIDERS, type ProviderId } from '@client/lib/providers'
+import { removeApiKey, saveApiKey } from '@client/api'
+import { API_KEY_DEBOUNCE_MS } from '@client/lib/constants'
+import { useLearningProfile } from '@client/features/profile/hooks/useLearningProfile'
 
 const CHAPTER_COUNTS = [1, 3, 6, 12, 25, 50]
 const CHAPTER_LABELS = ['Essay', 'Short', 'Novella', 'Standard', 'Long', 'Epic']
@@ -93,28 +89,18 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
   const [internalDialogOpen, setInternalDialogOpen] = useState(false)
   const [dialogProvider, setDialogProvider] = useState<ProviderId>(activeProvider)
   const [keyInputs, setKeyInputs] = useState<Partial<Record<ProviderId, string>>>({})
-  const [profileConfigured, setProfileConfigured] = useState<boolean | null>(null)
+  const { configured: profileConfigured, refresh: refreshProfile } = useLearningProfile()
   const apiKeyInputRef = useRef<HTMLInputElement>(null)
 
   // Check if learning profile has been set up
   useEffect(() => {
-    fetch(apiUrl('/api/profile'))
-      .then(res => res.json())
-      .then(data => {
-        setProfileConfigured(!!data.aboutMe?.trim())
-      })
-      .catch(() => setProfileConfigured(false))
-  }, [])
+    refreshProfile()
+  }, [refreshProfile])
 
   // Re-check after interview or profile dialog closes
   useEffect(() => {
-    if (!profileOpen && !interviewOpen) {
-      fetch(apiUrl('/api/profile'))
-        .then(res => res.json())
-        .then(data => setProfileConfigured(!!data.aboutMe?.trim()))
-        .catch(() => {})
-    }
-  }, [profileOpen, interviewOpen])
+    if (!profileOpen && !interviewOpen) refreshProfile()
+  }, [profileOpen, interviewOpen, refreshProfile])
 
   const needsApiKey = !hasApiKey
   const needsProfile = profileConfigured === false
@@ -156,11 +142,7 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
     if (!trimmed) return
     await window.electronAPI?.saveApiKey(trimmed, provider)
     try {
-      await fetch(apiUrl('/api/settings/api-key'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider, apiKey: trimmed }),
-      })
+      await saveApiKey(provider, trimmed)
     } catch { /* server may not be ready */ }
     dispatch(setProviderApiKey({ provider, apiKey: trimmed }))
   }
@@ -171,17 +153,13 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
     if (existing) clearTimeout(existing)
     saveTimeoutsRef.current[provider] = setTimeout(() => {
       persistProviderKey(provider, value)
-    }, 200)
+    }, API_KEY_DEBOUNCE_MS)
   }
 
   const handleRemove = async (provider: ProviderId) => {
     await window.electronAPI?.removeApiKey(provider)
     try {
-      await fetch(apiUrl('/api/settings/api-key'), {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider }),
-      })
+      await removeApiKey(provider)
     } catch { /* server may not be ready */ }
     dispatch(setProviderApiKey({ provider, apiKey: null }))
     setKeyInputs(prev => {
@@ -204,9 +182,6 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
   const readingWidthIndex = (READING_WIDTHS as readonly number[]).indexOf(readingWidth)
   const defaultWidthIndex = READING_WIDTHS.indexOf(DEFAULT_READING_WIDTH)
   const readingWidthLabel = READING_WIDTH_LABELS[readingWidthIndex >= 0 ? readingWidthIndex : defaultWidthIndex]
-
-  const dialogDef = PROVIDERS[dialogProvider]
-  const dialogConfig = providers[dialogProvider]
 
   return (
     <>
@@ -289,46 +264,36 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
           <DropdownMenuSeparator />
 
           {/* Quiz Length */}
-          <div className="px-2 pt-1.5 pb-5">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-2">
-              <ListOrdered className="size-3.5" />
-              Quiz Length
-              <span className="ml-auto tabular-nums">{quizLength}</span>
-            </div>
-            <TickSlider
-              min={1}
-              max={10}
-              value={quizLength}
-              onChange={v => dispatch(setQuizLength(v))}
-              onPointerDown={e => e.stopPropagation()}
-              ticks={Array.from({ length: 10 }, (_, i) => ({
-                highlight: i + 1 === 3,
-                label: i + 1 === 3 ? 'default' : undefined,
-              }))}
-            />
-          </div>
+          <SettingsSlider
+            icon={<ListOrdered className="size-3.5" />}
+            label="Quiz Length"
+            valueLabel={quizLength}
+            min={1}
+            max={10}
+            value={quizLength}
+            onChange={v => dispatch(setQuizLength(v))}
+            ticks={Array.from({ length: 10 }, (_, i) => ({
+              highlight: i + 1 === 3,
+              label: i + 1 === 3 ? 'default' : undefined,
+            }))}
+          />
 
           <DropdownMenuSeparator />
 
           {/* Default Chapter Count */}
-          <div className="px-2 pt-1.5 pb-5">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-2">
-              <BookOpen className="size-3.5" />
-              Default Book Length
-              <span className="ml-auto tabular-nums">{defaultChapterCount} &middot; {chapterCountLabel}</span>
-            </div>
-            <TickSlider
-              min={0}
-              max={CHAPTER_COUNTS.length - 1}
-              value={chapterCountIndex >= 0 ? chapterCountIndex : defaultChapterIndex}
-              onChange={v => dispatch(setDefaultChapterCount(CHAPTER_COUNTS[v]))}
-              onPointerDown={e => e.stopPropagation()}
-              ticks={CHAPTER_COUNTS.map((_, i) => ({
-                highlight: i === defaultChapterIndex,
-                label: i === defaultChapterIndex ? 'default' : undefined,
-              }))}
-            />
-          </div>
+          <SettingsSlider
+            icon={<BookOpen className="size-3.5" />}
+            label="Default Book Length"
+            valueLabel={<>{defaultChapterCount} &middot; {chapterCountLabel}</>}
+            min={0}
+            max={CHAPTER_COUNTS.length - 1}
+            value={chapterCountIndex >= 0 ? chapterCountIndex : defaultChapterIndex}
+            onChange={v => dispatch(setDefaultChapterCount(CHAPTER_COUNTS[v]))}
+            ticks={CHAPTER_COUNTS.map((_, i) => ({
+              highlight: i === defaultChapterIndex,
+              label: i === defaultChapterIndex ? 'default' : undefined,
+            }))}
+          />
 
           <DropdownMenuSeparator />
 
@@ -354,184 +319,63 @@ export function SettingsMenu({ apiKeyDialogOpen, onApiKeyDialogClose, onReviewPr
           <DropdownMenuSeparator />
 
           {/* Font Size */}
-          <div className="px-2 pt-1.5 pb-5">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-2">
-              <Type className="size-3.5" />
-              Font Size
-              <span className="ml-auto tabular-nums">{fontSize}px</span>
-            </div>
-            <TickSlider
-              min={0}
-              max={FONT_SIZES.length - 1}
-              value={fontSizeIndex >= 0 ? fontSizeIndex : defaultIndex}
-              onChange={v => dispatch(setFontSize(FONT_SIZES[v]))}
-              onPointerDown={e => e.stopPropagation()}
-              ticks={FONT_SIZES.map((_, i) => ({
-                highlight: i === defaultIndex,
-                label: i === defaultIndex ? 'default' : undefined,
-              }))}
-            />
-          </div>
+          <SettingsSlider
+            icon={<Type className="size-3.5" />}
+            label="Font Size"
+            valueLabel={`${fontSize}px`}
+            min={0}
+            max={FONT_SIZES.length - 1}
+            value={fontSizeIndex >= 0 ? fontSizeIndex : defaultIndex}
+            onChange={v => dispatch(setFontSize(FONT_SIZES[v]))}
+            ticks={FONT_SIZES.map((_, i) => ({
+              highlight: i === defaultIndex,
+              label: i === defaultIndex ? 'default' : undefined,
+            }))}
+          />
 
           <DropdownMenuSeparator />
 
           {/* Reading Width */}
-          <div className="px-2 pt-1.5 pb-5">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-2">
-              <MoveHorizontal className="size-3.5" />
-              Reading Width
-              <span className="ml-auto tabular-nums">{readingWidthLabel}</span>
-            </div>
-            <TickSlider
-              min={0}
-              max={READING_WIDTHS.length - 1}
-              value={readingWidthIndex >= 0 ? readingWidthIndex : defaultWidthIndex}
-              onChange={v => dispatch(setReadingWidth(READING_WIDTHS[v]))}
-              onPointerDown={e => e.stopPropagation()}
-              ticks={READING_WIDTHS.map((_, i) => ({
-                highlight: i === defaultWidthIndex,
-                label: i === defaultWidthIndex ? 'default' : undefined,
-              }))}
-            />
-          </div>
+          <SettingsSlider
+            icon={<MoveHorizontal className="size-3.5" />}
+            label="Reading Width"
+            valueLabel={readingWidthLabel}
+            min={0}
+            max={READING_WIDTHS.length - 1}
+            value={readingWidthIndex >= 0 ? readingWidthIndex : defaultWidthIndex}
+            onChange={v => dispatch(setReadingWidth(READING_WIDTHS[v]))}
+            ticks={READING_WIDTHS.map((_, i) => ({
+              highlight: i === defaultWidthIndex,
+              label: i === defaultWidthIndex ? 'default' : undefined,
+            }))}
+          />
 
           <DropdownMenuSeparator />
 
           {/* Texture */}
-          <div className="px-2 py-1.5">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-2">
-              <Layers className="size-3.5" />
-              Texture
-              <button
-                onClick={() => dispatch(setTextureEnabled(!textureEnabled))}
-                onPointerDown={e => e.stopPropagation()}
-                className={`ml-auto relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full transition-colors ${
-                  textureEnabled ? 'bg-[oklch(0.55_0.20_285)]' : 'bg-content-muted/30'
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block size-3 rounded-full bg-white shadow-sm transition-transform ${
-                    textureEnabled ? 'translate-x-3.5' : 'translate-x-0.5'
-                  } translate-y-0.5`}
-                />
-              </button>
-            </div>
-            {textureEnabled && (
-              <div className="px-1">
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={Math.round(textureOpacity * 100)}
-                  onChange={e => dispatch(setTextureOpacity(parseInt(e.target.value) / 100))}
-                  className="w-full cursor-pointer"
-                  style={{ '--range-fill': `${Math.round(textureOpacity * 100)}%` } as React.CSSProperties}
-                  onPointerDown={e => e.stopPropagation()}
-                />
-                <div className="flex justify-between text-[9px] text-content-muted -mt-0.5 px-0.5">
-                  <span>Subtle</span>
-                  <span>Heavy</span>
-                </div>
-              </div>
-            )}
-          </div>
+          <TextureControl
+            enabled={textureEnabled}
+            opacity={textureOpacity}
+            onToggle={() => dispatch(setTextureEnabled(!textureEnabled))}
+            onOpacityChange={v => dispatch(setTextureOpacity(v))}
+          />
         </DropdownMenuContent>
       </DropdownMenu>
 
       {/* Provider settings dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>AI Provider</DialogTitle>
-            <DialogDescription>
-              Configure API keys for each provider independently.
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* Default provider selector */}
-          {PROVIDER_IDS.some(id => !!providers[id]?.apiKey) && (
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-medium text-content-muted whitespace-nowrap">Default Text Provider</label>
-              <select
-                value={activeProvider}
-                onChange={e => dispatch(setActiveProvider(e.target.value as ProviderId))}
-                className="flex-1 h-7 rounded-md border border-border-default bg-surface-raised px-2 text-xs text-content-primary outline-none transition-colors focus:border-border-focus"
-              >
-                {PROVIDER_IDS.filter(id => !!providers[id]?.apiKey).map(id => (
-                  <option key={id} value={id}>{PROVIDERS[id].name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Provider tabs */}
-          <div className="flex gap-1.5">
-            {PROVIDER_IDS.map(id => {
-              const def = PROVIDERS[id]
-              const hasKey = !!providers[id]?.apiKey
-              const isSelected = dialogProvider === id
-              const isActive = activeProvider === id && hasKey
-              return (
-                <button
-                  key={id}
-                  onClick={() => handleSelectDialogProvider(id)}
-                  className={`relative flex-1 rounded-lg border px-3 py-2.5 text-center transition-colors ${
-                    isSelected
-                      ? 'border-border-focus bg-surface-muted text-content-primary'
-                      : 'border-border-default text-content-muted hover:border-border-focus/50 hover:text-content-secondary'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-1 text-xs font-semibold">
-                    {def.name}
-                    {hasKey && <CheckCircle2 className="size-3 text-status-ok" />}
-                  </div>
-                  <div className="text-[10px] text-content-muted mt-0.5">
-                    {hasKey ? def.label : '(no key)'}
-                  </div>
-                  {isActive && (
-                    <Check className="absolute top-1 right-1 size-3 text-status-ok" />
-                  )}
-                </button>
-              )
-            })}
-          </div>
-
-          <div className="grid gap-4 py-1">
-            <div className="grid gap-1.5">
-              <label htmlFor="api-key" className="text-sm font-medium text-content-primary">
-                API Key
-              </label>
-              <div className="relative">
-                <input
-                  ref={apiKeyInputRef}
-                  id="api-key"
-                  type="password"
-                  value={keyInputs[dialogProvider] ?? ''}
-                  onChange={e => handleKeyInputChange(dialogProvider, e.target.value)}
-                  placeholder={dialogConfig?.apiKey ? 'Key saved (enter new to replace)' : dialogDef.placeholder}
-                  className={`h-9 w-full rounded-lg border border-border-default bg-surface-raised px-3 ${dialogConfig?.apiKey ? 'pr-9' : ''} font-mono text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20`}
-                />
-                {dialogConfig?.apiKey && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(dialogProvider)}
-                    aria-label={`Remove ${dialogDef.name} API key`}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center size-6 rounded-md text-content-muted hover:text-status-danger hover:bg-surface-muted transition-colors"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button onClick={() => setDialogOpen(false)}>
-              Done
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ApiKeyDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        providers={providers}
+        activeProvider={activeProvider}
+        onActiveProviderChange={id => dispatch(setActiveProvider(id))}
+        dialogProvider={dialogProvider}
+        onSelectDialogProvider={handleSelectDialogProvider}
+        keyInputs={keyInputs}
+        onKeyInputChange={handleKeyInputChange}
+        onRemove={handleRemove}
+        apiKeyInputRef={apiKeyInputRef}
+      />
 
       <ProfileDialog
         open={profileOpen}
