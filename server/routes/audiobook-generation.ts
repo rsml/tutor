@@ -19,6 +19,12 @@ export async function audiobookGenerationRoutes(fastify: FastifyInstance, opts: 
     speechSynthesis: ports.speechSynthesis,
     audioAssembly: ports.audioAssembly,
     backgroundTasks: ports.backgroundTasks,
+    // The live route journals its checkpoints too, not just the resume pass
+    // that rebuilds this service at boot. Without this the checkpoint calls
+    // inside the narration loop would be unreachable in production, which
+    // is worse than not having written them, and an interrupted audiobook
+    // would resume with no idea how far it had got.
+    journal: ports.jobJournal,
   })
 
   // POST /api/books/:id/audiobook — start generation
