@@ -17,6 +17,8 @@ export function TextureControl({ enabled, opacity, onToggle, onOpacityChange }: 
         <button
           onClick={onToggle}
           onPointerDown={e => e.stopPropagation()}
+          aria-label="Toggle texture"
+          aria-pressed={enabled}
           className={`ml-auto relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full transition-colors ${
             enabled ? 'bg-[oklch(0.55_0.20_285)]' : 'bg-content-muted/30'
           }`}

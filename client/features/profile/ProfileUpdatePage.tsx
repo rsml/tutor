@@ -209,6 +209,7 @@ export function ProfileUpdatePage({ bookId, bookTitle, onComplete }: {
         {/* Back button */}
         <button
           onClick={onComplete}
+          aria-label="Back to library"
           className="absolute left-6 top-3 z-20 inline-flex items-center gap-1.5 p-2 text-content-muted opacity-50 transition-all hover:opacity-100"
         >
           <ArrowLeft className="size-5" />
@@ -310,6 +311,7 @@ export function ProfileUpdatePage({ bookId, bookTitle, onComplete }: {
                     size="lg"
                     onClick={handleSave}
                     disabled={saving}
+                    aria-label={saving ? 'Saving' : 'Save and return to library'}
                     className="bg-[oklch(0.55_0.20_285)] text-white font-semibold hover:bg-[oklch(0.50_0.22_285)]"
                   >
                     {saving ? 'Saving...' : 'Save & Return to Library'}

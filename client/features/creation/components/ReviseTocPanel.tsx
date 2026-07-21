@@ -73,6 +73,7 @@ export function ReviseTocPanel({ open, onClose, onSubmit, submitting }: ReviseTo
         <span className="text-sm font-medium text-content-primary">Edit Table of Contents</span>
         <button
           onClick={onClose}
+          aria-label="Close"
           className="rounded-md p-1 text-content-muted transition-colors hover:text-content-primary"
         >
           <X className="size-4" />

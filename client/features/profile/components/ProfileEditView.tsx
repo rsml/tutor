@@ -63,6 +63,7 @@ export function ProfileEditView({ skills, preferences, aboutMe, onSkillsChange, 
               </div>
               <button
                 onClick={() => removeSkill(i)}
+                aria-label={`Remove ${skill.name} skill`}
                 className="rounded-md p-0.5 text-content-muted/50 transition-colors hover:text-content-primary"
               >
                 <X className="size-3.5" />
@@ -97,6 +98,8 @@ export function ProfileEditView({ skills, preferences, aboutMe, onSkillsChange, 
               <button
                 type="button"
                 onClick={() => togglePref(key)}
+                aria-label={BOOL_PREF_LABELS[key]}
+                aria-pressed={!!preferences[key as keyof Preferences]}
                 className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors ${
                   preferences[key as keyof Preferences] ? 'bg-[oklch(0.55_0.20_285)]' : 'bg-content-muted/30'
                 }`}

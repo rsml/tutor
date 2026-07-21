@@ -180,6 +180,7 @@ export function ImportPreviewDialog({
                   {tagSuggestions.map((tag, i) => (
                     <button
                       key={tag}
+                      aria-label={tag}
                       className={`w-full px-3 py-1.5 text-left text-sm transition-colors ${
                         i === tagHighlightIndex
                           ? 'bg-surface-muted text-content-primary'
@@ -201,6 +202,7 @@ export function ImportPreviewDialog({
                     <span className="text-xs">{tag}</span>
                     <button
                       onClick={() => removeTag(tag)}
+                      aria-label={`Remove ${tag} tag`}
                       className="ml-0.5 rounded-full p-0.5 hover:bg-foreground/10 transition-colors"
                     >
                       <X className="size-3" />
@@ -239,6 +241,7 @@ export function ImportPreviewDialog({
                     {seriesSuggestions.map((s, i) => (
                       <button
                         key={s}
+                        aria-label={s}
                         className={`w-full px-3 py-1.5 text-left text-sm transition-colors ${
                           i === seriesHighlightIndex
                             ? 'bg-surface-muted text-content-primary'

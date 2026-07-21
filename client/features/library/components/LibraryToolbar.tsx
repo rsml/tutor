@@ -137,6 +137,7 @@ export function LibraryToolbar({
                       onSearchChange('')
                       setSearchExpanded(false)
                     }}
+                    aria-label="Clear search"
                     className="absolute right-2 top-1/2 -translate-y-1/2 text-content-muted hover:text-content-primary transition-colors"
                   >
                     <X className="size-3.5" />

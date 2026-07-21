@@ -54,6 +54,8 @@ function ToggleButton({
   return (
     <button
       onClick={onClick}
+      aria-label={typeof children === 'string' ? children : undefined}
+      aria-pressed={active}
       className={cn(
         'px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap',
         active
@@ -78,6 +80,8 @@ function TagChip({
   return (
     <button
       onClick={onClick}
+      aria-label={tag}
+      aria-pressed={active}
       className={cn(
         'px-2 py-0.5 rounded-full text-xs font-medium transition-colors border',
         active

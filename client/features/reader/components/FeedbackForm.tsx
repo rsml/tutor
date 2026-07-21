@@ -53,6 +53,7 @@ export function FeedbackForm({ chapterNum, onSubmit, submitLabel }: FeedbackForm
           variant="primary"
           size="lg"
           onClick={() => onSubmit(liked, disliked)}
+          aria-label={submitLabel ?? 'Generate Next Chapter'}
           className="font-semibold"
         >
           {submitLabel ?? 'Generate Next Chapter'}
