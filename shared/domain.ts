@@ -55,6 +55,24 @@ export const SkillSchema = z.object({
 export type Preferences = z.infer<typeof PreferencesSchema>
 
 export const LearningProfileSchema = z.object({
+  /**
+   * Which schema version this profile was last written at. Optional rather
+   * than defaulted on purpose: a `.default()` here would make the field
+   * required in LearningProfile's inferred type, forcing every existing
+   * object literal typed as LearningProfile across the codebase to name a
+   * version number it has no business knowing. Left optional, an absent
+   * field parses exactly as version 1 always has, and every one of those
+   * call sites is untouched.
+   *
+   * This schema does not stamp anything current. That happens on the write
+   * side, in fs-book-repository's saveProfile, which sets this field to
+   * CURRENT_PROFILE_SCHEMA_VERSION on every write, so anything the running
+   * app produces is current by construction. The migrator that upgrades an
+   * old file reads the raw YAML below this schema either way, so this
+   * optional field can never fool it into treating an unmigrated file as
+   * already current.
+   */
+  schemaVersion: z.number().int().positive().optional(),
   style: z.string(),
   identity: z.string(),
   preferences: PreferencesSchema,
@@ -95,6 +113,24 @@ export type Toc = z.infer<typeof TocSchema>
 export { type BookStatus }
 
 export const BookMetaSchema = z.object({
+  /**
+   * Which schema version this book folder was last written at. Optional
+   * rather than defaulted on purpose: a `.default()` here would make the
+   * field required in BookMeta's inferred type, and BookMeta is built as
+   * an object literal at dozens of call sites across the server that have
+   * no business knowing a version number. Left optional, an absent field
+   * parses exactly as version 1 always has, and every one of those call
+   * sites is untouched.
+   *
+   * This schema does not stamp anything current. That happens on the write
+   * side, in fs-book-repository's saveBook, which sets this field to
+   * CURRENT_BOOK_SCHEMA_VERSION on every write, so anything the running
+   * app produces is current by construction. The migrator that upgrades an
+   * old file reads the raw YAML below this schema either way, so this
+   * optional field can never fool it into treating an unmigrated file as
+   * already current.
+   */
+  schemaVersion: z.number().int().positive().optional(),
   id: z.string(),
   title: z.string(),
   subtitle: z.string().optional(),
