@@ -19,6 +19,35 @@ import {
 } from '../services/audiobook-installer.js'
 
 /**
+ * ⚠️ PROCESS-WIDE HAZARD, and it is not this module's doing.
+ *
+ * `kokoro-js` pulls in `phonemizer`, which bundles the espeak-ng WASM build,
+ * and that bundle installs its own process-level handlers at import time:
+ *
+ *   process.on('unhandledRejection', (err) => { throw err })
+ *   process.on('uncaughtException', ...)
+ *
+ * The consequence reaches far past narration. From the moment this module is
+ * imported, ANY unhandled promise rejection anywhere in the process becomes
+ * fatal rather than merely logged, including one raised by code that has
+ * nothing to do with audio. Because `server/composition-root.ts` constructs
+ * every adapter eagerly, that is every server process, not only one that is
+ * narrating something.
+ *
+ * This bit once already. A fire-and-forget write in
+ * `server/adapters/fs-job-journal.ts` left its promise chain rejected with no
+ * handler attached, which is ordinarily a warning, and instead took the whole
+ * worker down with no failing assertion to point at. See the trailing catch
+ * there and its comment.
+ *
+ * So the rule for anything that runs in this process: a promise you do not
+ * await must carry its own `.catch`. Do not rely on the default Node
+ * behaviour of logging and continuing, because it is not in force here.
+ *
+ * Deliberately not removed or wrapped. Overriding another package's process
+ * handlers is worse than documenting them, and the hazard belongs at the
+ * import that causes it.
+ *
  * kokoro-js backed SpeechSynthesis. Real logic lifted verbatim from
  * server/services/kokoro-service.ts: the voice catalogue tables, the
  * in-process synthesis pool, and tts.stream()-based synthesis. See that
