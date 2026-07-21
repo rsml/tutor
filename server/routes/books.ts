@@ -31,7 +31,6 @@ import { generateAudiobook } from '../services/audiobook-generator.js'
 import { listVoices } from '../services/kokoro-service.js'
 import { MARKDOWN_FORMATTING_RULES } from '../prompts/formatting-rules.js'
 import {
-  AI_GENERATION_TIMEOUT_MS,
   DEFAULT_CHAPTER_COUNT,
   DEFAULT_MODEL,
   DEFAULT_QUIZ_LENGTH,
@@ -42,138 +41,20 @@ import {
 } from '../constants.js'
 import { sendMediaWithRange } from '../http/send-media-range.js'
 import { bookIdSchema, bookChapterSchema } from '../http/route-params.js'
-
-function createTimeout(): { signal: AbortSignal; clear: () => void } {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), AI_GENERATION_TIMEOUT_MS)
-  return { signal: controller.signal, clear: () => clearTimeout(timer) }
-}
-
-const DEPTH_LABELS = ['high-level overview', 'light coverage', 'balanced depth', 'detailed', 'comprehensive deep-dive']
-const PACE_LABELS = ['very deliberate pace', 'measured pace', 'moderate pace', 'brisk pace', 'very fast pace']
-const METAPHOR_LABELS = ['very rare metaphors', 'occasional metaphors', 'moderate metaphors', 'frequent metaphors', 'very frequent metaphors']
-const NARRATIVE_LABELS = ['strictly technical', 'mostly technical', 'balanced technical/narrative', 'mostly narrative', 'fully narrative storytelling']
-const HUMOR_LABELS = ['strictly serious', 'mostly serious', 'light humor okay', 'playful tone', 'witty and playful']
-const FORMALITY_LABELS = ['very casual', 'casual', 'balanced formality', 'somewhat academic', 'formal academic']
-
-async function buildProfileContext(): Promise<string> {
-  try {
-    const profile = await store.getProfile()
-    const parts: string[] = []
-    if (profile.identity) parts.push(`Reader background: ${profile.identity}`)
-    if (profile.style) parts.push(`Preferred learning style: ${profile.style}`)
-    const prefs: string[] = []
-    if (profile.preferences.explainComplexTermsSimply) prefs.push('explain complex terms simply')
-    if (profile.preferences.codeExamples) prefs.push('include code examples')
-    if (profile.preferences.realWorldAnalogies) prefs.push('use real-world analogies')
-    if (profile.preferences.includeRecaps) prefs.push('recap previous material at chapter start')
-    if (profile.preferences.includeSummaries) prefs.push('include key takeaways at chapter end')
-    if (profile.preferences.visualDescriptions) prefs.push('describe diagrams and visual mental models')
-    // Slider preferences
-    prefs.push(`depth: ${DEPTH_LABELS[profile.preferences.depthLevel - 1]}`)
-    prefs.push(`pace: ${PACE_LABELS[profile.preferences.pacePreference - 1]}`)
-    prefs.push(`metaphors: ${METAPHOR_LABELS[profile.preferences.metaphorDensity - 1]}`)
-    prefs.push(`style: ${NARRATIVE_LABELS[profile.preferences.narrativeStyle - 1]}`)
-    prefs.push(`humor: ${HUMOR_LABELS[profile.preferences.humorLevel - 1]}`)
-    prefs.push(`formality: ${FORMALITY_LABELS[profile.preferences.formalityLevel - 1]}`)
-    if (prefs.length > 0) parts.push(`Writing preferences: ${prefs.join(', ')}`)
-
-    const skills = profile.skills ?? []
-    if (skills.length > 0) {
-      const strong = skills.filter(s => s.level >= 7).map(s => `${s.name} (${s.level}/10)`)
-      const moderate = skills.filter(s => s.level >= 4 && s.level <= 6).map(s => `${s.name} (${s.level}/10)`)
-      const limited = skills.filter(s => s.level <= 3).map(s => `${s.name} (${s.level}/10)`)
-      const skillParts: string[] = []
-      if (strong.length > 0) skillParts.push(`Strong knowledge (>=7): ${strong.join(', ')}`)
-      if (moderate.length > 0) skillParts.push(`Moderate knowledge (4-6): ${moderate.join(', ')}`)
-      if (limited.length > 0) skillParts.push(`Limited knowledge (<=3): ${limited.join(', ')}`)
-      skillParts.push('Adjust depth — skip basics for strong areas, explain fundamentals for weak areas')
-      parts.push(`Prior knowledge:\n${skillParts.join('\n')}`)
-    } else {
-      parts.push('No explicit skill ratings provided — infer prior knowledge from the reader background above')
-    }
-
-    return parts.join('\n')
-  } catch {
-    return ''
-  }
-}
-
-function formatSkillProgress(result: import('../services/book-store.js').SkillProgressResult): string {
-  if (result.skills.length === 0) return ''
-
-  const { stats, skills } = result
-  const lines: string[] = []
-
-  lines.push(`Overall: ${stats.completedBooks}/${stats.totalBooks} books completed, ${stats.completedChapters}/${stats.totalChapters} chapters completed`)
-  lines.push('')
-
-  for (const skill of skills) {
-    const pct = skill.totalWeight > 0 ? Math.round((skill.completedWeight / skill.totalWeight) * 100) : 0
-    const bookList = skill.books.map(b => `${b.title} (${b.completed ? 'completed' : 'in progress'}${b.lastActivityAt ? `, last: ${b.lastActivityAt.split('T')[0]}` : ''})`).join(', ')
-    lines.push(`${skill.name}: ${pct}% mastery${skill.lastActivityAt ? ` (last activity: ${skill.lastActivityAt.split('T')[0]})` : ''} — taught by: ${bookList}`)
-
-    const weak = skill.subskills.filter(s => s.totalWeight > 0 && (s.completedWeight / s.totalWeight) < 0.5)
-    const strong = skill.subskills.filter(s => s.totalWeight > 0 && (s.completedWeight / s.totalWeight) >= 0.5)
-
-    if (weak.length > 0) {
-      lines.push(`  Weak subskills (< 50%): ${weak.map(s => {
-        const p = Math.round((s.completedWeight / s.totalWeight) * 100)
-        return `${s.name} (${p}%)`
-      }).join(', ')}`)
-    }
-    if (strong.length > 0) {
-      lines.push(`  Strong subskills (>= 50%): ${strong.map(s => {
-        const p = Math.round((s.completedWeight / s.totalWeight) * 100)
-        return `${s.name} (${p}%)`
-      }).join(', ')}`)
-    }
-  }
-
-  return lines.join('\n')
-}
-
-async function generateQuiz(
-  provider: string,
-  model: string,
-  chapterContent: string,
-  quizLength: number = DEFAULT_QUIZ_LENGTH,
-): Promise<{ questions: Array<{ question: string; options: string[]; correctIndex: number }> }> {
-  const timeout = createTimeout()
-  try {
-    const result = await generateObject({
-      model: createModelClient(provider, model),
-      abortSignal: timeout.signal,
-      schema: z.object({
-        questions: z.array(z.object({
-          question: z.string(),
-          options: z.array(z.string()),
-          correctIndex: z.number(),
-        })),
-      }),
-      prompt: `Based on this chapter content, generate exactly ${quizLength} multiple-choice quiz questions to test comprehension. Each question should have 4 options with exactly one correct answer.
-
-${genManager.QUIZ_QUALITY_RULES}
-
-Chapter content:
-${chapterContent}`,
-    })
-    return genManager.shuffleQuizOptions(result.object)
-  } finally {
-    timeout.clear()
-  }
-}
-
-async function validateChapterNum(bookId: string, num: number): Promise<void> {
-  const meta = await store.getBook(bookId)
-  if (num < 1 || num > meta.totalChapters) {
-    const err = new Error(`Chapter ${num} out of range (1-${meta.totalChapters})`)
-    ;(err as Error & { statusCode?: number }).statusCode = 400
-    throw err
-  }
-}
-
-const sanitizeFeedback = (s: string) => s.replace(/<\/?[^>]+>/g, '')
+import { createTimeout } from '../http/ai-timeout.js'
+import {
+  buildProfileContext,
+  DEPTH_LABELS,
+  PACE_LABELS,
+  METAPHOR_LABELS,
+  NARRATIVE_LABELS,
+  HUMOR_LABELS,
+  FORMALITY_LABELS,
+} from '../domain/profile-context.js'
+import { formatSkillProgress } from '../domain/skill-progress-report.js'
+import { validateChapterNum } from '../domain/chapter-range.js'
+import { sanitizeFeedback } from '../domain/sanitize.js'
+import { generateQuiz } from '../services/generate-quiz.js'
 
 export async function bookRoutes(fastify: FastifyInstance) {
   async function generateFirstChapterAndQuiz(
