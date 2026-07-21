@@ -105,4 +105,39 @@ describe('createFsJobJournal', () => {
 
     expect(await journal.listInterrupted()).toEqual([])
   })
+
+  // Journal writes are fire and forget, so nothing is awaiting the chain at
+  // the moment one runs. A write that rejects therefore has no handler
+  // attached, and an unhandled rejection is fatal in this process rather
+  // than merely noisy, because the espeak WASM module the narration adapter
+  // pulls in installs a process-level handler that rethrows. This was found
+  // by a server test crashing its vitest worker outright.
+  it('survives a write that fails, without an unhandled rejection and without blocking later writes', async () => {
+    const dataDir = await freshDataDir()
+    const journal = createFsJobJournal({ dataDir })
+
+    const rejections: unknown[] = []
+    const onRejection = (err: unknown): void => { rejections.push(err) }
+    process.on('unhandledRejection', onRejection)
+
+    try {
+      // A job id that resolves to an unwritable path makes writeYaml reject
+      // inside the chain, which is the exact shape of a real failure such as
+      // a data directory removed while a job was still running.
+      journal.record({ ...JOB, id: 'nested/missing/../../../../../../etc/definitely-not-writable' })
+      journal.record({ ...JOB, id: 'good-job' })
+      await journal.flush()
+
+      // The chain recovered rather than staying rejected, so the write
+      // queued after the failure still landed.
+      const jobs = await journal.listInterrupted()
+      expect(jobs.map((j) => j.id)).toContain('good-job')
+
+      // Give any stray rejection a turn of the event loop to surface.
+      await new Promise((resolve) => setImmediate(resolve))
+      expect(rejections).toEqual([])
+    } finally {
+      process.off('unhandledRejection', onRejection)
+    }
+  })
 })
