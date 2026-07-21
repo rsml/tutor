@@ -1,19 +1,21 @@
 import type { FastifyInstance } from 'fastify'
-import { ZodError } from 'zod'
-import * as store from '../services/book-store.js'
 import { ChapterProgressSchema } from '@shared/domain.js'
 import { bookChapterSchema } from '../http/route-params.js'
-import { validateChapterNum } from '../domain/chapter-range.js'
+import { parseBody } from '../http/parse.js'
+import { createReadChapter } from '../services/read-chapter.js'
+import { createRecordChapterProgress } from '../services/record-chapter-progress.js'
 import type { Ports } from '../composition-root.js'
 
-export async function readingRoutes(fastify: FastifyInstance, _opts: { ports: Ports }) {
+export async function readingRoutes(fastify: FastifyInstance, { ports }: { ports: Ports }) {
+  const readChapter = createReadChapter({ books: ports.bookRepository })
+  const recordChapterProgress = createRecordChapterProgress({ books: ports.bookRepository })
+
   fastify.get<{ Params: { id: string; num: string } }>(
     '/api/books/:id/chapters/:num',
     { schema: { params: bookChapterSchema } },
     async (request) => {
       const chapterNum = parseInt(request.params.num)
-      await validateChapterNum(request.params.id, chapterNum)
-      const content = await store.getChapter(request.params.id, chapterNum)
+      const content = await readChapter(request.params.id, chapterNum)
       return { content }
     },
   )
@@ -26,19 +28,11 @@ export async function readingRoutes(fastify: FastifyInstance, _opts: { ports: Po
   }>(
     '/api/books/:id/progress/:num',
     { schema: { params: bookChapterSchema } },
-    async (request, reply) => {
-      try {
-        const body = ChapterProgressSchema.parse(request.body)
-        const chapterNum = parseInt(request.params.num)
-        await validateChapterNum(request.params.id, chapterNum)
-        await store.saveChapterProgress(request.params.id, chapterNum, body)
-        return { ok: true }
-      } catch (err) {
-        if (err instanceof ZodError) {
-          return reply.status(400).send({ error: 'Invalid request', details: err.issues })
-        }
-        throw err
-      }
+    async (request) => {
+      const body = parseBody(ChapterProgressSchema, request.body)
+      const chapterNum = parseInt(request.params.num)
+      await recordChapterProgress(request.params.id, chapterNum, body)
+      return { ok: true }
     },
   )
 }
