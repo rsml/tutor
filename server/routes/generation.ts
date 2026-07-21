@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
+import type { FastifyInstance, FastifyReply } from 'fastify'
 import {
   CreateBookBodySchema,
   GenerateNextBodySchema,
@@ -41,7 +41,7 @@ function tocReviewConflict(book: BookMeta, action: string) {
 }
 
 /** Opens the SSE response and forwards the hub's events for one book until a terminal event, or the client disconnects. */
-function pipeHubToSse(request: FastifyRequest, reply: FastifyReply, hub: ChapterGenerationStream, bookId: string, sendBuffered: boolean): void {
+function pipeHubToSse(reply: FastifyReply, hub: ChapterGenerationStream, bookId: string, sendBuffered: boolean): void {
   reply.raw.writeHead(200, SSE_HEADERS)
 
   let ended = false
@@ -54,7 +54,20 @@ function pipeHubToSse(request: FastifyRequest, reply: FastifyReply, hub: Chapter
     }
   }, sendBuffered)
 
-  request.raw.on('close', () => {
+  // Listen on the RESPONSE, never on the request. See issue #50. From Node
+  // 16 onward an IncomingMessage emits `close` once its own stream is
+  // finished, not only when the peer disconnects, and for a POST whose body
+  // Fastify has already read and parsed that is immediately. Listening
+  // there unsubscribed and ended the reply before generation produced its
+  // first chunk, so the client received a 200 with an empty body while the
+  // chapter generated and saved perfectly well behind it.
+  //
+  // A ServerResponse emits `close` when the response finishes or the
+  // connection is torn down early, which is the question actually being
+  // asked here. On a normal finish `ended` is already true and unsubscribing
+  // is simply the cleanup that was always wanted; on a real disconnect the
+  // subscriber is dropped and the reply closed, exactly as before.
+  reply.raw.on('close', () => {
     unsubscribe()
     if (!ended) { ended = true; reply.raw.end() }
   })
@@ -80,7 +93,7 @@ export async function generationRoutes(fastify: FastifyInstance, { ports, servic
       const conflict = singleChapterConflict(chapterStream, ports.backgroundTasks, bookId)
       if (conflict) return reply.status(409).send(conflict)
       chapterStream.startGeneration(bookId, body)
-      pipeHubToSse(request, reply, chapterStream, bookId, false)
+      pipeHubToSse(reply, chapterStream, bookId, false)
     },
   )
 
@@ -101,7 +114,7 @@ export async function generationRoutes(fastify: FastifyInstance, { ports, servic
       const conflict = singleChapterConflict(chapterStream, ports.backgroundTasks, bookId)
       if (conflict) return reply.status(409).send(conflict)
       chapterStream.startGeneration(bookId, { ...body, targetChapterNum: chapterNum })
-      pipeHubToSse(request, reply, chapterStream, bookId, false)
+      pipeHubToSse(reply, chapterStream, bookId, false)
     },
   )
 
@@ -117,7 +130,7 @@ export async function generationRoutes(fastify: FastifyInstance, { ports, servic
       return reply.status(404).send({ error: 'No active generation for this book' })
     }
 
-    pipeHubToSse(request, reply, chapterStream, bookId, true)
+    pipeHubToSse(reply, chapterStream, bookId, true)
   })
 
   // --- Create book (TOC generation) ---
