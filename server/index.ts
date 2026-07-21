@@ -17,7 +17,8 @@ import { coverRoutes } from './routes/covers.js'
 import { importRoutes } from './routes/import.js'
 import { modelsRoutes } from './routes/models.js'
 import { audiobookRoutes } from './routes/audiobook.js'
-import { recoverFromCrash } from './services/book-store.js'
+import { getDataDir } from '@shared/node/data-dir.js'
+import { createRecoverFromCrash } from './services/recover-from-crash.js'
 import { registerErrorHandler } from './http/error-handler.js'
 import { STATUS_FORBIDDEN, STATUS_NO_CONTENT } from './http/status.js'
 import { createPorts, createSharedServices, type Ports } from './composition-root.js'
@@ -151,6 +152,19 @@ export async function buildServer(overrides: Partial<Ports> = {}): Promise<Fasti
 export async function startServer(port = 3147, host = '127.0.0.1', overrides: Partial<Ports> = {}) {
   const fastify = await buildServer(overrides)
 
+  // A second createPorts(overrides) call, independent of the one buildServer
+  // made for the routes it registered. bookRepository and artifactStore are
+  // both stateless bridges to the same on-disk data either way (or, in a
+  // test, the exact same override object either time, since createPorts
+  // always applies overrides last), so this composes identically to how the
+  // book-store.js shim this replaced built its own adapters from getDataDir()
+  // rather than reusing buildServer's.
+  const ports = createPorts(overrides)
+  const recoverFromCrash = createRecoverFromCrash({
+    bookRepository: ports.bookRepository,
+    artifactStore: ports.artifactStore,
+    dataDir: getDataDir(),
+  })
   const recovery = await recoverFromCrash()
   if (recovery.booksReset.length > 0 || recovery.artifactsRemoved.length > 0) {
     fastify.log.info(
