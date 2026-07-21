@@ -1,5 +1,13 @@
 import { z } from 'zod'
-import { BookStatusSchema, type BookStatus } from './book-status.js'
+import { BOOK_STATUSES, type BookStatus } from './book-status.js'
+
+/**
+ * Built here rather than in `shared/book-status.ts` so that module can stay
+ * free of zod. The client imports its predicates, and a value import of zod
+ * there would ship the validator in the renderer bundle. Derived from the
+ * BOOK_STATUSES tuple, so the schema and the predicates cannot drift.
+ */
+export const BookStatusSchema = z.enum(BOOK_STATUSES)
 
 /**
  * The entities the app persists and renders: learning profile, table of
@@ -84,7 +92,7 @@ export type Toc = z.infer<typeof TocSchema>
 
 // --- Book Meta ---
 
-export { BookStatusSchema, type BookStatus }
+export { type BookStatus }
 
 export const BookMetaSchema = z.object({
   id: z.string(),

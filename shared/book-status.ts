@@ -1,5 +1,3 @@
-import { z } from 'zod'
-
 /**
  * The lifecycle a book moves through, and the predicates both sides of the app
  * use to ask about it.
@@ -14,21 +12,29 @@ import { z } from 'zod'
  * interfaces, so a narrower parameter would force casts at the call sites this
  * module is meant to simplify. Tightening those interfaces is a later phase's
  * job, and `shared/book-status.test.ts` covers the loose inputs meanwhile.
+ *
+ * DELIBERATELY FREE OF ZOD, and of every other runtime dependency. The client
+ * imports these predicates, so a value import of zod here would drag the whole
+ * validator into the renderer bundle for the sake of six string comparisons.
+ * The matching `BookStatusSchema` therefore lives in `shared/domain.ts`, which
+ * is server-side and already builds on zod, and it is derived from the
+ * `BOOK_STATUSES` tuple below so the two cannot drift apart.
  */
 
-export const BookStatusSchema = z.enum([
+/**
+ * Every status a book can hold, in lifecycle order. This tuple is the single
+ * source of truth. `shared/domain.ts` builds the Zod enum from it.
+ */
+export const BOOK_STATUSES = [
   'generating_toc',
   'toc_review',
   'generating',
   'reading',
   'complete',
   'failed',
-])
+] as const
 
-export type BookStatus = z.infer<typeof BookStatusSchema>
-
-/** Every status, in schema order. Useful for exhaustive iteration. */
-export const BOOK_STATUSES = BookStatusSchema.options
+export type BookStatus = (typeof BOOK_STATUSES)[number]
 
 /**
  * The book is producing content right now, either its table of contents or a

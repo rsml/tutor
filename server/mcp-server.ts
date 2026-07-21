@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
-import { BookStatusSchema } from '@shared/book-status.js'
+import { BookStatusSchema } from '@shared/domain.js'
 
 const API_URL = process.env.TUTOR_API_URL ?? 'http://127.0.0.1:3147'
 
