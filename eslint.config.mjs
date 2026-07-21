@@ -53,6 +53,30 @@ const boundaries = [
     ]),
   },
   {
+    // Everything that reaches the server goes through client/api/. This is a
+    // rule rather than a convention because the client used to hold eighty
+    // four scattered fetch calls, and the only durable reason it now holds
+    // none is that adding one fails the build.
+    //
+    // EventSource is covered too, because reconnection has to live in one
+    // place. The background task stream used to be constructed in two
+    // separate components, each with its own idea of when to reconnect.
+    files: ['client/**/*.{ts,tsx}'],
+    ignores: ['client/api/**'],
+    rules: {
+      'no-restricted-syntax': ['error',
+        {
+          selector: "CallExpression[callee.name='fetch']",
+          message: 'Reach the server through @client/api rather than calling fetch. If an endpoint is missing, add a function to the matching api module.',
+        },
+        {
+          selector: "NewExpression[callee.name='EventSource']",
+          message: 'Subscribe through @client/api rather than constructing an EventSource, so reconnection stays in one place.',
+        },
+      ],
+    },
+  },
+  {
     files: ['server/**/*.ts'],
     rules: forbid([
       {
