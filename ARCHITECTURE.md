@@ -42,7 +42,7 @@ flowchart LR
     services --> domain
   end
 
-  subgraph ports["ports/ — 15 interfaces"]
+  subgraph ports["ports/ (15 interfaces)"]
     direction TB
     pStore["BookRepository<br/>ArtifactStore<br/>LibraryMigrator<br/>JobJournal<br/>KeyVault"]
     pAi["TextGeneration<br/>ImageGeneration"]
@@ -50,7 +50,7 @@ flowchart LR
     pSys["BackgroundTasks<br/>Clock<br/>OsFileManager"]
   end
 
-  subgraph adapters["adapters/ — the only I/O"]
+  subgraph adapters["adapters/ (the only I/O)"]
     direction TB
     aStore["fs-*.ts<br/>file-key-vault.ts"]
     aAi["ai-sdk-text-generation.ts<br/>http-image-generation.ts"]
@@ -68,7 +68,7 @@ flowchart LR
   pSys --> aSys
 ```
 
-Nothing in the core names an adapter. [`server/composition-root.ts`](server/composition-root.ts) is the one place a real adapter is chosen, and `buildServer(overrides)` lets a test or the Electron shell substitute one. Every port ships an in-memory fake and a contract test that the fake and every adapter must both pass, which is what stops a fake from drifting into a convenient fiction. See [`server/ports/README.md`](server/ports/README.md) and [`server/adapters/README.md`](server/adapters/README.md) for the full mapping, and [ADR 0005](docs/adr/0005-ai-sdk-behind-a-port.md) for why the AI SDK sits behind one.
+Nothing in the core names an adapter. [`server/composition-root.ts`](server/composition-root.ts) is the one place a real adapter is chosen, and `buildServer(overrides)` lets a test or the Electron shell substitute one. Every port ships an in-memory fake and a shared contract test, and every adapter that can be exercised without spending money or downloading a model runs that same contract, which is what stops a fake from drifting into a convenient fiction. See [`server/ports/README.md`](server/ports/README.md) and [`server/adapters/README.md`](server/adapters/README.md) for the full mapping, and [ADR 0005](docs/adr/0005-ai-sdk-behind-a-port.md) for why the AI SDK sits behind one.
 
 ## 3. How a request travels
 
