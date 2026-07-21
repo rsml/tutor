@@ -21,7 +21,7 @@ import { getDataDir } from '@shared/node/data-dir.js'
 import { createRecoverFromCrash } from './services/recover-from-crash.js'
 import { registerErrorHandler } from './http/error-handler.js'
 import { STATUS_FORBIDDEN, STATUS_NO_CONTENT } from './http/status.js'
-import { createPorts, createSharedServices, type Ports } from './composition-root.js'
+import { createPorts, createSharedServices, type Ports, type SharedServices } from './composition-root.js'
 import type { MigrationReport } from './ports/library-migrator.js'
 
 const ALLOWED_ORIGINS = [
@@ -59,6 +59,15 @@ function isAllowedOrigin(origin: string): boolean {
  * its plugin options, so a route module never reaches for a concrete
  * adapter and never has to be edited when one is swapped.
  */
+declare module 'fastify' {
+  interface FastifyInstance {
+    /** The exact ports this instance's routes were registered with. See buildServer. */
+    ports: Ports
+    /** The exact shared services this instance's routes were registered with. See buildServer. */
+    services: SharedServices
+  }
+}
+
 export async function buildServer(overrides: Partial<Ports> = {}): Promise<FastifyInstance> {
   const ports = createPorts(overrides)
   const services = createSharedServices(ports)
@@ -141,6 +150,18 @@ export async function buildServer(overrides: Partial<Ports> = {}): Promise<Fasti
 
   fastify.get('/api/health', async () => ({ status: 'ok' }))
 
+  // Expose the exact ports and services the routes above were registered
+  // with, so a caller that has to act on this server's state after it is
+  // built reaches the same instances rather than constructing a second set.
+  // createPorts deliberately returns fresh adapters on every call, which
+  // composition-root.test.ts pins, so a second call would hand back a
+  // BackgroundTasks no route can see and a ChapterGenerationStream no route
+  // reads. That is harmless for stateless filesystem bridges and silently
+  // wrong for anything holding in-memory state, which startup job resume
+  // does.
+  fastify.decorate('ports', ports)
+  fastify.decorate('services', services)
+
   return fastify
 }
 
@@ -199,16 +220,13 @@ export async function runStartupTasks(ports: Ports, log: FastifyBaseLogger): Pro
 export async function startServer(port = 3147, host = '127.0.0.1', overrides: Partial<Ports> = {}) {
   const fastify = await buildServer(overrides)
 
-  // A second createPorts(overrides) call, independent of the one buildServer
-  // made for the routes it registered. Every port is either a stateless
-  // bridge to the same on-disk data either way, or, in a test, the exact
-  // same override object either time, since createPorts always applies
-  // overrides last, so this composes identically to how the book-store.js
-  // shim this replaced built its own adapters from getDataDir() rather than
-  // reusing buildServer's. See runStartupTasks's doc comment for why
-  // migration has to precede crash recovery.
-  const ports = createPorts(overrides)
-  await runStartupTasks(ports, fastify.log)
+  // The ports the routes were actually registered with, read back off the
+  // instance rather than built a second time. This used to be its own
+  // createPorts(overrides) call, which was fine while startup only ran
+  // migration and crash recovery, since both talk to stateless bridges over
+  // the same data directory. It stops being fine the moment startup touches
+  // in-memory state. See the decoration in buildServer for the full reason.
+  await runStartupTasks(fastify.ports, fastify.log)
 
   await fastify.listen({ port, host })
   return fastify

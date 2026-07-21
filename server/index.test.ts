@@ -9,6 +9,47 @@ import { createFakeLibraryMigrator } from './ports/library-migrator.fake.js'
 import { createFakeBookRepository } from './ports/book-repository.fake.js'
 import { createFakeArtifactStore } from './ports/artifact-store.fake.js'
 
+describe('buildServer decorations', () => {
+  // The decoration exists so a caller acting on the server after it is
+  // built reaches the same port instances the routes hold. createPorts
+  // returns fresh adapters per call, deliberately, so a second call hands
+  // back a BackgroundTasks nothing can observe. This test drives that
+  // difference end to end rather than merely comparing object identity: a
+  // task started through the decorated ports has to be visible through the
+  // route, and it would not be if the two were separate instances.
+  //
+  // Startup job resume is the caller this protects. Without it, a resumed
+  // job would be registered somewhere no route reads, so the tray would
+  // stay empty and nothing would report an error.
+  it('exposes the same ports the routes were registered with', async () => {
+    const fastify = await buildServer()
+    try {
+      const handle = fastify.ports.backgroundTasks.start({
+        type: 'generate-epub',
+        bookId: 'decoration-book',
+        bookTitle: 'Decoration Book',
+        total: 1,
+      })
+
+      const res = await fastify.inject({ method: 'GET', url: '/api/tasks' })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().map((t: { id: string }) => t.id)).toContain(handle.id)
+    } finally {
+      await fastify.close()
+    }
+  })
+
+  it('exposes the same shared services the routes were registered with', async () => {
+    const fastify = await buildServer()
+    try {
+      expect(fastify.services.chapterGenerationStream).toBeDefined()
+      expect(fastify.services.chapterGenerationStream.getStatus('no-such-book')).toEqual({ active: false })
+    } finally {
+      await fastify.close()
+    }
+  })
+})
+
 describe('buildServer', () => {
   // Protects the routes-doc generator and every fastify.inject-based
   // characterization test in this repo, all of which call buildServer()
