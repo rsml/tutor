@@ -2,7 +2,12 @@ import { chapterStreamChunks } from '../fixtures/chapter-stream.js'
 import { QUIZ_FIXTURE } from '../fixtures/quiz.js'
 import { SKILL_CLASSIFICATION } from '../fixtures/skills.js'
 import { TOC_STREAM_CHUNKS } from '../fixtures/toc-stream.js'
-import { promptIncludes, systemIncludes, type ScriptedTextGeneration } from './scripted-text-generation.js'
+import {
+  promptIncludes,
+  systemIncludes,
+  type MatchableRequest,
+  type ScriptedTextGeneration,
+} from './scripted-text-generation.js'
 
 /**
  * Wires every model call site the journeys traverse to its fixture.
@@ -50,7 +55,7 @@ export function chapterNumberFrom(prompt: string | undefined): number {
 export const isChapterStream = systemIncludes(CHAPTER_SYSTEM_PHRASE)
 
 /** Matches the chapter-generation stream for one specific chapter. */
-export const isChapterStreamFor = (num: number) => (req: { system?: string; prompt?: string }): boolean =>
+export const isChapterStreamFor = (num: number) => (req: MatchableRequest): boolean =>
   isChapterStream(req) && chapterNumberFrom(req.prompt) === num
 
 /** Matches the table-of-contents stream that `POST /api/books` opens. */
@@ -58,8 +63,12 @@ export const isTocStream = systemIncludes(TOC_SYSTEM_PHRASE)
 
 /** Installs the default rule set. Journeys may add rules on top to shadow any of these. */
 export function applyDefaultScript(model: ScriptedTextGeneration): void {
-  // Registered oldest first so the resulting precedence reads top to bottom
-  // in this function, since each call unshifts onto the front of the list.
+  // Each call pushes onto the front of the list, so precedence reads BOTTOM
+  // to top in this function and a narrow rule must be registered after the
+  // broad rule it refines. The rules below are deliberately disjoint, each
+  // matching a phrase that appears in exactly one service's prompt, so the
+  // order among them does not matter and only a journey's own added rule
+  // ever shadows one.
   model.onStreamText({
     name: 'chapter stream (start-book and generate-next-chapter)',
     match: isChapterStream,
