@@ -10,6 +10,21 @@ import type { Root, Element, Text, RootContent } from 'hast'
 
 type ParentNode = Root | Element
 
+/**
+ * Wraps a unified/remark/rehype markdown pipeline in two configurations.
+ * The default processor is plain GFM markdown to HTML, used wherever a
+ * chapter is rendered as-is. The preserveSources pipeline additionally
+ * renders KaTeX math and extracts mermaid code blocks into placeholder
+ * divs, for export-epub.ts, which batches every diagram across every
+ * chapter into one render call rather than one request per chart, and
+ * needs the original math and diagram source preserved so an imported EPUB
+ * can recover them later (see domain/epub-embedding.ts).
+ *
+ * The two overload signatures on markdownToHtml exist so a caller that
+ * never passes preserveSources keeps getting back a plain string, matching
+ * every call site that existed before this option did, rather than every
+ * caller now having to unwrap a result object.
+ */
 export interface MarkdownToHtmlResult {
   html: string
   mermaidBlocks: Array<{ placeholder: string; source: string }>

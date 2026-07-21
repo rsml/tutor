@@ -1,3 +1,10 @@
+/**
+ * Renders a SkillProgress rollup into the plain-text block
+ * suggest-next-book.ts embeds as its skill-mastery evidence layer in the
+ * book-suggestion prompt. Returns the empty string when there are no
+ * skills yet, so a caller can fall back to its own "no data" placeholder
+ * instead of showing an empty section.
+ */
 export function formatSkillProgress(result: import('@shared/responses.js').SkillProgress): string {
   if (result.skills.length === 0) return ''
 

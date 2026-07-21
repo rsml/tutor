@@ -22,6 +22,10 @@ import type { AudiobookManifest } from '@shared/domain.js'
  * different directories, so a caller may rely on a path being stable for a
  * given book and chapter and different across books and chapters, but must
  * not depend on its exact string value.
+ *
+ * The in-memory fake is artifact-store.fake.ts's createFakeArtifactStore,
+ * and the shared behavioural spec both it and a real adapter must satisfy
+ * is artifact-store.contract.ts's describeArtifactStoreContract.
  */
 
 /**
@@ -47,6 +51,13 @@ export interface CrashRecoveryReport {
   artifactsRemoved: string[]
 }
 
+/**
+ * Path and existence methods that check exactly one well known file,
+ * epubPath/epubExists and audiobookPath/audiobookExists, stay synchronous.
+ * chapterAudioExists is the one existence check that is async, because
+ * unlike those it falls back to reading the audiobook manifest when the
+ * legacy per-chapter file is absent.
+ */
 export interface ArtifactStore {
   // --- Cover image ---
 

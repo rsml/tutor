@@ -12,16 +12,37 @@ import type { TextGenerationErrorKind } from '../ports/text-generation.js'
  * per-kind table cannot silently make total retry time unbounded. `rng` is
  * injected, defaulting to `Math.random`, so the policy is deterministically
  * testable.
+ *
+ * A shared helper, not an adapter. It implements no port of its own, and
+ * today only ai-sdk-text-generation.ts imports it.
  */
 
+/**
+ * One error kind's retry budget. maxAttempts of 1 means never retried.
+ * baseDelayMs is what nextDelayMs's exponential backoff multiplies from.
+ */
 export interface RetryRule {
   maxAttempts: number
   baseDelayMs: number
 }
 
+/**
+ * Upper bound on any single computed delay, including a rate-limited
+ * retry-after. Keeps one huge backoff or provider-supplied delay from
+ * stalling a retry loop on its own.
+ */
 export const RETRY_MAX_DELAY_MS = 20_000
+/**
+ * Second, independent ceiling on total elapsed retry time, on top of each
+ * kind's own maxAttempts. See the file header for why both bounds exist.
+ */
 export const RETRY_TOTAL_ELAPSED_CEILING_MS = 60_000
 
+/**
+ * Per-kind retry budgets. auth-failed, content-refused, and unknown all
+ * get maxAttempts of 1, since none of the three improves by waiting and
+ * retrying.
+ */
 export const RETRY_POLICY: Record<TextGenerationErrorKind, RetryRule> = {
   'rate-limited': { maxAttempts: 4, baseDelayMs: 1000 },
   overloaded: { maxAttempts: 3, baseDelayMs: 1000 },

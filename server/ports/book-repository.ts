@@ -27,6 +27,10 @@ import type { SkillProgress } from '@shared/responses.js'
  * Binary artifacts such as covers, EPUB files, and audiobook audio are
  * deliberately out of scope here. See artifact-store.ts for those, and for
  * why they get a separate, filesystem shaped port instead of living here.
+ *
+ * The in-memory fake is book-repository.fake.ts's createFakeBookRepository,
+ * and the shared behavioural spec both it and the real adapter must
+ * satisfy is book-repository.contract.ts's describeBookRepositoryContract.
  */
 
 /**
@@ -48,6 +52,13 @@ export class NotFoundError extends Error {
   }
 }
 
+/**
+ * Every book scoped sub-resource lives behind this one interface rather
+ * than one port each, specifically so that deleteBook and resetBook, both
+ * below, can guarantee a complete sweep across all of them from a single
+ * call. A caller never has to enumerate the sub-resources itself, and a new
+ * one added here is automatically covered by both.
+ */
 export interface BookRepository {
   // --- Learning profile, global rather than per book ---
 

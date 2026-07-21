@@ -24,6 +24,11 @@
  * caller supplied one today. The kroki.io call uses a fixed internal
  * AbortSignal.timeout, and the Electron renderer uses a fixed internal per
  * chart timeout, so there is nothing for the port to expose yet.
+ *
+ * The in-memory fake is diagram-renderer.fake.ts's createFakeDiagramRenderer,
+ * and the shared behavioural spec every implementation must satisfy is
+ * diagram-renderer.contract.ts's describeDiagramRendererContract, fake
+ * only, per that file's own header.
  */
 
 /**
@@ -38,6 +43,12 @@ export function diagramSourceFallback(chartSource: string): string {
   return `<pre><code class="language-mermaid">${escaped}</code></pre>`
 }
 
+/**
+ * The one method this port exposes. Kept as a named interface, like every
+ * other port here, so server/composition-root.ts and Electron's own
+ * startup override can each hand in a different real implementation, or a
+ * test can hand in createFakeDiagramRenderer(), behind the identical shape.
+ */
 export interface DiagramRenderer {
   /**
    * Renders each chart and returns one markup string per chart, in the

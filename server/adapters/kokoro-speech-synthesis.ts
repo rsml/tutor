@@ -69,6 +69,8 @@ import {
  * outside the SpeechSynthesis contract itself, so a test that shares one
  * instance across cases can reset its lazily loaded KokoroTTS instance and
  * soft concurrency queue instead of reaching into the closure.
+ *
+ * Implements the SpeechSynthesis port defined in server/ports/speech-synthesis.ts.
  */
 
 // Hardcoded voice catalogue mirrors @kokoro-js voices (see
@@ -210,10 +212,22 @@ export interface KokoroTestingHooks {
   setTtsInstance(instance: KokoroTTS | null): void
 }
 
+/**
+ * The richer type createKokoroSpeechSynthesis actually returns,
+ * SpeechSynthesis plus __testing. A caller that only depends on the
+ * SpeechSynthesis port never sees the extra field. Only this adapter's own
+ * tests import this type directly.
+ */
 export interface KokoroSpeechSynthesis extends SpeechSynthesis {
   __testing: KokoroTestingHooks
 }
 
+/**
+ * Constructor deps for createKokoroSpeechSynthesis. All three default to
+ * the real audiobook-installer.ts functions. A test overrides them to
+ * probe install-surface delegation without touching the real filesystem,
+ * data dir, or a network download.
+ */
 export interface KokoroSpeechSynthesisDeps {
   /** Reports whether the Kokoro model and ffmpeg are both already present. Defaults to audiobook-installer.ts's isInstalled. Injectable so a test can probe install state without touching the real filesystem or data dir. */
   isInstalled?: () => boolean
@@ -223,6 +237,15 @@ export interface KokoroSpeechSynthesisDeps {
   install?: (onProgress?: ProgressCallback, signal?: AbortSignal) => Promise<void>
 }
 
+/**
+ * Factory for the SpeechSynthesis port. Constructing an instance never
+ * loads the Kokoro model. It stays unloaded until the first
+ * startWorkerPool, synthesizeChapter, or synthesizePreview call, so merely
+ * wiring this adapter, which composition-root.ts does for every server
+ * process, never pays the model's load cost or downloads anything. Each
+ * call to this factory owns its own TTS instance and concurrency queue in
+ * a private closure, so two instances never share synthesis state.
+ */
 export function createKokoroSpeechSynthesis(deps: KokoroSpeechSynthesisDeps = {}): KokoroSpeechSynthesis {
   const isInstalledProbe = deps.isInstalled ?? installerIsInstalled
   const missingComponentsProbe = deps.missingComponents ?? installerGetMissingComponents

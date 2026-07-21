@@ -2,6 +2,14 @@
 // Pure function: no I/O, no external markdown parser. Uses regex/string ops.
 // Kokoro respects \n\n as a roughly 600ms pause, so paragraph structure is preserved.
 
+/**
+ * Structural markup, headings, lists, tables, blockquotes, is rewritten
+ * into plain sentences rather than dropped, so content that was only
+ * conveyed visually still reaches the listener. List items and headings
+ * each get a trailing period when they lack one, so Kokoro's sentence
+ * splitter treats every item as its own sentence instead of one run-on
+ * line that can overflow its tokenizer.
+ */
 export function stripMarkdownForNarration(md: string): string {
   if (!md) return ''
 

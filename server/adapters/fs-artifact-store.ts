@@ -32,6 +32,13 @@ function extensionFor(mediaType: string): string {
   return 'png'
 }
 
+/**
+ * Factory for the ArtifactStore port. Every write is atomic, a tmp file
+ * then a rename, whether that happens directly, as in saveCover and
+ * writeEpub, or through fs-paths.ts's writeYaml, as in
+ * saveAudiobookManifest, so a crash mid-write can never leave a caller
+ * reading a half-written cover, EPUB, or manifest.
+ */
 export function createFsArtifactStore(opts: { dataDir: string }): ArtifactStore {
   const { dataDir } = opts
 

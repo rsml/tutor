@@ -12,8 +12,21 @@ import { assertSchemaVersionSupported } from '@shared/schema-version.js'
  * artifacts for ArtifactStore, so the directory layout and the atomic YAML
  * read/write mechanics live here once instead of being duplicated in both
  * files.
+ *
+ * writeYaml is also used by fs-library-migrator.ts, and both readYaml and
+ * writeYaml are also used by fs-job-journal.ts, each for its own file
+ * layout outside {dataDir}/books/.
+ *
+ * A shared helper, not an adapter. It implements no port of its own, so a
+ * reader looking for the interface this file satisfies will not find one
+ * here.
  */
 
+/**
+ * The one place the "books" path segment is spelled. bookDir, and every
+ * path fs-book-repository.ts and fs-artifact-store.ts build, come from
+ * this rather than repeating the literal.
+ */
 export function booksDir(dataDir: string): string {
   return join(dataDir, 'books')
 }
@@ -28,6 +41,11 @@ export function bookDir(dataDir: string, bookId: string): string {
   return resolved
 }
 
+/**
+ * Zero-pads to at least two digits, 01 through 99. Padding only guarantees
+ * a two-digit minimum, not a fixed width, so a chapter number of 100 or
+ * higher would sort before 01 through 99 in a plain directory listing.
+ */
 export function padChapter(chapterNum: number): string {
   return String(chapterNum).padStart(2, '0')
 }

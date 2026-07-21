@@ -26,6 +26,11 @@ export interface MermaidBrowserWindow {
   destroy(): void
 }
 
+/**
+ * Constructor deps for createElectronDiagramRenderer. All four are
+ * required. There is no sensible default for an offscreen BrowserWindow
+ * constructor or a mermaid bundle path to fall back to.
+ */
 export interface ElectronDiagramRendererDeps {
   /** Electron's BrowserWindow constructor, injected so this module never imports 'electron' directly. */
   BrowserWindow: new (options: {

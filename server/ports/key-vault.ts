@@ -22,6 +22,10 @@ import type { ProviderId } from '@shared/provider.js'
  * we know about" check the pre-port key-store.ts performed on every call
  * moves to wherever an untrusted string first enters the system (already
  * `zod` parsing at the HTTP boundary), rather than living inside the vault.
+ *
+ * The in-memory fake referenced above is key-vault.fake.ts's
+ * createFakeKeyVault, and the contract test is key-vault.contract.ts's
+ * describeKeyVaultContract.
  */
 export interface KeyVault {
   get(provider: ProviderId): string | null

@@ -12,6 +12,11 @@ import type { BackgroundTasks, StartTaskSpec, Task, TaskHandle } from '../ports/
  */
 const EVICTION_DELAY_MS = 60_000
 
+/**
+ * Constructor deps for createInMemoryBackgroundTasks. newId is the only
+ * field, overridden in tests for deterministic task ids instead of a
+ * random UUID per start() call.
+ */
 export interface InMemoryBackgroundTasksDeps {
   /** Generates a fresh task id. Defaults to node:crypto randomUUID, overridable for deterministic tests. */
   newId?: () => string

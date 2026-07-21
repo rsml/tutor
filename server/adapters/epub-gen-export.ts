@@ -22,6 +22,12 @@ type EpubGenFn = (
   content: Array<{ title: string; content: string }>,
 ) => Promise<Buffer>
 
+/**
+ * Constructor override for createEpubGenExport. loadEpubGenMemory is the
+ * only field. A test substitutes a fake module namespace so both
+ * double-default shapes above can be exercised without going through
+ * Node's real ESM loader.
+ */
 export interface EpubGenExportDeps {
   /** Loads the epub-gen-memory module. Overridable in tests; defaults to a real dynamic import. */
   loadEpubGenMemory?: () => Promise<{ default: unknown }>

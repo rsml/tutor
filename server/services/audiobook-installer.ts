@@ -11,6 +11,27 @@ import { getDataDir } from '@shared/node/data-dir.js'
 
 const execFileAsync = promisify(execFile)
 
+/**
+ * Downloads and installs the two heavyweight runtime dependencies the
+ * audiobook feature needs, rather than shipping either in the app bundle.
+ * The Kokoro TTS model is an ONNX model pulled through
+ * @huggingface/transformers, and the other is a static ffmpeg binary.
+ *
+ * ensureEnvConfigured() has to run before any KokoroTTS call, because
+ * @huggingface/transformers' env is a shared, mutable, module-scope
+ * singleton rather than something scoped per call. Every entry point that
+ * might touch the model, getModelsDir, installAll, and installModel, calls
+ * it itself rather than relying on some earlier bootstrap step, so cacheDir
+ * is always set before kokoro-js can read it, whichever of them runs first.
+ *
+ * Presence detection guards against a download that was interrupted rather
+ * than trusting a file's mere existence. modelHasOnnxFile recurses because
+ * transformers.js preserves the HF repo tree and the exact .onnx path
+ * varies by quantization, and it discards anything under 1MB as a leftover
+ * partial write rather than a real model file. ffmpeg auto-install only
+ * exists for darwin, meaning macOS, today. getFfmpegPath and installFfmpeg
+ * both throw with a manual-install path on any other platform.
+ */
 export const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX'
 
 // Approximate sizes for the UI (bytes)
@@ -79,6 +100,7 @@ function isFfmpegPresent(): boolean {
   return existsSync(join(getDataDir(), 'bin', 'ffmpeg'))
 }
 
+/** totalBytes only sums the components actually missing, so a caller showing how much is left to download never counts a component that is already installed. */
 export function getMissingComponents(): MissingComponents {
   const modelMissing = !isModelPresent()
   const ffmpegMissing = !isFfmpegPresent()
@@ -101,6 +123,15 @@ export interface InstallProgress {
 
 export type ProgressCallback = (progress: InstallProgress) => void
 
+/**
+ * Runs whichever of the model and ffmpeg installs are actually missing,
+ * concurrently, each reporting through the same ProgressCallback shape so a
+ * caller can render one combined progress bar. A signal aborts the ffmpeg
+ * download cleanly and tears down its partial file, but only silences
+ * progress reporting for the model download. KokoroTTS.from_pretrained
+ * takes no signal of its own, so an aborted model install still runs to
+ * completion in the background. The caller simply stops hearing about it.
+ */
 export async function installAll(
   onProgress?: ProgressCallback,
   signal?: AbortSignal,
