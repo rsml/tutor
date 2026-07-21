@@ -7,12 +7,14 @@ import { ChatPanel } from '@client/features/chat/components/ChatPanel'
 import { ReaderHeader } from '@client/features/reader/components/ReaderHeader'
 import { useTextSelection } from '@client/hooks/useTextSelection'
 import { useSectionNavigation } from '@client/features/reader/hooks/useSectionNavigation'
+import { useGenerationResume, type TocChapterSummary } from '@client/features/reader/hooks/useGenerationResume'
+import { useExternalGenerationPoll } from '@client/features/reader/hooks/useExternalGenerationPoll'
+import { useChapterGeneration } from '@client/features/reader/hooks/useChapterGeneration'
+import { useReaderScroll } from '@client/features/reader/hooks/useReaderScroll'
 import { useStreamingContent } from '@client/hooks/useStreamingContent'
 import { store, useAppDispatch, useAppSelector, setChapterFeedback, setChapterQuizResult, recordQuizAttempt, selectFontSize, selectReadingWidth, selectQuizLength, selectFunctionModel } from '@client/store'
-import {
-  ApiError, getBook, getToc, streamGenerationResume, streamNextChapter, streamChapterRegeneration,
-  generateFinalQuiz, getChapterQuiz, submitChapterFeedback, saveChapterProgress, rateBook,
-} from '@client/api'
+import { ApiError, generateFinalQuiz, getChapterQuiz, submitChapterFeedback, saveChapterProgress, rateBook } from '@client/api'
+import { PAGE_SCROLL_FRACTION, READER_LINE_HEIGHT, LINE_SCROLL_LINES, PAGE_SCROLL_MS, LINE_SCROLL_MS } from '@client/lib/constants'
 import { cn } from '@client/lib/utils'
 import { stripStreamingUnclosedMermaid } from '@client/features/markdown/strip-streaming-mermaid'
 import { SafeMarkdown } from '@client/features/markdown/SafeMarkdown'
@@ -44,7 +46,7 @@ interface Book {
   totalChapters: number
 }
 
-type Phase = 'reading' | 'quiz' | 'feedback' | 'generating' | 'generation-error' | 'final-quiz' | 'rating' | 'complete'
+export type Phase = 'reading' | 'quiz' | 'feedback' | 'generating' | 'generation-error' | 'final-quiz' | 'rating' | 'complete'
 
 export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
   book: Book
@@ -58,7 +60,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
 
   const [phase, setPhase] = useState<Phase>('reading')
   const [generatedUpTo, setGeneratedUpTo] = useState(book.totalChapters)
-  const [tocChapters, setTocChapters] = useState<{ title: string; description: string }[]>([])
+  const [tocChapters, setTocChapters] = useState<TocChapterSummary[]>([])
   const [showToc, setShowToc] = useState(false)
   const [quizQuestions, setQuizQuestions] = useState<Array<{ question: string; options: string[]; correctIndex: number }>>([])
   const [quizAnswers, setQuizAnswers] = useState<number[]>([])
@@ -81,93 +83,6 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
   const { provider: quizProvider, model: quizModel } = useAppSelector(selectFunctionModel('quiz'))
   const quizLength = useAppSelector(selectQuizLength)
 
-  // Fetch book metadata (with merged generation status) and TOC on mount
-  useEffect(() => {
-    let cancelled = false
-    const controller = new AbortController()
-
-    getBook(book.id)
-      .then(async (data) => {
-        if (cancelled) return
-        setGeneratedUpTo(data.generatedUpTo)
-
-        // Check merged generation status
-        if (data.generation.active) {
-          const gen = data.generation
-          // If already done/error, just use the metadata we already have
-          if (gen.stage === 'done' || gen.stage === 'error') return
-
-          // Active generation — set phase immediately and connect to stream
-          setGeneratingChapterNum(gen.chapterNum)
-          setPhase('generating')
-          streaming.reset()
-          setGenerationStage(null)
-          bufferBoundaryRef.current = 0
-
-          await streamGenerationResume(book.id, controller.signal, (event) => {
-            if (event.type === 'chapter') {
-              if (event.buffered) {
-                // Buffered content from reconnect: render immediately, disable auto-scroll
-                streaming.appendChunk(event.text)
-                streaming.flushNow()
-                bufferBoundaryRef.current = streaming.bufferRef.current.length
-                userHasScrolledRef.current = true
-              } else {
-                streaming.appendChunk(event.text)
-              }
-            } else if (event.type === 'stage') {
-              setGenerationStage(event.stage)
-            } else if (event.type === 'done' && event.chapterNum != null) {
-              streaming.flushNow()
-              setGenerationStage(null)
-              setGeneratedUpTo(event.chapterNum)
-              setGeneratingChapterNum(null)
-              setReadingPosition(event.chapterNum - 1, 0)
-              setPhase('reading')
-              scrollRef.current?.scrollTo({ top: 0 })
-            } else if (event.type === 'error') {
-              setGenerationStage(null)
-              setGenerationError(event.message)
-              setPhase('generation-error')
-            }
-          })
-        }
-      })
-      .catch(() => {})
-
-    getToc(book.id)
-      .then(data => {
-        if (cancelled) return
-        setTocChapters(data.chapters.map(c => ({ title: c.title, description: c.description ?? '' })))
-      })
-      .catch(() => {})
-
-    return () => {
-      cancelled = true
-      controller.abort()
-    }
-  }, [book.id]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Poll for external chapter updates (e.g. from Claude Code via MCP)
-  // Active when book has ungenerated chapters and no in-app generation is running
-  useEffect(() => {
-    if (generatedUpTo >= book.totalChapters) return
-    if (phase === 'generating') return
-
-    const interval = setInterval(async () => {
-      try {
-        const data = await getBook(book.id)
-        if (data.generatedUpTo > generatedUpTo) {
-          setGeneratedUpTo(data.generatedUpTo)
-        }
-      } catch {
-        // Ignore polling errors
-      }
-    }, 5000)
-
-    return () => clearInterval(interval)
-  }, [book.id, book.totalChapters, generatedUpTo, phase])
-
   const {
     chapterIndex, sectionIndex, sections, currentSection,
     fullChapterContent, loading: chapterLoading,
@@ -189,35 +104,61 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
   const articleRef = useRef<HTMLElement>(null)
   const tocNavRef = useRef<HTMLElement>(null)
   const chapterTabRefs = useRef<(HTMLButtonElement | null)[]>([])
-  const smoothScrollRafRef = useRef<number | null>(null)
-  const smoothScrollTargetRef = useRef<number | null>(null)
 
-  // Custom RAF-based smooth scroll — smoother than native `behavior: smooth`
-  // and cumulative (rapid presses stack their deltas instead of restarting).
-  const smoothScrollBy = useCallback((deltaY: number, duration = 320) => {
-    const el = scrollRef.current
-    if (!el) return
-    const baseY = smoothScrollTargetRef.current ?? el.scrollTop
-    const targetY = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, baseY + deltaY))
-    smoothScrollTargetRef.current = targetY
-    if (smoothScrollRafRef.current) cancelAnimationFrame(smoothScrollRafRef.current)
-    const startY = el.scrollTop
-    const startTime = performance.now()
-    const totalDelta = targetY - startY
-    const step = (now: number) => {
-      const t = Math.min((now - startTime) / duration, 1)
-      // easeOutCubic — fast start, gentle landing
-      const eased = 1 - Math.pow(1 - t, 3)
-      el.scrollTop = startY + totalDelta * eased
-      if (t < 1) {
-        smoothScrollRafRef.current = requestAnimationFrame(step)
-      } else {
-        smoothScrollRafRef.current = null
-        smoothScrollTargetRef.current = null
-      }
-    }
-    smoothScrollRafRef.current = requestAnimationFrame(step)
-  }, [])
+  const { smoothScrollBy } = useReaderScroll({
+    phase,
+    streamingContent: streaming.content,
+    scrollRef,
+    userHasScrolledRef,
+  })
+
+  // Fetch book metadata (with merged generation status) and TOC on mount, and
+  // reattach to a chapter generation already running server-side.
+  useGenerationResume({
+    bookId: book.id,
+    streaming,
+    setGeneratedUpTo,
+    setGeneratingChapterNum,
+    setPhase,
+    setGenerationStage,
+    setGenerationError,
+    setTocChapters,
+    setReadingPosition,
+    bufferBoundaryRef,
+    userHasScrolledRef,
+    scrollRef,
+  })
+
+  // Poll for external chapter updates (e.g. from Claude Code via MCP)
+  useExternalGenerationPoll({
+    bookId: book.id,
+    totalChapters: book.totalChapters,
+    generatedUpTo,
+    phase,
+    setGeneratedUpTo,
+  })
+
+  const { startGenerationStream, handleRegenerateChapter, handleRetryGeneration } = useChapterGeneration({
+    bookId: book.id,
+    chapterIndex,
+    generatedUpTo,
+    genModel,
+    genProvider,
+    quizModel,
+    quizProvider,
+    quizLength,
+    streaming,
+    setPhase,
+    setGeneratedUpTo,
+    setGeneratingChapterNum,
+    setGenerationStage,
+    setGenerationError,
+    setReadingPosition,
+    clearCacheForChapter,
+    bufferBoundaryRef,
+    userHasScrolledRef,
+    scrollRef,
+  })
 
   // Text selection
   const { selectedText, selectionRect, clearSelection } = useTextSelection(articleRef)
@@ -343,48 +284,6 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     scrollRef.current?.scrollTo({ top: 0 })
   }, [])
 
-  // Start generation stream (used by feedback submit and retry)
-  const startGenerationStream = useCallback(async () => {
-    setPhase('generating')
-    streaming.reset()
-    setGenerationStage(null)
-    setGenerationError(null)
-    setGeneratingChapterNum(generatedUpTo + 1)
-    bufferBoundaryRef.current = 0
-    userHasScrolledRef.current = false
-    scrollRef.current?.scrollTo({ top: 0 })
-
-    try {
-      await streamNextChapter(
-        book.id,
-        { model: genModel, provider: genProvider, quizModel, quizProvider, quizLength },
-        (event) => {
-          if (event.type === 'chapter') {
-            streaming.appendChunk(event.text)
-          } else if (event.type === 'stage') {
-            setGenerationStage(event.stage)
-          } else if (event.type === 'done' && event.chapterNum != null) {
-            streaming.flushNow()
-            setGenerationStage(null)
-            setGeneratedUpTo(event.chapterNum)
-            setGeneratingChapterNum(null)
-            setReadingPosition(event.chapterNum - 1, 0)
-            setPhase('reading')
-            scrollRef.current?.scrollTo({ top: 0 })
-          } else if (event.type === 'error') {
-            setGenerationStage(null)
-            setGenerationError(event.message)
-            setPhase('generation-error')
-          }
-        },
-      )
-    } catch (err) {
-      setGenerationStage(null)
-      setGenerationError(err instanceof Error ? err.message : 'An unexpected error occurred.')
-      setPhase('generation-error')
-    }
-  }, [book.id, generatedUpTo, genModel, genProvider, quizModel, quizProvider, quizLength, setReadingPosition, streaming])
-
   const handleFeedbackSubmit = useCallback(async (liked: string, disliked: string) => {
     dispatch(setChapterFeedback({ bookId: book.id, chapterNum: chapterIndex + 1, liked, disliked }))
 
@@ -402,90 +301,6 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
 
     await startGenerationStream()
   }, [book.id, chapterIndex, generatedUpTo, quizAnswers, dispatch, setReadingPosition, startGenerationStream])
-
-  const handleRetryGeneration = useCallback(() => {
-    startGenerationStream()
-  }, [startGenerationStream])
-
-  const handleRegenerateChapter = useCallback(async () => {
-    const chapterNum = chapterIndex + 1
-    setPhase('generating')
-    streaming.reset()
-    setGenerationStage(null)
-    setGenerationError(null)
-    setGeneratingChapterNum(chapterNum)
-    bufferBoundaryRef.current = 0
-    userHasScrolledRef.current = false
-    scrollRef.current?.scrollTo({ top: 0 })
-
-    try {
-      await streamChapterRegeneration(
-        book.id,
-        chapterNum,
-        { model: genModel, provider: genProvider, quizModel, quizProvider, quizLength },
-        (event) => {
-          if (event.type === 'chapter') {
-            streaming.appendChunk(event.text)
-          } else if (event.type === 'stage') {
-            setGenerationStage(event.stage)
-          } else if (event.type === 'done' && event.chapterNum != null) {
-            streaming.flushNow()
-            setGenerationStage(null)
-            setGeneratingChapterNum(null)
-            clearCacheForChapter(chapterIndex)
-            setReadingPosition(chapterIndex, 0)
-            setPhase('reading')
-            scrollRef.current?.scrollTo({ top: 0 })
-          } else if (event.type === 'error') {
-            setGenerationStage(null)
-            setGenerationError(event.message)
-            setPhase('generation-error')
-          }
-        },
-      )
-    } catch (err) {
-      setGenerationStage(null)
-      setGenerationError(err instanceof Error ? err.message : 'An unexpected error occurred.')
-      setPhase('generation-error')
-    }
-  }, [book.id, chapterIndex, genModel, genProvider, quizModel, quizProvider, quizLength, setReadingPosition, streaming, clearCacheForChapter])
-
-  // Auto-scroll during streaming, but stop if user scrolls manually
-  useEffect(() => {
-    if (phase !== 'generating' || !streaming.content) return
-    if (userHasScrolledRef.current) return
-    const el = scrollRef.current
-    if (el) el.scrollTop = el.scrollHeight
-  }, [phase, streaming.content])
-
-  // Detect user scroll during streaming to disable auto-scroll
-  useEffect(() => {
-    if (phase !== 'generating') {
-      userHasScrolledRef.current = false
-      return
-    }
-    const el = scrollRef.current
-    if (!el) return
-    let lastScrollTop = el.scrollTop
-    let ticking = false
-    const handleScroll = () => {
-      if (ticking) return
-      ticking = true
-      requestAnimationFrame(() => {
-        ticking = false
-        const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 40
-        if (el.scrollTop < lastScrollTop && !atBottom) {
-          userHasScrolledRef.current = true
-        }
-        if (atBottom) {
-          userHasScrolledRef.current = false
-        }
-        lastScrollTop = el.scrollTop
-      })
-    }
-    el.addEventListener('scroll', handleScroll, { passive: true })
-    return () => el.removeEventListener('scroll', handleScroll)
-  }, [phase])
 
   // Scroll to top on section change
   useEffect(() => {
@@ -524,13 +339,13 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
         e.preventDefault()
         const el = scrollRef.current
         if (!el) return
-        smoothScrollBy(el.clientHeight * (2 / 3), 420)
+        smoothScrollBy(el.clientHeight * PAGE_SCROLL_FRACTION, PAGE_SCROLL_MS)
       } else if (e.key === 'ArrowDown') {
         e.preventDefault()
-        smoothScrollBy(fontSize * 1.625 * 5, 240)
+        smoothScrollBy(fontSize * READER_LINE_HEIGHT * LINE_SCROLL_LINES, LINE_SCROLL_MS)
       } else if (e.key === 'ArrowUp') {
         e.preventDefault()
-        smoothScrollBy(-fontSize * 1.625 * 5, 240)
+        smoothScrollBy(-fontSize * READER_LINE_HEIGHT * LINE_SCROLL_LINES, LINE_SCROLL_MS)
       }
     }
 
