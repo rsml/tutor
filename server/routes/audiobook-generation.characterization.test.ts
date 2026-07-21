@@ -3,7 +3,8 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type { FastifyInstance } from 'fastify'
 import { createTestServer, seedBook } from '../test/route-harness.js'
-import * as store from '../services/book-store.js'
+import { getDataDir } from '@shared/node/data-dir.js'
+import { createFsArtifactStore } from '../adapters/fs-artifact-store.js'
 
 // Characterization tests for server/routes/audiobook-generation.ts.
 //
@@ -27,7 +28,7 @@ describe('audiobook generation routes (characterization)', () => {
   describe('GET /api/books/:id/audiobook/file', () => {
     it('returns 206 Partial Content with Content-Range, Accept-Ranges, and the exact requested byte slice for a Range request', async () => {
       const meta = await seedBook()
-      const audiobookPath = store.audiobookPath(meta.id)
+      const audiobookPath = createFsArtifactStore({ dataDir: getDataDir() }).audiobookPath(meta.id)
       await mkdir(dirname(audiobookPath), { recursive: true })
       const fakeAudio = Buffer.alloc(1000)
       for (let i = 0; i < fakeAudio.length; i++) fakeAudio[i] = i % 256
@@ -49,7 +50,7 @@ describe('audiobook generation routes (characterization)', () => {
 
     it('returns 200 with the full body and Accept-Ranges when no Range header is sent', async () => {
       const meta = await seedBook()
-      const audiobookPath = store.audiobookPath(meta.id)
+      const audiobookPath = createFsArtifactStore({ dataDir: getDataDir() }).audiobookPath(meta.id)
       await mkdir(dirname(audiobookPath), { recursive: true })
       const fakeAudio = Buffer.alloc(500, 3)
       await writeFile(audiobookPath, fakeAudio)

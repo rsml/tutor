@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import type { FastifyInstance } from 'fastify'
 import { createTestServer, seedBook } from '../test/route-harness.js'
-import * as store from '../services/book-store.js'
+import { getDataDir } from '@shared/node/data-dir.js'
+import { createFsBookRepository } from '../adapters/fs-book-repository.js'
 
 // Characterization tests for server/routes/books.ts — the happy-path CRUD,
 // TOC, chapter, progress, feedback, quiz, and rating routes. These assert
@@ -251,7 +252,7 @@ describe('books routes (characterization)', () => {
   describe('POST /api/books/:id/chapters/:num/feedback', () => {
     it('computes quiz.score from quizAnswers against a seeded quiz', async () => {
       const meta = await seedBook()
-      await store.saveQuiz(meta.id, 1, {
+      await createFsBookRepository({ dataDir: getDataDir() }).saveQuiz(meta.id, 1, {
         questions: [
           { question: 'Q1?', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
           { question: 'Q2?', options: ['a', 'b', 'c', 'd'], correctIndex: 1 },
@@ -292,7 +293,7 @@ describe('books routes (characterization)', () => {
     it('returns a seeded quiz verbatim without generating one', async () => {
       const meta = await seedBook()
       const quiz = { questions: [{ question: 'Q?', options: ['a', 'b', 'c', 'd'], correctIndex: 2 }] }
-      await store.saveQuiz(meta.id, 1, quiz)
+      await createFsBookRepository({ dataDir: getDataDir() }).saveQuiz(meta.id, 1, quiz)
 
       const res = await app.inject({ method: 'GET', url: `/api/books/${meta.id}/chapters/1/quiz` })
       expect(res.statusCode).toBe(200)
