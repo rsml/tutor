@@ -1,0 +1,16 @@
+chapter: 1
+feedback:
+  liked: The framing of what the impossibility does not rule out.
+  disliked: Wanted one more concrete failure trace.
+quiz:
+  questions:
+    - question: What does the Two Generals result actually rule out?
+      options:
+        - All distributed agreement
+        - Certain agreement in bounded rounds over a lossy channel
+        - Agreement between exactly two parties
+        - Agreement without a shared clock
+      correctIndex: 1
+      userAnswer: 1
+      correct: true
+  score: 1

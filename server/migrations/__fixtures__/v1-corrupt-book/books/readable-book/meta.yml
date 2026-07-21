@@ -1,0 +1,8 @@
+id: readable-book
+title: A Book That Reads Fine
+prompt: Anything at all, this fixture exists to prove the good book still migrates.
+status: reading
+totalChapters: 1
+generatedUpTo: 1
+createdAt: "2026-01-08T11:00:00.000Z"
+updatedAt: "2026-01-08T11:30:00.000Z"

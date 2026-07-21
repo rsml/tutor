@@ -1,0 +1,9 @@
+chapters:
+  - title: The Two Generals Problem
+    description: >-
+      Why agreement over an unreliable channel is impossible in the general
+      case, and what that impossibility actually rules out.
+  - title: Paxos, Slowly
+    description: >-
+      Proposers, acceptors, and the two phases, derived rather than
+      presented.

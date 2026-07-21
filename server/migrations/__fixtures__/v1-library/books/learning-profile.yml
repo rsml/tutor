@@ -1,0 +1,17 @@
+style: >-
+  Concrete example first, then the general rule. Short paragraphs. Assume
+  comfort reading code.
+identity: A backend engineer moving into distributed systems work.
+preferences:
+  explainComplexTermsSimply: true
+  codeExamples: true
+  realWorldAnalogies: true
+  includeRecaps: true
+  includeSummaries: true
+  visualDescriptions: false
+  depthLevel: 4
+  pacePreference: 3
+  metaphorDensity: 2
+  narrativeStyle: 3
+  humorLevel: 2
+  formalityLevel: 3

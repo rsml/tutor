@@ -1,0 +1,15 @@
+style: Plain language, no jargon until it has been earned.
+identity: A product designer learning enough engineering to argue with engineers.
+preferences:
+  explainComplexTermsSimply: true
+  codeExamples: false
+  realWorldAnalogies: true
+  includeRecaps: true
+  includeSummaries: true
+  visualDescriptions: true
+  depthLevel: 2
+  pacePreference: 4
+  metaphorDensity: 4
+  narrativeStyle: 4
+  humorLevel: 3
+  formalityLevel: 2

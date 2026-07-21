@@ -2,7 +2,12 @@ node_modules/
 dist/
 dist-electron/
 release/
-books/
+# Anchored to the repo root on purpose. An unanchored `books/` matches a
+# directory named books at ANY depth, which silently swallowed the committed
+# migration fixture libraries under server/migrations/__fixtures__/, since
+# each one mirrors a real data directory and therefore contains its own
+# books/ folder.
+/books/
 .env
 *.log
 .worktrees/

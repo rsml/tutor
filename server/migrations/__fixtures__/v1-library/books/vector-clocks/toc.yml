@@ -1,0 +1,13 @@
+chapters:
+  - title: Ordering Without a Clock
+    description: >-
+      Why wall time cannot order events across machines, and what happens-before
+      replaces it with.
+  - title: Lamport Timestamps and Their Blind Spot
+    description: >-
+      A single counter gives a total order, and loses the one distinction that
+      matters.
+  - title: Vector Clocks
+    description: >-
+      One counter per participant, and the partial order that falls out of
+      comparing them.
