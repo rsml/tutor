@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Headphones, X } from 'lucide-react'
-import { apiUrl } from '@client/api/http'
+import { audiobookFileUrl } from '@client/api'
 import { cn } from '@client/lib/utils'
 
 interface Props {
@@ -84,7 +84,7 @@ export function ChapterListenButton({
 
   if (!available) return null
 
-  const src = apiUrl(`/api/books/${bookId}/audiobook/file${generatedAt ? `?v=${encodeURIComponent(generatedAt)}` : ''}`)
+  const src = audiobookFileUrl(bookId, generatedAt)
   const totalLabel = durationSec != null ? formatTime(durationSec) : '—'
 
   return (
