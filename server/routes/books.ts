@@ -9,7 +9,6 @@ import * as genManager from '../services/generation-manager.js'
 import * as taskManager from '../services/task-manager.js'
 import { parseTocFromMarkdown, truncateChapters } from '../services/toc-parser.js'
 import {
-  ChapterProgressSchema,
   BookStatusSchema,
 } from '@shared/domain.js'
 import {
@@ -184,17 +183,6 @@ Write this chapter now.`,
     meta.updatedAt = new Date().toISOString()
     await store.saveBook(meta)
   }
-
-  fastify.get<{ Params: { id: string; num: string } }>(
-    '/api/books/:id/chapters/:num',
-    { schema: { params: bookChapterSchema } },
-    async (request) => {
-      const chapterNum = parseInt(request.params.num)
-      await validateChapterNum(request.params.id, chapterNum)
-      const content = await store.getChapter(request.params.id, chapterNum)
-      return { content }
-    },
-  )
 
   fastify.get<{ Params: { id: string; num: string }; Querystring: { model?: string; provider?: string; quizLength?: string } }>(
     '/api/books/:id/chapters/:num/quiz',
@@ -1633,30 +1621,6 @@ ${profileContext || 'No profile available.'}
         // best-effort — client will fall back to clipboard / IPC / displaying the path
       }
       return { path, revealed }
-    },
-  )
-
-  // --- Chapter Progress ---
-
-  fastify.put<{
-    Params: { id: string; num: string }
-    Body: unknown
-  }>(
-    '/api/books/:id/progress/:num',
-    { schema: { params: bookChapterSchema } },
-    async (request, reply) => {
-      try {
-        const body = ChapterProgressSchema.parse(request.body)
-        const chapterNum = parseInt(request.params.num)
-        await validateChapterNum(request.params.id, chapterNum)
-        await store.saveChapterProgress(request.params.id, chapterNum, body)
-        return { ok: true }
-      } catch (err) {
-        if (err instanceof ZodError) {
-          return reply.status(400).send({ error: 'Invalid request', details: err.issues })
-        }
-        throw err
-      }
     },
   )
 
