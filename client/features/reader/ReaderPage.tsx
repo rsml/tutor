@@ -1,8 +1,4 @@
-import { AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, Loader2, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Button } from '@client/components/ui/button'
-import { SelectionTooltip } from '@client/features/reader/components/SelectionTooltip'
-import { ChatPanel } from '@client/features/chat/components/ChatPanel'
 import { ReaderHeader } from '@client/features/reader/components/ReaderHeader'
 import { useTextSelection } from '@client/hooks/useTextSelection'
 import { useSectionNavigation } from '@client/features/reader/hooks/useSectionNavigation'
@@ -13,17 +9,12 @@ import { useReaderScroll } from '@client/features/reader/hooks/useReaderScroll'
 import { useReaderQuiz } from '@client/features/reader/hooks/useReaderQuiz'
 import { useChapterCompletion } from '@client/features/reader/hooks/useChapterCompletion'
 import { useStreamingContent } from '@client/hooks/useStreamingContent'
-import { store, useAppDispatch, useAppSelector, selectFontSize, selectReadingWidth, selectQuizLength, selectFunctionModel } from '@client/store'
+import { store, useAppDispatch, useAppSelector, selectFontSize, selectQuizLength, selectFunctionModel } from '@client/store'
 import type { LibraryBook } from '@shared/responses'
 import { PAGE_SCROLL_FRACTION, READER_LINE_HEIGHT, LINE_SCROLL_LINES, PAGE_SCROLL_MS, LINE_SCROLL_MS } from '@client/lib/constants'
-import { cn } from '@client/lib/utils'
-import { stripStreamingUnclosedMermaid } from '@client/features/markdown/strip-streaming-mermaid'
-import { SafeMarkdown } from '@client/features/markdown/SafeMarkdown'
-import { QuizPanel } from '@client/features/reader/components/QuizPanel'
-import { FeedbackForm } from '@client/features/reader/components/FeedbackForm'
-import { StarRating } from '@client/features/reader/components/StarRating'
-import { BookCompleteSummary } from '@client/features/reader/components/BookCompleteSummary'
-import { ChapterListenButton } from '@client/features/reader/components/ChapterListenButton'
+import { ChapterRail } from '@client/features/reader/components/ChapterRail'
+import { ReaderBody } from '@client/features/reader/components/ReaderBody'
+import { MissingApiKeyDialog } from '@client/features/reader/components/MissingApiKeyDialog'
 import { useChapterAudio } from '@client/features/audiobook/hooks/useChapterAudio'
 
 const VOICE_DISPLAY_NAMES: Record<string, string> = {
@@ -49,7 +40,6 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
 }) {
   const dispatch = useAppDispatch()
   const fontSize = useAppSelector(selectFontSize)
-  const readingWidth = useAppSelector(selectReadingWidth)
 
   const [phase, setPhase] = useState<Phase>('reading')
   const [generatedUpTo, setGeneratedUpTo] = useState(book.totalChapters)
@@ -86,7 +76,6 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
 
   const scrollRef = useRef<HTMLElement>(null)
   const articleRef = useRef<HTMLElement>(null)
-  const tocNavRef = useRef<HTMLElement>(null)
   const chapterTabRefs = useRef<(HTMLButtonElement | null)[]>([])
 
   const { smoothScrollBy } = useReaderScroll({
@@ -277,476 +266,96 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
 
       {/* Chapter tabs */}
       {(phase === 'reading' || phase === 'generating' || phase === 'generation-error') && (
-        <div
-          className="z-20 shrink-0 border-b border-border-default/50 bg-surface-base/90 backdrop-blur-sm"
-          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-        >
-          <div className="flex items-center justify-between">
-            <nav ref={tocNavRef} tabIndex={-1} className="flex min-w-0 overflow-x-auto scrollbar-none outline-none focus:outline-none focus-visible:outline-none">
-              <button
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => setShowToc(true)}
-                tabIndex={-1}
-                className={cn(
-                  'relative shrink-0 whitespace-nowrap px-4 py-2 text-xs font-medium transition-colors outline-none focus:outline-none focus-visible:outline-none',
-                  showToc
-                    ? 'text-content-primary'
-                    : 'text-content-muted hover:text-content-secondary',
-                )}
-              >
-                Table of Contents
-                {showToc && (
-                  <span className="absolute inset-x-0 -bottom-px h-0.5 bg-content-primary rounded-full" />
-                )}
-              </button>
-              {tocChapters.map((ch, i) => {
-                const isGenerated = i < generatedUpTo
-                if (!isGenerated) return null
-                const isActive = !showToc && i === chapterIndex && phase === 'reading'
-                return (
-                  <button
-                    key={i}
-                    ref={el => { chapterTabRefs.current[i] = el }}
-                    onMouseDown={e => e.preventDefault()}
-                    onClick={() => { if (phase === 'generating' || phase === 'generation-error') return; setShowToc(false); goToChapter(i, 0) }}
-                    tabIndex={-1}
-                    className={cn(
-                      'relative shrink-0 whitespace-nowrap px-4 py-2 text-xs font-medium transition-colors outline-none focus:outline-none focus-visible:outline-none',
-                      isActive
-                        ? 'text-content-primary'
-                        : 'text-content-muted hover:text-content-secondary',
-                    )}
-                  >
-                    Chapter {i + 1}
-                    {isActive && (
-                      <span className="absolute inset-x-0 -bottom-px h-0.5 bg-content-primary rounded-full" />
-                    )}
-                  </button>
-                )
-              })}
-              {(phase === 'generating' || phase === 'generation-error') && (
-                <span
-                  className={cn(
-                    'relative inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-4 py-2 text-xs font-medium text-content-primary',
-                  )}
-                >
-                  {phase === 'generating' ? (
-                    <Loader2 className="size-3 animate-spin" />
-                  ) : (
-                    <AlertTriangle className="size-3 text-status-error" />
-                  )}
-                  Chapter {generatingTabLabel}
-                  <span className="absolute inset-x-0 -bottom-px h-0.5 bg-content-primary rounded-full" />
-                </span>
-              )}
-            </nav>
-            <div className="flex shrink-0 items-center gap-0.5 pr-2">
-              <button
-                onClick={goPrev}
-                disabled={!hasPrev}
-                className={cn(
-                  'rounded-md p-1 transition-colors',
-                  hasPrev
-                    ? 'text-content-muted hover:text-content-primary hover:bg-surface-muted/50'
-                    : 'text-content-muted/20 cursor-default',
-                )}
-                aria-label="Previous section"
-              >
-                <ChevronLeft className="size-4" />
-              </button>
-              <button
-                onClick={goNext}
-                disabled={!hasNext}
-                className={cn(
-                  'rounded-md p-1 transition-colors',
-                  hasNext
-                    ? 'text-content-muted hover:text-content-primary hover:bg-surface-muted/50'
-                    : 'text-content-muted/20 cursor-default',
-                )}
-                aria-label="Next section"
-              >
-                <ChevronRight className="size-4" />
-              </button>
-            </div>
-          </div>
-        </div>
+        <ChapterRail
+          phase={phase}
+          tocChapters={tocChapters}
+          generatedUpTo={generatedUpTo}
+          chapterIndex={chapterIndex}
+          showToc={showToc}
+          setShowToc={setShowToc}
+          goToChapter={goToChapter}
+          chapterTabRefs={chapterTabRefs}
+          generatingTabLabel={generatingTabLabel}
+          hasPrev={hasPrev}
+          hasNext={hasNext}
+          goPrev={goPrev}
+          goNext={goNext}
+        />
       )}
 
       {/* Content + chat panel in horizontal flex */}
-      <div className="relative flex flex-1 overflow-hidden">
-        {/* Back button — overlays top-left of content area */}
-        <button
-          onClick={onBack}
-          className="absolute left-6 top-3 z-20 inline-flex items-center gap-1.5 p-2 text-content-muted opacity-50 transition-all hover:opacity-100"
-        >
-          <ArrowLeft className="size-5" />
-        </button>
-
-        {phase === 'reading' && !showToc && (
-          <ChapterListenButton
-            bookId={book.id}
-            chapterNum={currentChapterNum}
-            voiceName={voiceName}
-            generatedAt={audiobookStatus?.manifest?.generatedAt}
-            startSec={audiobookStatus?.manifest?.chapters.find(c => c.num === currentChapterNum)?.startSec}
-            durationSec={audiobookStatus?.manifest?.chapters.find(c => c.num === currentChapterNum)?.durationSec}
-            available={hasAudio(currentChapterNum)}
-          />
-        )}
-
-        {/* Content area with edge tap zones */}
-        <div className="relative flex-1 overflow-hidden">
-          {/* Scrollable chapter content */}
-          <main
-            ref={scrollRef}
-            className="h-full overflow-y-auto pt-12"
-          >
-            <article ref={articleRef} style={{ fontSize: `${fontSize}px` }}>
-              {(phase === 'reading' || phase === 'generating' || phase === 'generation-error') && showToc && (
-                <div className="mx-auto px-8 pb-24" style={{ maxWidth: readingWidth }}>
-                  <h1 className="text-2xl font-bold tracking-tight text-content-primary">Table of Contents</h1>
-                  <div className="mt-6 space-y-1">
-                    {tocChapters.map((ch, i) => {
-                      const isGenerated = i < generatedUpTo
-                      const isClickable = isGenerated && phase === 'reading'
-                      return (
-                        <button
-                          key={i}
-                          onClick={() => { if (isClickable) { setShowToc(false); goToChapter(i, 0) } }}
-                          className={cn(
-                            'flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left transition-colors',
-                            isClickable
-                              ? 'hover:bg-surface-muted/50 cursor-pointer'
-                              : 'opacity-40 cursor-default',
-                          )}
-                        >
-                          <span className="self-center text-sm font-medium text-content-muted w-10 shrink-0">{i + 1}</span>
-                          <div className="flex-1 min-w-0">
-                            <span className="text-sm font-medium text-content-primary">{ch.title}</span>
-                            {ch.description && (
-                              <p className="mt-0.5 text-xs text-content-muted leading-relaxed">{ch.description}</p>
-                            )}
-                          </div>
-                          {!isGenerated && (
-                            <span className="text-xs text-content-faint shrink-0 pt-0.5">Not yet generated</span>
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {phase === 'reading' && !showToc && (
-                <div className="mx-auto px-8 pb-24" style={{ maxWidth: readingWidth }}>
-                  <div className="pt-2 text-xs text-content-muted">
-                    Chapter {chapterIndex + 1}
-                  </div>
-                  {/* Section progress dots */}
-                  {sections.length > 1 && (
-                    <div className="flex items-center justify-center gap-1.5 py-1.5 border-b border-border-default/30">
-                      {sections.map((_, i) => (
-                        <div key={i} className={cn(
-                          "h-1.5 rounded-full transition-all",
-                          i === sectionIndex ? "w-4 bg-[oklch(0.55_0.20_285)]"
-                            : i < sectionIndex ? "w-1.5 bg-content-muted/40"
-                            : "w-1.5 bg-content-muted/20"
-                        )} />
-                      ))}
-                    </div>
-                  )}
-                  {chapterLoading ? (
-                    <div className="flex items-center gap-2 pt-12 text-content-muted">
-                      <Loader2 className="size-4 animate-spin" />
-                      <span className="text-sm">Loading chapter...</span>
-                    </div>
-                  ) : currentSection ? (
-                    <>
-                      <div className="reader-prose">
-                        <SafeMarkdown>{currentSection.markdown}</SafeMarkdown>
-                      </div>
-                      {(isLastSectionOfChapter && !isLastChapter) || isLastSectionOfBook ? (
-                        <div className="mt-12 flex justify-center">
-                          <Button
-                            size="lg"
-                            onClick={isLastSectionOfBook ? handleFinishBook : () => handleKeepGoing(syncChapterCompleted)}
-                            disabled={quizLoading}
-                            className="bg-[oklch(0.55_0.20_285)] text-white font-semibold hover:bg-[oklch(0.50_0.22_285)]"
-                          >
-                            {quizLoading ? (
-                              <>
-                                <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
-                                Loading quiz...
-                              </>
-                            ) : isLastSectionOfBook ? 'Finish Book' : 'Next Chapter'}
-                          </Button>
-                        </div>
-                      ) : (hasPrev || hasNext) && (
-                        <div className="mt-12 flex justify-between">
-                          {hasPrev ? (
-                            <Button variant="ghost" onClick={goPrev}>
-                              <ChevronLeft className="size-4" />
-                              Previous
-                            </Button>
-                          ) : <div />}
-                          {hasNext ? (
-                            <Button variant="ghost" onClick={goNext}>
-                              Next
-                              <ChevronRight className="size-4" />
-                            </Button>
-                          ) : <div />}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="pt-12 text-sm text-content-muted">
-                      {chapterIndex + 1 <= generatedUpTo ? (
-                        <div className="rounded-lg border border-status-error/20 bg-status-error/5 p-6">
-                          <div className="flex items-start gap-3">
-                            <AlertTriangle className="size-5 text-status-error shrink-0 mt-0.5" />
-                            <div className="flex-1 min-w-0">
-                              <h3 className="text-sm font-semibold text-content-primary">Chapter content missing</h3>
-                              <p className="mt-1 text-sm text-content-muted">
-                                This chapter's content could not be loaded. You can regenerate it.
-                              </p>
-                              <Button
-                                size="sm"
-                                onClick={handleRegenerateChapter}
-                                className="mt-4 bg-[oklch(0.55_0.20_285)] text-white font-medium hover:bg-[oklch(0.50_0.22_285)]"
-                              >
-                                <RefreshCw className="size-3.5" data-icon="inline-start" />
-                                Regenerate Chapter
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ) : chapterIndex + 1 === generatedUpTo + 1 ? (
-                        <p>This chapter is ready to generate. Complete the previous chapter to continue.</p>
-                      ) : (
-                        <p>Complete earlier chapters first to unlock this one.</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {phase === 'quiz' && (
-                <QuizPanel
-                  questions={quizQuestions}
-                  onComplete={handleQuizComplete}
-                  onSkip={handleQuizSkip}
-                />
-              )}
-
-              {phase === 'feedback' && (
-                <FeedbackForm
-                  chapterNum={chapterIndex + 1}
-                  onSubmit={handleFeedbackSubmit}
-                  submitLabel={chapterIndex + 2 <= generatedUpTo ? 'Next Chapter' : undefined}
-                />
-              )}
-
-              {phase === 'generating' && !showToc && (
-                <div className="mx-auto px-8 pb-24" style={{ maxWidth: readingWidth }}>
-                  {streaming.content ? (
-                    <div className="reader-prose">
-                      <SafeMarkdown>{stripStreamingUnclosedMermaid(streaming.content)}</SafeMarkdown>
-                    </div>
-                  ) : (
-                    <div className="pt-8">
-                      <h1 className="text-2xl font-bold tracking-tight text-content-primary">
-                        {generatingChapterNum != null
-                          ? (tocChapters[generatingChapterNum - 1]?.title ?? `Chapter ${generatingChapterNum}`)
-                          : (tocChapters[chapterIndex + 1]?.title ?? `Chapter ${chapterIndex + 2}`)
-                        }
-                      </h1>
-                      <span className="mt-6 inline-block h-5 w-px animate-pulse bg-content-muted" />
-                    </div>
-                  )}
-                  {generationStage && (generationStage === 'saving' || generationStage === 'quiz') && (
-                    <div className="mt-8 flex items-center gap-2 text-content-muted/50 text-sm">
-                      <Loader2 className="size-3 animate-spin" />
-                      <span>{generationStage === 'saving' ? 'Saving chapter...' : 'Creating quiz...'}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {phase === 'generation-error' && !showToc && (
-                <div className="mx-auto px-8 pb-24" style={{ maxWidth: readingWidth }}>
-                  <div className="pt-12">
-                    <div className="rounded-lg border border-status-error/20 bg-status-error/5 p-6">
-                      <div className="flex items-start gap-3">
-                        <AlertTriangle className="size-5 text-status-error shrink-0 mt-0.5" />
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-sm font-semibold text-content-primary">Generation failed</h3>
-                          <p className="mt-1 text-sm text-content-muted">
-                            {generationError || 'An unexpected error occurred while generating this chapter.'}
-                          </p>
-                          <Button
-                            size="sm"
-                            onClick={handleRetryGeneration}
-                            className="mt-4 bg-[oklch(0.55_0.20_285)] text-white font-medium hover:bg-[oklch(0.50_0.22_285)]"
-                          >
-                            <RefreshCw className="size-3.5" data-icon="inline-start" />
-                            Retry
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {phase === 'final-quiz' && (
-                finalQuizError ? (
-                  <div className="mx-auto px-8 pb-24" style={{ maxWidth: readingWidth }}>
-                    <div className="pt-12">
-                      <div className="rounded-lg border border-status-error/20 bg-status-error/5 p-6">
-                        <div className="flex items-start gap-3">
-                          <AlertTriangle className="size-5 text-status-error shrink-0 mt-0.5" />
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-sm font-semibold text-content-primary">Final quiz generation failed</h3>
-                            <p className="mt-1 text-sm text-content-muted">{finalQuizError}</p>
-                            <div className="mt-4 flex items-center gap-3">
-                              <Button
-                                size="sm"
-                                onClick={fetchFinalQuiz}
-                                className="bg-[oklch(0.55_0.20_285)] text-white font-medium hover:bg-[oklch(0.50_0.22_285)]"
-                              >
-                                <RefreshCw className="size-3.5" data-icon="inline-start" />
-                                Retry
-                              </Button>
-                              <button
-                                onClick={() => handleFinalQuizSkip(0)}
-                                className="text-sm text-content-muted hover:text-content-secondary transition-colors"
-                              >
-                                Skip quiz
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : finalQuizLoading || finalQuizQuestions.length === 0 ? (
-                  <div className="mx-auto px-8 py-8" style={{ maxWidth: readingWidth }}>
-                    <div className="flex items-center gap-2 pt-12 text-content-muted">
-                      <Loader2 className="size-4 animate-spin" />
-                      <span className="text-sm">Generating your final quiz...</span>
-                    </div>
-                  </div>
-                ) : (
-                  <QuizPanel
-                    questions={finalQuizQuestions}
-                    onComplete={handleFinalQuizComplete}
-                    onSkip={() => handleFinalQuizSkip(finalQuizQuestions.length)}
-                    title="Final Quiz"
-                    subtitle={`Test your understanding across all ${book.totalChapters} chapters.`}
-                  />
-                )
-              )}
-
-              {phase === 'rating' && (
-                <div className="mx-auto max-w-md px-8 py-16 text-center">
-                  <h2 className="text-xl font-semibold tracking-tight">Rate this book</h2>
-                  <p className="mt-1 text-sm text-content-muted">
-                    How would you rate your learning experience?
-                  </p>
-                  <div className="mt-8 flex justify-center">
-                    <StarRating value={bookRating} onChange={setBookRating} size="lg" />
-                  </div>
-                  <div className="mt-8">
-                    <Button
-                      size="lg"
-                      onClick={handleRatingSubmit}
-                      disabled={bookRating === 0}
-                      className="bg-[oklch(0.55_0.20_285)] text-white font-semibold hover:bg-[oklch(0.50_0.22_285)] disabled:opacity-40"
-                    >
-                      Submit Rating
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {phase === 'complete' && (
-                <BookCompleteSummary
-                  title={book.title}
-                  totalChapters={book.totalChapters}
-                  rating={bookRating}
-                  finalQuizScore={finalQuizScore}
-                  finalQuizTotal={finalQuizTotal}
-                  onUpdateProfile={onUpdateProfile ?? onBack}
-                  onSkip={onBack}
-                />
-              )}
-            </article>
-          </main>
-
-          {/* Left tap zone — previous section */}
-          {hasPrev && (
-            <div className="absolute inset-y-0 left-0 z-10 flex w-16 pointer-events-none items-center justify-center">
-              <button
-                className="pointer-events-auto cursor-pointer rounded-full bg-surface-muted/60 p-2 backdrop-blur-sm opacity-0 transition-opacity hover:opacity-100"
-                onClick={goPrev}
-                aria-label="Previous section"
-              >
-                <ChevronLeft className="size-5 text-content-muted" />
-              </button>
-            </div>
-          )}
-
-          {/* Right tap zone — next section */}
-          {hasNext && (
-            <div className="absolute inset-y-0 right-0 z-10 flex w-16 pointer-events-none items-center justify-center">
-              <button
-                className="pointer-events-auto cursor-pointer rounded-full bg-surface-muted/60 p-2 backdrop-blur-sm opacity-0 transition-opacity hover:opacity-100"
-                onClick={goNext}
-                aria-label="Next section"
-              >
-                <ChevronRight className="size-5 text-content-muted" />
-              </button>
-            </div>
-          )}
-
-          {/* Selection tooltip */}
-          <SelectionTooltip
-            selectedText={selectedText}
-            selectionRect={selectionRect}
-            onAction={handleSelectionAction}
-            clearSelection={clearSelection}
-          />
-        </div>
-
-        {/* Chat panel — sibling, pushes content */}
-        <ChatPanel
-          open={chatOpen}
-          onClose={handleCloseChat}
-          selectedText={chatSelectedText}
-          chapterContent={fullChapterContent ?? ''}
-          initialPrompt={chatPrompt}
-          chatKey={chatKey}
-          onMissingApiKey={() => setMissingKeyAlert(true)}
-          bookId={book.id}
-        />
-      </div>
+      <ReaderBody
+        onBack={onBack}
+        phase={phase}
+        showToc={showToc}
+        bookId={book.id}
+        currentChapterNum={currentChapterNum}
+        voiceName={voiceName}
+        audiobookStatus={audiobookStatus}
+        hasAudio={hasAudio}
+        tocChapters={tocChapters}
+        generatedUpTo={generatedUpTo}
+        setShowToc={setShowToc}
+        goToChapter={goToChapter}
+        chapterIndex={chapterIndex}
+        sections={sections}
+        sectionIndex={sectionIndex}
+        chapterLoading={chapterLoading}
+        currentSection={currentSection}
+        isLastSectionOfChapter={isLastSectionOfChapter}
+        isLastChapter={isLastChapter}
+        isLastSectionOfBook={isLastSectionOfBook}
+        quizLoading={quizLoading}
+        hasPrev={hasPrev}
+        hasNext={hasNext}
+        goPrev={goPrev}
+        goNext={goNext}
+        handleFinishBook={handleFinishBook}
+        handleKeepGoing={handleKeepGoing}
+        syncChapterCompleted={syncChapterCompleted}
+        handleRegenerateChapter={handleRegenerateChapter}
+        quizQuestions={quizQuestions}
+        handleQuizComplete={handleQuizComplete}
+        handleQuizSkip={handleQuizSkip}
+        handleFeedbackSubmit={handleFeedbackSubmit}
+        streamingContent={streaming.content}
+        generatingChapterNum={generatingChapterNum}
+        generationStage={generationStage}
+        generationError={generationError}
+        handleRetryGeneration={handleRetryGeneration}
+        finalQuizError={finalQuizError}
+        finalQuizLoading={finalQuizLoading}
+        finalQuizQuestions={finalQuizQuestions}
+        finalQuizScore={finalQuizScore}
+        finalQuizTotal={finalQuizTotal}
+        fetchFinalQuiz={fetchFinalQuiz}
+        handleFinalQuizSkip={handleFinalQuizSkip}
+        handleFinalQuizComplete={handleFinalQuizComplete}
+        bookTitle={book.title}
+        totalChapters={book.totalChapters}
+        bookRating={bookRating}
+        setBookRating={setBookRating}
+        handleRatingSubmit={handleRatingSubmit}
+        onUpdateProfile={onUpdateProfile}
+        scrollRef={scrollRef}
+        articleRef={articleRef}
+        fontSize={fontSize}
+        selectedText={selectedText}
+        selectionRect={selectionRect}
+        handleSelectionAction={handleSelectionAction}
+        clearSelection={clearSelection}
+        chatOpen={chatOpen}
+        handleCloseChat={handleCloseChat}
+        chatSelectedText={chatSelectedText}
+        fullChapterContent={fullChapterContent}
+        chatPrompt={chatPrompt}
+        chatKey={chatKey}
+        onMissingApiKey={() => setMissingKeyAlert(true)}
+      />
 
       {/* Missing API key nudge */}
       {missingKeyAlert && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-xs"
-          onClick={() => setMissingKeyAlert(false)}
-        >
-          <div className="rounded-xl border border-border-default bg-surface-overlay p-6 shadow-lg" onClick={e => e.stopPropagation()}>
-            <p className="text-sm text-content-primary">Set your API key in Settings to use chat features.</p>
-            <button
-              onClick={() => setMissingKeyAlert(false)}
-              className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-            >
-              Got it
-            </button>
-          </div>
-        </div>
+        <MissingApiKeyDialog onClose={() => setMissingKeyAlert(false)} />
       )}
     </div>
   )
