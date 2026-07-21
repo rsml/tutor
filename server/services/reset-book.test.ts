@@ -28,16 +28,18 @@ function makeBook(overrides: Partial<BookMeta> = {}): BookMeta {
 }
 
 describe('resetBook', () => {
-  it('resets a reading book and clears its progress', async () => {
+  it('resets a reading book and clears its progress and feedback', async () => {
     const books = createFakeBookRepository()
     await books.saveBook(makeBook({ status: 'reading' }))
     await books.saveChapterProgress('book-1', 1, { scroll: 1, completed: true, completedAt: '2026-01-02T00:00:00.000Z' })
+    await books.saveFeedback('book-1', 1, { chapter: 1, feedback: { liked: 'the intro' }, quiz: { questions: [] } })
 
     const resetBook = createResetBook({ books })
     const result = await resetBook('book-1')
 
     expect(result).toEqual({ ok: true })
     expect(await books.getChaptersRead('book-1')).toBe(0)
+    expect(await books.getAllFeedback('book-1')).toEqual([])
   })
 
   it('refuses to reset a book that is generating, without touching it', async () => {
