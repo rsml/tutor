@@ -9,7 +9,7 @@ import {
   DialogDescription,
 } from '@client/components/ui/dialog'
 import { useAppSelector } from '@client/store'
-import { apiUrl } from '@client/api/http'
+import { getBook, getToc } from '@client/api'
 
 interface BookOverviewModalProps {
   open: boolean
@@ -31,10 +31,7 @@ export function BookOverviewModal({ open, onOpenChange, book }: BookOverviewModa
   useEffect(() => {
     if (!open) return
     setLoading(true)
-    Promise.all([
-      fetch(apiUrl(`/api/books/${book.id}/toc`)).then(r => r.json()),
-      fetch(apiUrl(`/api/books/${book.id}`)).then(r => r.json()),
-    ])
+    Promise.all([getToc(book.id), getBook(book.id)])
       .then(([tocData, metaData]) => {
         setToc(tocData.chapters || [])
         setPrompt(metaData.prompt || '')
