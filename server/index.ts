@@ -1,5 +1,5 @@
 import Fastify from 'fastify'
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyBaseLogger } from 'fastify'
 import rateLimit from '@fastify/rate-limit'
 import { chatRoutes } from './routes/chat.js'
 import { libraryRoutes } from './routes/library.js'
@@ -22,6 +22,7 @@ import { createRecoverFromCrash } from './services/recover-from-crash.js'
 import { registerErrorHandler } from './http/error-handler.js'
 import { STATUS_FORBIDDEN, STATUS_NO_CONTENT } from './http/status.js'
 import { createPorts, createSharedServices, type Ports } from './composition-root.js'
+import type { MigrationReport } from './ports/library-migrator.js'
 
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
@@ -143,23 +144,37 @@ export async function buildServer(overrides: Partial<Ports> = {}): Promise<Fasti
   return fastify
 }
 
-/**
- * Builds the server, runs crash recovery, and listens. `overrides` is
- * forwarded to {@link buildServer}, which is how Electron hands in its own
- * BrowserWindow-backed diagram renderer at startup instead of reaching
- * into the built instance and reassigning a decoration afterwards.
- */
-export async function startServer(port = 3147, host = '127.0.0.1', overrides: Partial<Ports> = {}) {
-  const fastify = await buildServer(overrides)
+function countMigrationOutcomes(report: MigrationReport): { migrated: number; failed: number } {
+  let migrated = report.profile.outcome === 'migrated' ? 1 : 0
+  let failed = report.profile.outcome === 'failed' ? 1 : 0
+  for (const book of report.books) {
+    if (book.outcome === 'migrated') migrated++
+    if (book.outcome === 'failed') failed++
+  }
+  return { migrated, failed }
+}
 
-  // A second createPorts(overrides) call, independent of the one buildServer
-  // made for the routes it registered. bookRepository and artifactStore are
-  // both stateless bridges to the same on-disk data either way (or, in a
-  // test, the exact same override object either time, since createPorts
-  // always applies overrides last), so this composes identically to how the
-  // book-store.js shim this replaced built its own adapters from getDataDir()
-  // rather than reusing buildServer's.
-  const ports = createPorts(overrides)
+/**
+ * The startup sequence startServer runs before it binds a port, pulled out
+ * on its own so a test can drive it directly, with a fake libraryMigrator
+ * and a fake bookRepository, without binding a real port or standing up a
+ * full listening server.
+ *
+ * Order is load bearing. Migration has to run before crash recovery,
+ * because crash recovery reads and writes BookMeta through the CURRENT Zod
+ * schema, via BookRepository, so a book still at an old schema version
+ * would be silently skipped by listBooks's own try/catch, per
+ * fs-book-repository.ts, and would never be reached by recovery at all.
+ * Running the migrator first is what guarantees every book crash recovery
+ * sees is one BookRepository can actually read.
+ */
+export async function runStartupTasks(ports: Ports, log: FastifyBaseLogger): Promise<void> {
+  const migration = await ports.libraryMigrator.migrate()
+  const outcomes = countMigrationOutcomes(migration)
+  if (outcomes.migrated > 0 || outcomes.failed > 0) {
+    log.info(outcomes, 'Library migration completed')
+  }
+
   const recoverFromCrash = createRecoverFromCrash({
     bookRepository: ports.bookRepository,
     artifactStore: ports.artifactStore,
@@ -167,11 +182,34 @@ export async function startServer(port = 3147, host = '127.0.0.1', overrides: Pa
   })
   const recovery = await recoverFromCrash()
   if (recovery.booksReset.length > 0 || recovery.artifactsRemoved.length > 0) {
-    fastify.log.info(
+    log.info(
       { booksReset: recovery.booksReset.length, artifactsRemoved: recovery.artifactsRemoved.length },
       'Crash recovery completed',
     )
   }
+}
+
+/**
+ * Builds the server, runs startup migration and crash recovery, and
+ * listens. `overrides` is forwarded to {@link buildServer}, which is how
+ * Electron hands in its own BrowserWindow-backed diagram renderer at
+ * startup instead of reaching into the built instance and reassigning a
+ * decoration afterwards.
+ */
+export async function startServer(port = 3147, host = '127.0.0.1', overrides: Partial<Ports> = {}) {
+  const fastify = await buildServer(overrides)
+
+  // A second createPorts(overrides) call, independent of the one buildServer
+  // made for the routes it registered. Every port is either a stateless
+  // bridge to the same on-disk data either way, or, in a test, the exact
+  // same override object either time, since createPorts always applies
+  // overrides last, so this composes identically to how the book-store.js
+  // shim this replaced built its own adapters from getDataDir() rather than
+  // reusing buildServer's. See runStartupTasks's doc comment for why
+  // migration has to precede crash recovery.
+  const ports = createPorts(overrides)
+  await runStartupTasks(ports, fastify.log)
+
   await fastify.listen({ port, host })
   return fastify
 }
