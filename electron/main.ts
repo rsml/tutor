@@ -324,8 +324,20 @@ let apiPort = 0
 
 app.whenReady().then(async () => {
   await migrateLegacyPlaintextKeys()
-  // Start the embedded API server on a random free port (localhost only — no firewall prompt)
-  const server = await startServer(0, '127.0.0.1')
+  // Start the embedded API server on a random free port (localhost only — no firewall prompt).
+  // The diagram renderer goes in as a port override rather than being
+  // assigned onto the built server afterwards, so the server is never
+  // briefly live on the kroki.io fallback it will not use, and Electron
+  // never has to cast away the instance's type to reach a decoration.
+  // Renders to PNG <img> tags — SVGs render poorly in most e-readers, and
+  // this one works offline, unlike the kroki.io default.
+  const server = await startServer(0, '127.0.0.1', {
+    diagramRenderer: createElectronDiagramRenderer({
+      BrowserWindow,
+      dataDir,
+      resolveMermaidPath: () => esmRequire.resolve('mermaid/dist/mermaid.min.js'),
+    }),
+  })
   const addr = server.server.address()
   apiPort = typeof addr === 'object' && addr ? addr.port : 0
 
@@ -376,17 +388,6 @@ app.whenReady().then(async () => {
       await writeFile(file, line, { flag: 'a' })
     } catch { /* swallow */ }
   })
-
-  // Override mermaid renderer with the Electron BrowserWindow-based adapter
-  // (faster and works offline, unlike the kroki.io API fallback).
-  // Renders to PNG <img> tags — SVGs render poorly in most e-readers.
-  const electronDiagramRenderer = createElectronDiagramRenderer({
-    BrowserWindow,
-    dataDir,
-    resolveMermaidPath: () => esmRequire.resolve('mermaid/dist/mermaid.min.js'),
-  })
-
-  ;(server as unknown as { mermaidRenderer: unknown }).mermaidRenderer = electronDiagramRenderer.render
 
   // POST all saved API keys to the server's key store. loadApiKey handles
   // identity-suffix paths, legacy fallback, and migration; failures are

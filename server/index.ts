@@ -13,17 +13,12 @@ import { audiobookRoutes } from './routes/audiobook.js'
 import { recoverFromCrash } from './services/book-store.js'
 import { registerErrorHandler } from './http/error-handler.js'
 import { STATUS_FORBIDDEN, STATUS_NO_CONTENT } from './http/status.js'
-import { createKrokiDiagramRenderer } from './adapters/kroki-diagram-renderer.js'
+import { createPorts, type Ports } from './composition-root.js'
 
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://localhost:3147',
 ]
-
-// Default mermaid renderer — Electron overrides this decoration at startup
-// with a BrowserWindow-based adapter. This module-scope instance backs the
-// standalone/dev server mode fallback.
-const krokiDiagramRenderer = createKrokiDiagramRenderer()
 
 function isAllowedOrigin(origin: string): boolean {
   if (ALLOWED_ORIGINS.includes(origin)) return true
@@ -45,8 +40,17 @@ function isAllowedOrigin(origin: string): boolean {
  * themselves, so tests can inject requests against a real, fully-registered
  * instance without starting a server or mutating on-disk book state via
  * crash recovery.
+ *
+ * `overrides` replaces individual adapters before anything is registered,
+ * so a caller gets a real, fully-registered server whose edges are fakes.
+ * That is how the characterization suite drives streaming and generation
+ * routes without a provider key, and how Electron supplies its own
+ * BrowserWindow-backed diagram renderer. Every route plugin receives the
+ * resolved ports as a plugin option, so a route module never reaches for a
+ * concrete adapter and never has to be edited when one is swapped.
  */
-export async function buildServer(): Promise<FastifyInstance> {
+export async function buildServer(overrides: Partial<Ports> = {}): Promise<FastifyInstance> {
+  const ports = createPorts(overrides)
   const fastify = Fastify({
     logger: {
       level: 'info',
@@ -93,10 +97,13 @@ export async function buildServer(): Promise<FastifyInstance> {
     }
   })
 
-  // Mermaid renderer — Electron sets this to a BrowserWindow-based renderer.
-  // Falls back to the kroki.io-backed adapter for standalone/dev server mode.
-  // Returns PNG as <img> tags with file:// URLs (epub-gen-memory doesn't support data: URLs).
-  fastify.decorate('mermaidRenderer', krokiDiagramRenderer.render)
+  // Mermaid renderer — the DiagramRenderer port, exposed as a decoration
+  // until the EPUB export service takes it as an ordinary dependency.
+  // Electron overrides the port with a BrowserWindow-backed adapter; the
+  // default is the kroki.io one, which is what standalone and dev server
+  // mode get. Returns PNG as <img> tags with file:// URLs (epub-gen-memory
+  // doesn't support data: URLs).
+  fastify.decorate('mermaidRenderer', (charts: string[]) => ports.diagramRenderer.render(charts))
 
   // MUST come before the route plugins below. Fastify only propagates an error
   // handler to encapsulation contexts created after it is set, so registering
@@ -106,23 +113,33 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   await fastify.register(rateLimit, { global: false })
 
-  await fastify.register(chatRoutes)
-  await fastify.register(bookRoutes)
-  await fastify.register(settingsRoutes)
-  await fastify.register(profileRoutes)
-  await fastify.register(taskRoutes)
-  await fastify.register(coverRoutes)
-  await fastify.register(importRoutes)
-  await fastify.register(modelsRoutes)
-  await fastify.register(audiobookRoutes)
+  // Every route plugin gets the same resolved ports as its plugin options.
+  // Fastify hands a plugin its options as the second argument, so a route
+  // module reads what it needs off `{ ports }` instead of importing an
+  // adapter, and nothing in this file changes when one is swapped.
+  await fastify.register(chatRoutes, { ports })
+  await fastify.register(bookRoutes, { ports })
+  await fastify.register(settingsRoutes, { ports })
+  await fastify.register(profileRoutes, { ports })
+  await fastify.register(taskRoutes, { ports })
+  await fastify.register(coverRoutes, { ports })
+  await fastify.register(importRoutes, { ports })
+  await fastify.register(modelsRoutes, { ports })
+  await fastify.register(audiobookRoutes, { ports })
 
   fastify.get('/api/health', async () => ({ status: 'ok' }))
 
   return fastify
 }
 
-export async function startServer(port = 3147, host = '127.0.0.1') {
-  const fastify = await buildServer()
+/**
+ * Builds the server, runs crash recovery, and listens. `overrides` is
+ * forwarded to {@link buildServer}, which is how Electron hands in its own
+ * BrowserWindow-backed diagram renderer at startup instead of reaching
+ * into the built instance and reassigning a decoration afterwards.
+ */
+export async function startServer(port = 3147, host = '127.0.0.1', overrides: Partial<Ports> = {}) {
+  const fastify = await buildServer(overrides)
 
   const recovery = await recoverFromCrash()
   if (recovery.booksReset.length > 0 || recovery.artifactsRemoved.length > 0) {
