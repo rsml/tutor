@@ -1,12 +1,13 @@
 import type { BookRepository } from '../ports/book-repository.js'
+import { assertChapterInRange } from '../domain/chapter-range.js'
 
 /**
  * Rejects with a 400 error when chapterNum is out of the book's chapter
- * range (1..totalChapters). This mirrors domain/chapter-range.ts's
- * validateChapterNum exactly — same message text, same statusCode — but
- * takes its BookRepository as an argument instead of reaching for the
- * book-store.js shim internally, so any service built on this stays unit
- * testable against createFakeBookRepository() with no real filesystem I/O.
+ * range (1..totalChapters). The I/O wrapper around domain/chapter-range.ts's
+ * pure assertChapterInRange: it takes a BookRepository as an argument to
+ * fetch the book's totalChapters, so any service built on this stays unit
+ * testable against createFakeBookRepository() with no real filesystem I/O,
+ * and the message text and statusCode can never drift from the pure check.
  *
  * A book that does not exist at all rejects with the repository's own
  * NotFoundError (code 'ENOENT'), unchanged, which the app's error handler
@@ -14,9 +15,5 @@ import type { BookRepository } from '../ports/book-repository.js'
  */
 export async function validateChapterNum(books: BookRepository, bookId: string, num: number): Promise<void> {
   const meta = await books.getBook(bookId)
-  if (num < 1 || num > meta.totalChapters) {
-    const err = new Error(`Chapter ${num} out of range (1-${meta.totalChapters})`)
-    ;(err as Error & { statusCode?: number }).statusCode = 400
-    throw err
-  }
+  assertChapterInRange(meta.totalChapters, num)
 }
