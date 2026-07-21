@@ -19,7 +19,7 @@ import {
 } from '@client/components/ui/dropdown-menu'
 import { TickSlider } from '@client/components/ui/tick-slider'
 import { useAppSelector, useAppDispatch, selectFunctionModel, selectHasApiKeyForFunction, selectDefaultChapterCount, selectAdvancedMode, setAdvancedMode } from '@client/store'
-import { apiUrl, getApiPort } from '@client/api/http'
+import { createSkeleton, getApiPort, suggestDetails, suggestTopic } from '@client/api'
 import { generateMcpConfig } from '@client/lib/mcp-config'
 import { cn } from '@client/lib/utils'
 import { store } from '@client/store'
@@ -630,18 +630,7 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
       const state = store.getState()
       const quizHistory = state.quizHistory?.quizzes ?? undefined
 
-      const res = await fetch(apiUrl('/api/books/suggest'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, provider, quizHistory, mode }),
-      })
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => null)
-        throw new Error(body?.message || 'Suggestion failed')
-      }
-
-      const data = await res.json()
+      const data = await suggestTopic({ model, provider, quizHistory, mode })
       setTopic(data.topic)
       if (data.reasoning) setReasoning(data.reasoning)
     } catch (err) {
@@ -664,17 +653,11 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
     }
     setAgenticCreating(true)
     try {
-      const res = await fetch(apiUrl('/api/books/create-skeleton'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: topic.trim(),
-          prompt: `${topic.trim()}${details.trim() ? `\n\n${details.trim()}` : ''}`,
-          totalChapters: chapterCount,
-        }),
+      const data = await createSkeleton({
+        title: topic.trim(),
+        prompt: `${topic.trim()}${details.trim() ? `\n\n${details.trim()}` : ''}`,
+        totalChapters: chapterCount,
       })
-      if (!res.ok) throw new Error('Failed to create book skeleton')
-      const data = await res.json()
 
       const { command } = generateMcpConfig(getApiPort(), {
         bookId: data.bookId,
@@ -704,18 +687,7 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
     setSuggestingDetails(true)
 
     try {
-      const res = await fetch(apiUrl('/api/books/suggest-details'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic: topic.trim(), model, provider }),
-      })
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => null)
-        throw new Error(body?.message || 'Suggestion failed')
-      }
-
-      const data = await res.json()
+      const data = await suggestDetails({ topic: topic.trim(), model, provider })
       setDetails(data.details)
     } catch (err) {
       toast.error('Failed to suggest details: ' + (err instanceof Error ? err.message : 'Unknown error'))
