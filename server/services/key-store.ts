@@ -1,6 +1,7 @@
 import { getDataDir } from '@shared/node/data-dir.js'
 import { join } from 'node:path'
 import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync } from 'node:fs'
+import { PROVIDERS, isProviderId, type ProviderId } from '@shared/provider.js'
 
 // API key store.
 //
@@ -13,9 +14,6 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync } from '
 // there is no safeStorage available. We fall back to plaintext api-keys.json
 // in the data dir so that keys survive server restarts. This is a dev-mode
 // convenience — never the path used by the packaged app.
-
-const VALID_PROVIDERS = ['anthropic', 'openai', 'google'] as const
-type Provider = (typeof VALID_PROVIDERS)[number]
 
 const isElectron = !!process.versions.electron
 const keysFile = join(getDataDir(), 'api-keys.json')
@@ -50,13 +48,13 @@ if (isElectron && existsSync(keysFile)) {
   try { unlinkSync(keysFile) } catch { /* ignore */ }
 }
 
-for (const p of VALID_PROVIDERS) {
+for (const p of PROVIDERS) {
   const envKey = process.env[`${p.toUpperCase()}_API_KEY`]
   if (envKey) keys.set(p, envKey)
 }
 
-function validateProvider(provider: string): asserts provider is Provider {
-  if (!VALID_PROVIDERS.includes(provider as Provider)) {
+function validateProvider(provider: string): asserts provider is ProviderId {
+  if (!isProviderId(provider)) {
     throw new Error(`Invalid provider: ${provider}`)
   }
 }
@@ -84,5 +82,5 @@ export function hasKey(provider: string): boolean {
 }
 
 export function keyStatus(): Record<string, boolean> {
-  return Object.fromEntries(VALID_PROVIDERS.map(p => [p, keys.has(p)]))
+  return Object.fromEntries(PROVIDERS.map(p => [p, keys.has(p)]))
 }

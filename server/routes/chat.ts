@@ -3,6 +3,7 @@ import { streamText } from 'ai'
 import { ZodError } from 'zod'
 import { createModelClient } from '../services/model-client.js'
 import { ChatBodySchema } from '@shared/contracts.js'
+import { DEFAULT_PROVIDER } from '@shared/provider.js'
 import { MARKDOWN_FORMATTING_RULES } from '../prompts/formatting-rules.js'
 
 const AI_TIMEOUT_MS = 5 * 60 * 1000
@@ -28,7 +29,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
 
     const { model, provider, chapterContent, selectedText, userMessage, history } = body
 
-    const modelClient = createModelClient(provider ?? 'anthropic', model)
+    const modelClient = createModelClient(provider ?? DEFAULT_PROVIDER, model)
 
     const selectedTextSection = selectedText
       ? `\n## The user specifically highlighted this passage:\n"${selectedText}"\n`

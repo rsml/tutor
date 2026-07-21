@@ -7,6 +7,7 @@ import { createModelClient } from '../services/model-client.js'
 import * as taskManager from '../services/task-manager.js'
 import { generateImageWithFallback } from '../services/image-generation.js'
 import { GenerateCoverBodySchema, UploadCoverBodySchema, SuggestCoverPromptBodySchema } from '@shared/contracts.js'
+import { DEFAULT_PROVIDER } from '@shared/provider.js'
 
 const bookIdSchema = {
   type: 'object' as const,
@@ -136,7 +137,7 @@ export async function coverRoutes(fastify: FastifyInstance) {
 
       const bookId = request.params.id
       const meta = await store.getBook(bookId)
-      const modelClient = createModelClient(body.provider ?? 'anthropic', body.model)
+      const modelClient = createModelClient(body.provider ?? DEFAULT_PROVIDER, body.model)
 
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), 5 * 60 * 1000)

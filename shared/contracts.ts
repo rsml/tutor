@@ -1,16 +1,18 @@
 import { z } from 'zod'
 import { PreferencesSchema, SkillSchema } from './domain.js'
+import { ProviderSchema, MODEL_REGEX } from './provider.js'
 
 /**
  * The HTTP request and response shapes the client and server agree on.
  *
  * The entities the app persists and renders live in shared/domain.ts
- * instead.
+ * instead. ProviderSchema now lives in shared/provider.ts and is re-exported
+ * here so existing imports of it from this module keep working.
  */
 
-export const ProviderSchema = z.enum(['anthropic', 'openai', 'google'])
+export { ProviderSchema }
 
-const ModelSchema = z.string().min(1).max(100).regex(/^[a-zA-Z0-9._:/-]{1,100}$/)
+const ModelSchema = z.string().min(1).max(100).regex(MODEL_REGEX)
 
 export const AiRequestSchema = z.object({
   model: ModelSchema,

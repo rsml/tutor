@@ -6,6 +6,7 @@ import { createModelClient } from '../services/model-client.js'
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import { UpdateProfileBodySchema, InterviewChatBodySchema, CompleteProfileSchema, SuggestSkillsBodySchema } from '@shared/contracts.js'
+import { DEFAULT_PROVIDER } from '@shared/provider.js'
 import { MARKDOWN_FORMATTING_RULES } from '../prompts/formatting-rules.js'
 
 const AI_TIMEOUT_MS = 5 * 60 * 1000
@@ -83,7 +84,7 @@ export async function profileRoutes(fastify: FastifyInstance) {
     }
 
     const { model, provider, aboutMe, existingSkills } = body
-    const modelClient = createModelClient(provider ?? 'anthropic', model)
+    const modelClient = createModelClient(provider ?? DEFAULT_PROVIDER, model)
 
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
@@ -128,7 +129,7 @@ Suggest skills that are relevant to their background and learning goals. Rate th
     }
 
     const { model, provider, userMessage, history } = body
-    const modelClient = createModelClient(provider ?? 'anthropic', model)
+    const modelClient = createModelClient(provider ?? DEFAULT_PROVIDER, model)
 
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)

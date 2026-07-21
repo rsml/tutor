@@ -2,13 +2,11 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { getKey } from './key-store.js'
-
-const VALID_PROVIDERS = ['anthropic', 'openai', 'google']
-const MODEL_REGEX = /^[a-zA-Z0-9._:/-]{1,100}$/
+import { isProviderId, MODEL_REGEX } from '@shared/provider.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createModelClient(provider: string, model: string): any {
-  if (!VALID_PROVIDERS.includes(provider)) {
+  if (!isProviderId(provider)) {
     throw new Error(`Invalid provider: ${provider}`)
   }
   if (!MODEL_REGEX.test(model)) {
