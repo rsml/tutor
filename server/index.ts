@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify'
 import rateLimit from '@fastify/rate-limit'
 import { chatRoutes } from './routes/chat.js'
 import { bookRoutes } from './routes/books.js'
+import { libraryRoutes } from './routes/library.js'
 import { settingsRoutes } from './routes/settings.js'
 import { profileRoutes } from './routes/profile.js'
 import { taskRoutes } from './routes/tasks.js'
@@ -119,6 +120,7 @@ export async function buildServer(overrides: Partial<Ports> = {}): Promise<Fasti
   // adapter, and nothing in this file changes when one is swapped.
   await fastify.register(chatRoutes, { ports })
   await fastify.register(bookRoutes, { ports })
+  await fastify.register(libraryRoutes, { ports })
   await fastify.register(settingsRoutes, { ports })
   await fastify.register(profileRoutes, { ports })
   await fastify.register(taskRoutes, { ports })
