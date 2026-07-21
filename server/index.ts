@@ -2,7 +2,6 @@ import Fastify from 'fastify'
 import type { FastifyInstance } from 'fastify'
 import rateLimit from '@fastify/rate-limit'
 import { chatRoutes } from './routes/chat.js'
-import { bookRoutes } from './routes/books.js'
 import { libraryRoutes } from './routes/library.js'
 import { readingRoutes } from './routes/reading.js'
 import { assessmentRoutes } from './routes/assessment.js'
@@ -10,6 +9,7 @@ import { suggestionRoutes } from './routes/suggestions.js'
 import { epubRoutes } from './routes/epub.js'
 import { audiobookGenerationRoutes } from './routes/audiobook-generation.js'
 import { generationRoutes } from './routes/generation.js'
+import { authoringRoutes } from './routes/authoring.js'
 import { settingsRoutes } from './routes/settings.js'
 import { profileRoutes } from './routes/profile.js'
 import { taskRoutes } from './routes/tasks.js'
@@ -125,7 +125,6 @@ export async function buildServer(overrides: Partial<Ports> = {}): Promise<Fasti
   // module reads what it needs off `{ ports }` instead of importing an
   // adapter, and nothing in this file changes when one is swapped.
   await fastify.register(chatRoutes, { ports })
-  await fastify.register(bookRoutes, { ports })
   await fastify.register(libraryRoutes, { ports })
   await fastify.register(readingRoutes, { ports })
   await fastify.register(assessmentRoutes, { ports })
@@ -133,6 +132,7 @@ export async function buildServer(overrides: Partial<Ports> = {}): Promise<Fasti
   await fastify.register(epubRoutes, { ports })
   await fastify.register(audiobookGenerationRoutes, { ports })
   await fastify.register(generationRoutes, { ports })
+  await fastify.register(authoringRoutes, { ports })
   await fastify.register(settingsRoutes, { ports })
   await fastify.register(profileRoutes, { ports })
   await fastify.register(taskRoutes, { ports })

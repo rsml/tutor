@@ -2,15 +2,16 @@ import type { FastifyInstance } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import * as store from '../services/book-store.js'
-import {
-  BookStatusSchema,
-} from '@shared/domain.js'
+import { BookStatusSchema } from '@shared/domain.js'
 import { bookIdSchema, bookChapterSchema } from '../http/route-params.js'
 import { validateChapterNum } from '../domain/chapter-range.js'
+import type { Ports } from '../composition-root.js'
 
-export async function bookRoutes(fastify: FastifyInstance) {
-  // --- MCP CRUD routes ---
-
+// The MCP authoring surface — CRUD routes the MCP server uses to author
+// book content directly (skeletons, chapter content, metadata, briefs,
+// summaries, TOC, references, feedback, quizzes) rather than through the
+// AI generation flow.
+export async function authoringRoutes(fastify: FastifyInstance, _opts: { ports: Ports }) {
   fastify.post<{ Body: unknown }>('/api/books/create-skeleton', async (request, _reply) => {
     const body = z.object({
       title: z.string().min(1),
