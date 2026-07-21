@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { toErrorResponse } from './error-handler.js'
+import { SchemaTooNewError } from '@shared/schema-version.js'
+import { TextGenerationError } from '../ports/text-generation.js'
 import { RequestValidationError } from './parse.js'
 
 /**
@@ -72,5 +74,44 @@ describe('toErrorResponse', () => {
   it('checks ENOENT before statusCode, so a tagged ENOENT still 404s', () => {
     const err = Object.assign(new Error('nope'), { code: 'ENOENT', statusCode: 500 })
     expect(toErrorResponse(err).status).toBe(404)
+  })
+
+  describe('SchemaTooNewError', () => {
+    it('answers 409, because the server is fine and the data is simply from the future', () => {
+      const res = toErrorResponse(new SchemaTooNewError(5, 2, '/Users/someone/Library/Application Support/tutor/books/b/meta.yml'))
+      expect(res.status).toBe(409)
+      expect(res.logAsServerError).toBe(false)
+    })
+
+    it('never echoes the message, because it embeds the absolute path of the offending file', () => {
+      const path = '/Users/someone/Library/Application Support/tutor/books/b/meta.yml'
+      const res = toErrorResponse(new SchemaTooNewError(5, 2, path))
+      expect(res.body.error).not.toContain(path)
+      expect(res.body.error).not.toContain('/Users/')
+      // Rebuilt from the numbers instead, so it still says something useful.
+      expect(res.body.error).toContain('5')
+      expect(res.body.error).toContain('2')
+    })
+  })
+
+  describe('TextGenerationError', () => {
+    it('carries the failure class to the client as kind, which is what the reader acts on', () => {
+      const res = toErrorResponse(new TextGenerationError('auth-failed', 'No API key configured for provider: anthropic', false))
+      expect(res.body.kind).toBe('auth-failed')
+      expect(res.body.error).toBe('No API key configured for provider: anthropic')
+    })
+
+    it('answers 401 for auth-failed, so the client can tell an unusable key from a busy provider', () => {
+      expect(toErrorResponse(new TextGenerationError('auth-failed', 'bad key', false)).status).toBe(401)
+    })
+
+    it('answers 503 for a retryable class and 502 for a terminal one', () => {
+      expect(toErrorResponse(new TextGenerationError('overloaded', 'busy', true)).status).toBe(503)
+      expect(toErrorResponse(new TextGenerationError('content-refused', 'refused', false)).status).toBe(502)
+    })
+
+    it('does not log a provider failure as a server fault, because the server is not at fault', () => {
+      expect(toErrorResponse(new TextGenerationError('rate-limited', 'slow down', true)).logAsServerError).toBe(false)
+    })
   })
 })

@@ -1,4 +1,4 @@
-import type { ClientTask, GenerationStage, TaskProgress, TaskType } from './responses.js'
+import type { AiErrorKind, ClientTask, GenerationStage, TaskProgress, TaskType } from './responses.js'
 
 /**
  * The Server-Sent Event unions the streaming routes actually write today,
@@ -14,8 +14,18 @@ import type { ClientTask, GenerationStage, TaskProgress, TaskType } from './resp
  * file is types only — it compiles away entirely.
  */
 
-/** The error event sent verbatim by the create-book, revise-toc, start-book, and generate-chapter streams. */
-export type StreamErrorEvent = { type: 'error'; message: string }
+/**
+ * The error event sent verbatim by the create-book, revise-toc, start-book,
+ * and generate-chapter streams.
+ *
+ * `kind` is purely additive and always optional. Every existing client path
+ * reads `message` and keeps working without it. It carries the failure class
+ * when the failure came from the AI provider, which is what lets the reader
+ * route an auth failure to the missing-key dialog instead of showing a
+ * generic toast that the user cannot act on. A failure with no class, such
+ * as a parse error the app raised itself, simply omits it.
+ */
+export type StreamErrorEvent = { type: 'error'; message: string; kind?: AiErrorKind }
 
 /** POST /api/books — table-of-contents generation stream. */
 export type CreateBookEvent =

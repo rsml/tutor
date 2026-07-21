@@ -1,5 +1,8 @@
 import type { FastifyInstance } from 'fastify'
 import { RequestValidationError } from './parse.js'
+import { SchemaTooNewError } from '@shared/schema-version.js'
+import { TextGenerationError } from '../ports/text-generation.js'
+import type { AiErrorKind } from '@shared/responses.js'
 
 /**
  * The single place an error becomes a response.
@@ -16,7 +19,7 @@ import { RequestValidationError } from './parse.js'
 /** What the client receives, plus whether the server should log it as a fault. */
 export interface ErrorResponse {
   status: number
-  body: { error: string; details?: unknown }
+  body: { error: string; details?: unknown; kind?: AiErrorKind }
   logAsServerError: boolean
 }
 
@@ -42,6 +45,35 @@ export function toErrorResponse(error: AppError): ErrorResponse {
   // that was missing, which is exactly what leaked before this was fixed.
   if (error.code === 'ENOENT') {
     return { status: 404, body: { error: 'Not found' }, logAsServerError: false }
+  }
+
+  // A library written by a newer build. 409 rather than 500, because the
+  // server is fine and the data is simply from the future, and it is not
+  // retryable. The body is rebuilt from `found` and `supported` instead of
+  // echoing error.message, for the same reason ENOENT above does not echo
+  // its own: the message embeds the absolute path of the offending file.
+  // The path still reaches the log, where it is useful and not exposed.
+  if (error instanceof SchemaTooNewError) {
+    return {
+      status: 409,
+      body: {
+        error: `This library was written by a newer version of Tutor (data version ${error.found}, this build supports up to ${error.supported}). Update the app to open it.`,
+      },
+      logAsServerError: false,
+    }
+  }
+
+  // An AI provider failure that the adapter already classified. The class
+  // travels to the client as `kind` so the reader can act on it, most
+  // usefully by opening the missing-key dialog on auth-failed instead of
+  // showing a toast the user has no way to resolve. `reason` is written to
+  // be safe to display, unlike a raw provider message.
+  if (error instanceof TextGenerationError) {
+    return {
+      status: error.kind === 'auth-failed' ? 401 : error.retryable ? 503 : 502,
+      body: { error: error.reason, kind: error.kind },
+      logAsServerError: false,
+    }
   }
 
   const statusCode = error.statusCode ?? 500
