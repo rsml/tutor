@@ -3,20 +3,8 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 import { ProgressStats } from '@client/features/progress/components/ProgressStats'
 import { OverlaidBar } from '@client/features/progress/components/OverlaidBar'
 import { NoiseOverlay } from '@client/components/NoiseOverlay'
-import { apiUrl } from '@client/api/http'
-
-interface SkillProgress {
-  name: string
-  totalWeight: number
-  completedWeight: number
-  books: Array<{ bookId: string; title: string; weight: number; completed: boolean }>
-  subskills: Array<{ name: string; totalWeight: number; completedWeight: number }>
-}
-
-interface SkillsResponse {
-  stats: { totalBooks: number; completedBooks: number; totalChapters: number; completedChapters: number }
-  skills: SkillProgress[]
-}
+import { getSkillProgress } from '@client/api'
+import type { SkillProgress } from '@shared/responses'
 
 interface SkillDetailPageProps {
   skillName: string
@@ -24,12 +12,11 @@ interface SkillDetailPageProps {
 }
 
 export function SkillDetailPage({ skillName, onBack }: SkillDetailPageProps) {
-  const [data, setData] = useState<SkillsResponse | null>(null)
+  const [data, setData] = useState<SkillProgress | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch(apiUrl('/api/progress/skills'))
-      .then(res => res.json())
+    getSkillProgress()
       .then(setData)
       .catch(() => {})
       .finally(() => setLoading(false))

@@ -5,7 +5,7 @@ import { NoiseOverlay } from '@client/components/NoiseOverlay'
 import { ChapterBreakdownList } from '@client/features/quiz/components/ChapterBreakdownList'
 import { QuizPanel } from '@client/features/reader/components/QuizPanel'
 import { SmartReviewFlow, type ReviewQuestion } from '@client/features/quiz/components/SmartReviewFlow'
-import { apiUrl } from '@client/api/http'
+import { getToc } from '@client/api'
 import { useAppSelector, useAppDispatch, recordQuizAttempt } from '@client/store'
 import { selectBookQuizSummary, selectSmartReviewQueue } from '@client/store/quizHistorySelectors'
 import type { ChapterQuiz } from '@client/store/quizHistorySlice'
@@ -34,11 +34,10 @@ export function QuizReviewPage({ book, onBack, onBackToReader }: {
 
   // Fetch TOC for chapter titles
   useEffect(() => {
-    fetch(apiUrl(`/api/books/${book.id}/toc`))
-      .then(res => res.json())
+    getToc(book.id)
       .then(data => {
         const titles: Record<string, string> = {}
-        data.chapters?.forEach((ch: { title: string }, i: number) => {
+        data.chapters?.forEach((ch, i) => {
           titles[String(i + 1)] = ch.title
         })
         setTocTitles(titles)
