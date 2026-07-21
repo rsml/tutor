@@ -105,6 +105,33 @@ const boundaries = [
       },
     ]),
   },
+  {
+    // The end-to-end journey suite drives the client through a browser, never
+    // by importing it. It may reach @server and @shared, because it boots the
+    // real server in process and wires Phase 2's own fakes into it, but a
+    // direct @client import would mean a journey had reached past the browser
+    // into the code it is supposed to be testing from the outside.
+    files: ['e2e/**/*.ts', 'playwright.config.ts'],
+    rules: forbid([
+      {
+        group: ['@client/**', '**/client/**'],
+        message: 'A journey drives the client through the browser. Assert on what a reader can see, not on client internals.',
+      },
+    ]),
+  },
+  {
+    files: ['e2e/**/*.ts'],
+    rules: {
+      // Playwright fixtures that take no dependencies are declared with an
+      // empty destructuring pattern, which is the framework's own documented
+      // signature and not the mistake this rule usually catches.
+      'no-empty-pattern': 'off',
+      // A Playwright fixture hands its value to the test by calling `use`,
+      // which is an unrelated function that happens to share a name with
+      // React 19's hook. There is no React in this zone at all.
+      'react-hooks/rules-of-hooks': 'off',
+    },
+  },
 ]
 
 export default tseslint.config(
@@ -134,7 +161,7 @@ export default tseslint.config(
     languageOptions: { globals: globals.browser },
   },
   {
-    files: ['server/**/*.ts', 'electron/**/*.ts', 'shared/node/**/*.ts'],
+    files: ['server/**/*.ts', 'electron/**/*.ts', 'shared/node/**/*.ts', 'e2e/**/*.ts', 'playwright.config.ts'],
     languageOptions: { globals: globals.node },
   },
   {

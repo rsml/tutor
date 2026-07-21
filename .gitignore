@@ -8,3 +8,5 @@ books/
 .worktrees/
 .claude/worktrees/
 .DS_Store
+playwright-report/
+test-results/
