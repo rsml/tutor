@@ -6,6 +6,8 @@ Code that both the React client and the Fastify server depend on. This is the de
 |---|---|
 | `domain.ts` | The entities the app persists and renders, as Zod schemas. Book meta, TOC, progress, feedback, quiz, learning profile, audiobook manifest. |
 | `contracts.ts` | The HTTP request and response shapes the client and server agree on, meaning every `*BodySchema` plus the provider and model rules. |
+| `responses.ts` | The HTTP response bodies the server actually returns today, read off each route handler rather than designed from scratch. Library book, book detail, generation status, search results, skill progress, client task, EPUB preview, voice info, audiobook status. Types only, no runtime code. |
+| `events.ts` | The SSE event unions the streaming routes actually write today, one per stream: create book, revise TOC, start book, generate or regenerate a chapter, and the background tasks stream. Types only, no runtime code. |
 | `book-status.ts` | The six book statuses and the named predicates for asking about them. The only place those strings appear. |
 | `mermaid-theme.ts`, `sanitize-mermaid.ts` | Diagram helpers used by both the renderer and the Electron main process during EPUB export. |
 | `node/` | The Node-only corner. |
