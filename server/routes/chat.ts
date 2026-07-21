@@ -5,8 +5,7 @@ import { createModelClient } from '../services/model-client.js'
 import { ChatBodySchema } from '@shared/contracts.js'
 import { DEFAULT_PROVIDER } from '@shared/provider.js'
 import { MARKDOWN_FORMATTING_RULES } from '../prompts/formatting-rules.js'
-
-const AI_TIMEOUT_MS = 5 * 60 * 1000
+import { AI_GENERATION_TIMEOUT_MS, CHAT_CONTEXT_CHARS } from '../constants.js'
 
 export async function chatRoutes(fastify: FastifyInstance) {
   fastify.post<{ Body: unknown }>('/api/chat', { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (request, reply) => {
@@ -42,7 +41,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
     const systemPrompt = `You are a concise, knowledgeable tutor helping a learner understand a book they are reading.
 
 ## Full chapter content (for reference):
-${chapterContent.slice(0, 4000)}
+${chapterContent.slice(0, CHAT_CONTEXT_CHARS)}
 ${selectedTextSection}
 ## Instructions:
 - Be concise and clear — aim for 2-4 short paragraphs max
@@ -59,7 +58,7 @@ ${MARKDOWN_FORMATTING_RULES}`
     ]
 
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
+    const timer = setTimeout(() => controller.abort(), AI_GENERATION_TIMEOUT_MS)
 
     const result = streamText({
       model: modelClient,

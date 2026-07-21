@@ -15,6 +15,7 @@ import {
 import { getFfmpegPath } from './audiobook-installer.js'
 import { updateProgress, completeTask } from './task-manager.js'
 import type { AudiobookManifest, AudiobookChapterEntry } from '@shared/domain.js'
+import { M4B_BITRATE } from '../constants.js'
 
 export interface GenerateAudiobookOpts {
   voiceId: string
@@ -23,7 +24,6 @@ export interface GenerateAudiobookOpts {
 }
 
 const MANIFEST_VERSION = 1
-const M4B_BITRATE = '64k'
 
 // Run ffmpeg with the configured binary, surfacing stderr on non-zero exit.
 // Wraps node:child_process.execFile so the AbortSignal kills hung processes

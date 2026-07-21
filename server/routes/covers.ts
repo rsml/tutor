@@ -8,12 +8,9 @@ import * as taskManager from '../services/task-manager.js'
 import { generateImageWithFallback } from '../services/image-generation.js'
 import { GenerateCoverBodySchema, UploadCoverBodySchema, SuggestCoverPromptBodySchema } from '@shared/contracts.js'
 import { DEFAULT_PROVIDER } from '@shared/provider.js'
-
-const bookIdSchema = {
-  type: 'object' as const,
-  properties: { id: { type: 'string' as const, pattern: '^[a-z0-9-]{1,50}$' } },
-  required: ['id'] as const,
-}
+import { AI_GENERATION_TIMEOUT_MS, COVER_CACHE_MAX_AGE_S } from '../constants.js'
+import { bookIdSchema } from '../http/route-params.js'
+import { STATUS_NOT_FOUND, STATUS_CONFLICT } from '../http/status.js'
 
 const MIME_MAP: Record<string, string> = {
   '.png': 'image/png',
@@ -42,7 +39,7 @@ export async function coverRoutes(fastify: FastifyInstance) {
 
       // Check for existing cover generation task
       if (taskManager.getActiveTaskForBook(bookId, 'generate-cover')) {
-        return reply.status(409).send({ error: 'Cover generation already in progress' })
+        return reply.status(STATUS_CONFLICT).send({ error: 'Cover generation already in progress' })
       }
 
       const task = taskManager.createTask('generate-cover', bookId, meta.title, 1)
@@ -109,13 +106,13 @@ export async function coverRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const coverPath = await store.getCoverPath(request.params.id)
       if (!coverPath) {
-        return reply.status(404).send({ error: 'No cover image' })
+        return reply.status(STATUS_NOT_FOUND).send({ error: 'No cover image' })
       }
       const ext = '.' + coverPath.split('.').pop()
       const contentType = MIME_MAP[ext] ?? 'image/png'
       const data = await readFile(coverPath)
       reply.header('Content-Type', contentType)
-      reply.header('Cache-Control', 'public, max-age=3600')
+      reply.header('Cache-Control', `public, max-age=${COVER_CACHE_MAX_AGE_S}`)
       return reply.send(data)
     },
   )
@@ -140,7 +137,7 @@ export async function coverRoutes(fastify: FastifyInstance) {
       const modelClient = createModelClient(body.provider ?? DEFAULT_PROVIDER, body.model)
 
       const controller = new AbortController()
-      const timer = setTimeout(() => controller.abort(), 5 * 60 * 1000)
+      const timer = setTimeout(() => controller.abort(), AI_GENERATION_TIMEOUT_MS)
 
       try {
         const result = await generateObject({
