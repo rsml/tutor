@@ -1,3 +1,4 @@
+Up: [ARCHITECTURE.md](../../ARCHITECTURE.md)
 # server/migrations/
 
 Forward-only, pure migrations for the two things Tutor persists at the top

@@ -1,3 +1,4 @@
+Up: [ARCHITECTURE.md](../ARCHITECTURE.md)
 # End-to-end journeys
 
 Up: [../README.md](../README.md)
