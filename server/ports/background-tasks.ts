@@ -1,5 +1,6 @@
 import type { ClientTask, TaskType } from '@shared/responses.js'
 import type { TaskEvent } from '@shared/events.js'
+import type { GenerationJobParams } from '@shared/domain.js'
 
 /**
  * Tracks long-running background jobs (EPUB export, cover generation,
@@ -44,6 +45,14 @@ export interface StartTaskSpec {
   bookId: string
   bookTitle: string
   total: number
+  /**
+   * Carried through to the job journal (server/ports/job-journal.ts) so an
+   * interrupted job can be restarted with the same request parameters.
+   * Optional because most task types need nothing to restart, cover
+   * generation and EPUB export just redo their one deterministic step. An
+   * API key must never be put here, see GenerationJobParamsSchema.
+   */
+  params?: GenerationJobParams
 }
 
 export interface BackgroundTasks {

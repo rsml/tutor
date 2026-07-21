@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { BOOK_STATUSES, type BookStatus } from './book-status.js'
+import { ProviderSchema, MODEL_REGEX } from './provider.js'
 
 /**
  * Built here rather than in `shared/book-status.ts` so that module can stay
@@ -242,3 +243,88 @@ export const AudiobookManifestSchema = z.object({
 
 export type AudiobookChapterEntry = z.infer<typeof AudiobookChapterEntrySchema>
 export type AudiobookManifest = z.infer<typeof AudiobookManifestSchema>
+
+// --- Generation jobs ---
+
+/**
+ * The on-disk shape of an in-flight background job, written by
+ * server/adapters/journalled-background-tasks.ts through
+ * server/ports/job-journal.ts so a job interrupted by a crash or restart
+ * can be found and resumed the next time the app starts. It deliberately
+ * carries only what restarting the job needs, a task type, which book,
+ * how far it got, and the handful of request parameters that chose its
+ * provider, model, and voice. An API key is never among that. A key
+ * proves who is asking, and belongs in KeyVault alone, restarting a job
+ * needs to know what was asked for, not who paid for it, and this journal
+ * is written to disk unencrypted, unlike KeyVault's storage.
+ */
+
+/**
+ * Every TaskType in shared/responses.ts, plus 'generate-chapter' for the
+ * just-in-time single chapter generation that never went through
+ * BackgroundTasks before this journal existed. Pinned together with
+ * TaskType by the compile-time guard in shared/generation-job.test.ts,
+ * which cannot live in this module without importing shared/responses.ts
+ * and creating a cycle, responses.ts already imports from here.
+ */
+export const GENERATION_JOB_TYPES = [
+  'generate-all',
+  'generate-epub',
+  'generate-cover',
+  'install-audiobook',
+  'generate-audiobook',
+  'generate-chapter',
+] as const
+
+export const GenerationJobTypeSchema = z.enum(GENERATION_JOB_TYPES)
+export type GenerationJobType = z.infer<typeof GenerationJobTypeSchema>
+
+/** How far a job got before it stopped, enough to resume without redoing finished work. */
+export const GenerationJobCheckpointSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('none') }),
+  z.object({ kind: z.literal('chapters'), through: z.number().int().min(0) }),
+  z.object({ kind: z.literal('narration-complete') }),
+])
+
+export type GenerationJobCheckpoint = z.infer<typeof GenerationJobCheckpointSchema>
+
+/**
+ * The request parameters a job needs to restart, the same handful a
+ * client already chooses in shared/contracts.ts's request bodies.
+ * z.strictObject rather than z.object, so a future field added here
+ * without matching thought, an API key above all, fails to parse instead
+ * of silently being written to disk.
+ */
+export const GenerationJobParamsSchema = z.strictObject({
+  provider: ProviderSchema.optional(),
+  model: z.string().min(1).max(100).regex(MODEL_REGEX).optional(),
+  quizProvider: ProviderSchema.optional(),
+  quizModel: z.string().min(1).max(100).regex(MODEL_REGEX).optional(),
+  quizLength: z.number().int().min(1).max(10).optional(),
+  voiceId: z.string().min(1).max(100).optional(),
+  speed: z.number().min(0.5).max(2.0).optional(),
+  targetChapterNum: z.number().int().positive().optional(),
+})
+
+export type GenerationJobParams = z.infer<typeof GenerationJobParamsSchema>
+
+export const GenerationJobSchema = z.object({
+  id: z.string(),
+  type: GenerationJobTypeSchema,
+  bookId: z.string(),
+  bookTitle: z.string(),
+  /**
+   * Deliberately a plain string, not TaskStatus, domain.ts cannot import
+   * shared/responses.ts. Whatever is written here at record time is never
+   * trusted on read anyway, JobJournal.listInterrupted() always reports
+   * 'interrupted', so this field only needs to round-trip, not to mean
+   * anything on its own.
+   */
+  status: z.string(),
+  checkpoint: GenerationJobCheckpointSchema,
+  params: GenerationJobParamsSchema,
+  startedAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export type GenerationJob = z.infer<typeof GenerationJobSchema>

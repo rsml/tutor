@@ -27,6 +27,7 @@ const PORT_NAMES: Array<keyof Ports> = [
   'epubImport',
   'epubExport',
   'backgroundTasks',
+  'jobJournal',
   'clock',
   'osFileManager',
 ]

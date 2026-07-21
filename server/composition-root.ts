@@ -11,6 +11,8 @@ import { createKrokiDiagramRenderer } from './adapters/kroki-diagram-renderer.js
 import { createEpub2Import } from './adapters/epub2-import.js'
 import { createEpubGenExport } from './adapters/epub-gen-export.js'
 import { createInMemoryBackgroundTasks } from './adapters/in-memory-background-tasks.js'
+import { createJournalledBackgroundTasks } from './adapters/journalled-background-tasks.js'
+import { createFsJobJournal } from './adapters/fs-job-journal.js'
 import { createSystemClock } from './adapters/system-clock.js'
 import { createOsFileManager } from './adapters/os-file-manager.js'
 import { createChapterGenerationStream, type ChapterGenerationStream } from './services/chapter-generation-stream.js'
@@ -28,6 +30,7 @@ import type { DiagramRenderer } from './ports/diagram-renderer.js'
 import type { EpubImport } from './ports/epub-import.js'
 import type { EpubExport } from './ports/epub-export.js'
 import type { BackgroundTasks } from './ports/background-tasks.js'
+import type { JobJournal } from './ports/job-journal.js'
 import type { Clock } from './ports/clock.js'
 import type { OsFileManager } from './ports/os-file-manager.js'
 
@@ -43,7 +46,7 @@ import type { OsFileManager } from './ports/os-file-manager.js'
  *
  * Adapters are constructed eagerly when createPorts runs rather than
  * lazily on first use. That is deliberate. Construction is cheap for all
- * thirteen, none of them opens a connection or reads a file in its
+ * fifteen, none of them opens a connection or reads a file in its
  * factory, and eager construction means a misconfigured dependency fails
  * at startup instead of on whichever request happens to reach it first.
  */
@@ -62,6 +65,7 @@ export interface Ports {
   epubImport: EpubImport
   epubExport: EpubExport
   backgroundTasks: BackgroundTasks
+  jobJournal: JobJournal
   clock: Clock
   osFileManager: OsFileManager
 }
@@ -84,6 +88,12 @@ export interface Ports {
 export function createPorts(overrides: Partial<Ports> = {}): Ports {
   const dataDir = getDataDir()
   const keyVault = overrides.keyVault ?? createFileKeyVault({ dataDir })
+  // Resolved before the object literal too, exactly like keyVault above, so
+  // an override of either reaches createJournalledBackgroundTasks below
+  // instead of being silently bypassed by a second, un-overridden instance
+  // built inline inside it.
+  const jobJournal = overrides.jobJournal ?? createFsJobJournal({ dataDir })
+  const clock = overrides.clock ?? createSystemClock()
 
   return {
     bookRepository: createFsBookRepository({ dataDir }),
@@ -100,8 +110,13 @@ export function createPorts(overrides: Partial<Ports> = {}): Ports {
     diagramRenderer: createKrokiDiagramRenderer(),
     epubImport: createEpub2Import(),
     epubExport: createEpubGenExport(),
-    backgroundTasks: createInMemoryBackgroundTasks(),
-    clock: createSystemClock(),
+    // Decorated with journalling rather than a plain in-memory adapter, so
+    // a task still running when the process dies can be found and resumed
+    // at the next boot. Takes the jobJournal and clock resolved above so an
+    // override of either reaches it.
+    backgroundTasks: createJournalledBackgroundTasks({ inner: createInMemoryBackgroundTasks(), journal: jobJournal, clock }),
+    jobJournal,
+    clock,
     osFileManager: createOsFileManager(),
     ...overrides,
   }
