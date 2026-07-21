@@ -147,7 +147,13 @@ export function describeBookRepositoryContract(
       it('round trips a saved book', async () => {
         await repo.saveBook(makeBookMeta())
         const book = await repo.getBook('book-1')
-        expect(book).toEqual(makeBookMeta())
+        // schemaVersion is deliberately excluded from this comparison. A
+        // real adapter stamps the current version onto every write, per
+        // fs-book-repository.ts, while this contract's in-memory fake
+        // stores exactly what it was given, so asserting on that field here
+        // would make the contract adapter-specific instead of shared.
+        const { schemaVersion: _schemaVersion, ...rest } = book
+        expect(rest).toEqual(makeBookMeta())
       })
 
       it('reflects a saved book in the listing', async () => {
