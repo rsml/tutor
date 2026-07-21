@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import type { DiagramRenderer } from './diagram-renderer.js'
+import { diagramSourceFallback, type DiagramRenderer } from './diagram-renderer.js'
 
 /**
  * The behavioural contract every DiagramRenderer implementation must
@@ -28,15 +28,22 @@ export function describeDiagramRendererContract(
       expect(results).toHaveLength(charts.length)
     })
 
-    it('yields an empty string rather than throwing for a chart that fails', async () => {
+    it('yields the escaped source fallback rather than throwing for a chart that fails', async () => {
       const results = await subject.render(['graph TD; A-->B', ''])
-      expect(results[1]).toBe('')
+      expect(results[1]).toBe(diagramSourceFallback(''))
+    })
+
+    it('never yields an empty string, because a reader deserves the source over a hole', async () => {
+      const results = await subject.render(['', '   ', 'graph TD; A-->B'])
+      for (const result of results) {
+        expect(result).not.toBe('')
+      }
     })
 
     it('does not fail the whole batch when one chart fails', async () => {
       const results = await subject.render(['', 'graph TD; A-->B'])
-      expect(results[0]).toBe('')
-      expect(results[1]).not.toBe('')
+      expect(results[0]).toBe(diagramSourceFallback(''))
+      expect(results[1]).not.toBe(diagramSourceFallback(''))
     })
 
     it('returns an empty array for an empty input array', async () => {

@@ -84,6 +84,21 @@ export function describeAudioAssemblyContract(
           }),
         ).rejects.toThrow()
       })
+
+      it('still produces an M4B when a cover is requested, whether or not it embeds', async () => {
+        const controller = new AbortController()
+        const out = '/fake/audio/book-with-cover.m4b'
+        await subject.concatToM4b({
+          inputs: ['/fake/audio/01.wav', '/fake/audio/02.wav'],
+          chapters,
+          out,
+          bitrate: '64k',
+          coverPath: '/fake/covers/book.png',
+          signal: controller.signal,
+        })
+        const sec = await subject.probeDurationSec(out, controller.signal)
+        expect(sec).toBeGreaterThan(0)
+      })
     })
   })
 }

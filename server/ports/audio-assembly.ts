@@ -25,14 +25,14 @@ import type { AudiobookChapterEntry } from '@shared/domain.js'
  * concat list and FFMETADATA1 files ffmpeg reads, and locating the ffmpeg
  * binary itself.
  *
- * One real behaviour this first cut does not carry through. The current
- * M4B stitch in audiobook-generator.ts also embeds a cover image when one
- * is available, and retries the stitch without a cover if embedding fails.
- * ConcatToM4bRequest has no coverPath field, matching the interface this
- * port was specified against, so that behaviour is a known gap rather than
- * a silent omission. Adding an optional coverPath, or deciding cover
- * embedding belongs somewhere else entirely, is a design call for whoever
- * builds the real adapter in a later task.
+ * Cover art is part of the request. The current M4B stitch in
+ * audiobook-generator.ts embeds a cover image when one is available and
+ * retries the stitch without a cover if embedding fails. The caller's half
+ * of that, deciding whether a cover exists and where it lives, belongs in
+ * the request as the optional coverPath below. The retry is adapter
+ * internal resilience, so an adapter that cannot embed the cover must
+ * still produce a coverless M4B rather than reject, and callers never see
+ * the difference.
  */
 
 export interface ConcatToM4bRequest {
@@ -44,6 +44,8 @@ export interface ConcatToM4bRequest {
   out: string
   /** ffmpeg audio bitrate, for example '64k'. */
   bitrate: string
+  /** Cover art to embed, when the book has one. An adapter that cannot embed it still produces a coverless M4B rather than rejecting. */
+  coverPath?: string
   signal: AbortSignal
 }
 
