@@ -1,3 +1,10 @@
+import type { z } from 'zod'
+import type {
+  AiRequestSchema,
+  InterviewChatBodySchema,
+  SuggestSkillsBodySchema,
+  UpdateProfileBodySchema,
+} from '@shared/contracts'
 import type { LearningProfile, Preferences } from '@shared/domain'
 import { request } from './http'
 import { streamNdjson } from './sse'
@@ -5,16 +12,18 @@ import { streamNdjson } from './sse'
 /**
  * Endpoints for the learning profile, its skills, and the AI interview and
  * suggestion flows that shape it.
+ *
+ * Request bodies are inferred from the Zod schemas the server validates
+ * against, so a body this module sends cannot drift from what the route
+ * accepts. The schemas are imported as types only and compile away, so no
+ * validator reaches the browser bundle.
  */
 
 /** One skill in the learning profile's prior knowledge list, reusing the shape LearningProfile already declares. */
 export type Skill = LearningProfile['skills'][number]
 
 /** The model and provider choice every AI-backed profile call sends. */
-interface AiRequest {
-  model: string
-  provider?: string
-}
+type AiRequest = z.infer<typeof AiRequestSchema>
 
 /**
  * The learning profile as the server answers or accepts it over the wire.
@@ -38,15 +47,12 @@ export async function getProfile(): Promise<ProfileResponse> {
 }
 
 /** Persist the learning profile, meaning About Me, preferences, and prior knowledge skills. */
-export async function saveProfile(profile: ProfileResponse): Promise<void> {
+export async function saveProfile(profile: z.infer<typeof UpdateProfileBodySchema>): Promise<void> {
   await request('/api/profile', { method: 'PUT', body: profile })
 }
 
 /** What suggestSkills sends, meaning the reader's background and the skills already on file. */
-export type SuggestSkillsBody = AiRequest & {
-  aboutMe: string
-  existingSkills: Skill[]
-}
+export type SuggestSkillsBody = z.infer<typeof SuggestSkillsBodySchema>
 
 /** Ask the model to suggest skills to add, given the reader's About Me text and existing skills. */
 export async function suggestSkills(body: SuggestSkillsBody): Promise<Skill[]> {
@@ -72,10 +78,7 @@ export async function getProfileSuggestions(bookId: string, body: AiRequest): Pr
 }
 
 /** What streamInterview sends on each turn, meaning the reader's latest message and the conversation so far. */
-export type InterviewChatBody = AiRequest & {
-  userMessage: string
-  history: Array<{ role: 'user' | 'assistant'; content: string }>
-}
+export type InterviewChatBody = z.infer<typeof InterviewChatBodySchema>
 
 /** One value emitted by the profile interview stream, either assistant text or the finished profile. */
 export type InterviewValue =

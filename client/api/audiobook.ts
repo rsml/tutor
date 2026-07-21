@@ -1,3 +1,5 @@
+import type { z } from 'zod'
+import type { GenerateAudiobookBodySchema } from '@shared/contracts'
 import type { AudiobookManifest } from '@shared/domain'
 import type { AudiobookStatus, VoiceInfo } from '@shared/responses'
 import { apiFetch, expectOk, request } from './http'
@@ -5,6 +7,11 @@ import { apiFetch, expectOk, request } from './http'
 /**
  * Endpoints for the narration engine, the voices it offers, and the
  * audiobook generated for each book.
+ *
+ * Request bodies are inferred from the Zod schemas the server validates
+ * against, so a body this module sends cannot drift from what the route
+ * accepts. The schemas are imported as types only and compile away, so no
+ * validator reaches the browser bundle.
  */
 
 /** The audiobook state for one book, covering whether it exists, how far narration has gotten, and its manifest. */
@@ -28,12 +35,7 @@ export async function getBookAudiobook(bookId: string): Promise<BookAudiobookSta
 }
 
 /** The voice, speed, and remember or replace choices generateAudiobook sends. */
-export interface GenerateAudiobookBody {
-  voiceId?: string
-  speed?: number
-  rememberAsDefault?: boolean
-  confirmReplace?: boolean
-}
+export type GenerateAudiobookBody = z.infer<typeof GenerateAudiobookBodySchema>
 
 /** What generateAudiobook resolves with once narration has been queued. */
 export interface GenerateAudiobookResult {
