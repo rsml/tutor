@@ -44,8 +44,22 @@ import type { AudiobookChapterEntry } from '@shared/domain.js'
  * title/album metadata. Optional, the same shape as coverPath above, so
  * an adapter given no bookTitle still produces a valid M4B, just without
  * those two tags.
+ *
+ * server/adapters/ffmpeg-audio-assembly.ts is the real adapter today. The
+ * in-memory fake is audio-assembly.fake.ts's createFakeAudioAssembly, and
+ * the shared behavioural spec both must satisfy is
+ * audio-assembly.contract.ts's describeAudioAssemblyContract, which can
+ * never run against the real adapter, see that file's own header for why.
  */
 
+/**
+ * inputs and chapters are two independent orderings the caller must keep in
+ * sync. inputs drives what ffmpeg actually concatenates, in that order,
+ * chapters drives only the titles and timing embedded as markers. Nothing
+ * here cross checks that the two agree, so a caller that reorders one
+ * without the other gets a correctly stitched file with mislabeled chapter
+ * markers.
+ */
 export interface ConcatToM4bRequest {
   /** Chapter audio files to concatenate in order, typically WAV files written by SpeechSynthesis.synthesizeChapter. */
   inputs: string[]
@@ -62,6 +76,12 @@ export interface ConcatToM4bRequest {
   signal: AbortSignal
 }
 
+/**
+ * signal is required on both methods, not optional as it is on most other
+ * ports here, because every real call site already runs inside a
+ * cancellable background task (see server/services/generate-audiobook.ts)
+ * and always has one to give.
+ */
 export interface AudioAssembly {
   /** Duration of the audio file at path, in seconds. Rejects if signal is already aborted or the file cannot be probed. */
   probeDurationSec(path: string, signal: AbortSignal): Promise<number>

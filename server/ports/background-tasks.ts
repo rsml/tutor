@@ -23,6 +23,14 @@ import type { GenerationJobParams } from '@shared/domain.js'
  * to ClientTask in shared/responses.ts, which is the same data serialized
  * for the client, so it is defined here as an alias rather than a second,
  * independently maintained copy of the same fields.
+ *
+ * server/adapters/in-memory-background-tasks.ts is the base real adapter,
+ * and server/composition-root.ts wraps it in the
+ * server/adapters/journalled-background-tasks.ts decorator before handing
+ * it out, so a running task's record survives a restart. The in-memory
+ * fake for tests is background-tasks.fake.ts's createFakeBackgroundTasks,
+ * and the shared behavioural spec all three must satisfy is
+ * background-tasks.contract.ts's describeBackgroundTasksContract.
  */
 
 /** A background task's current snapshot, as returned by get() and list(). */
@@ -40,6 +48,11 @@ export interface TaskHandle {
   signal: AbortSignal
 }
 
+/**
+ * This becomes the task's first Task snapshot, verbatim. Current starts
+ * at 0, total is copied from here unchanged, and label starts as
+ * 'Starting...' until the first report() call.
+ */
 export interface StartTaskSpec {
   type: TaskType
   bookId: string
@@ -55,6 +68,12 @@ export interface StartTaskSpec {
   params?: GenerationJobParams
 }
 
+/**
+ * report, succeed, fail, and cancel are keyed by bare taskId, not by
+ * TaskHandle, so anything that learned an id from list() or get() can drive
+ * a task's lifecycle, not only the caller that started it. Only start and
+ * findActive ever hand out the AbortSignal-bearing TaskHandle.
+ */
 export interface BackgroundTasks {
   start(spec: StartTaskSpec): TaskHandle
   report(taskId: string, current: number, label: string): void

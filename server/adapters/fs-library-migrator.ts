@@ -37,6 +37,8 @@ import { booksDir, bookDir, writeYaml } from './fs-paths.js'
  * that document's own 'failed' outcome. migrate() itself never rejects, so
  * one bad book can never stop the rest of the library, or the profile,
  * from migrating.
+ *
+ * Implements the LibraryMigrator port defined in server/ports/library-migrator.ts.
  */
 
 function messageOf(err: unknown): string {

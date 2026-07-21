@@ -4,6 +4,23 @@ export interface ParsedToc {
   chapters: Array<{ title: string; description: string }>
 }
 
+/**
+ * Parses the freeform markdown a TOC-generation or TOC-revision prompt
+ * streams back into a structured title, subtitle, and chapter list. Both
+ * create-book.ts and revise-toc.ts feed this the same raw AI text, so the
+ * parser has to tolerate the model's actual variance in formatting rather
+ * than one canonical shape.
+ *
+ * The chapter line regex accepts an em-dash, en-dash, hyphen, or colon as
+ * the title/description separator, and requires a numbered prefix, "1." or
+ * "1)", specifically so it does not also match an ordinary prose bullet
+ * that merely starts with a dash. Subtitle detection only looks at the line
+ * immediately after the title and before any chapter line has matched,
+ * accepting either an italic line or a second-level heading.
+ *
+ * Falls back to "Untitled Book" whenever chapters were parsed but no `#`
+ * title heading was found, rather than leaving the title empty.
+ */
 export function parseTocFromMarkdown(text: string): ParsedToc {
   const lines = text.split('\n').filter(l => l.trim())
   let title = ''

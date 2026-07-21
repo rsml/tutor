@@ -28,6 +28,11 @@ import { getFfmpegPath } from '../services/audiobook-installer.js'
 /** The subset of a failed execFile's error that runFfmpeg actually reads. Node's own ExecFileException types `code` as `string | number | null | undefined`, which this mirrors instead of the narrower NodeJS.ErrnoException. */
 export type ExecFileErrorLike = Error & { code?: string | number | null }
 
+/**
+ * The exact shape of node:child_process's execFile this adapter calls
+ * through. Narrower than execFile's own overloaded signature, so a fake in
+ * a test is trivial to write and typecheck against.
+ */
 export interface ExecFileRunner {
   (
     file: string,
@@ -37,6 +42,11 @@ export interface ExecFileRunner {
   ): void
 }
 
+/**
+ * Constructor deps for createFfmpegAudioAssembly. execFile is the only
+ * field, overridden in tests so a suite can assert the exact argv ffmpeg
+ * would have received without spawning a real process.
+ */
 export interface FfmpegAudioAssemblyDeps {
   /**
    * Runs the ffmpeg binary and resolves its stdout/stderr, or rejects on a
@@ -116,6 +126,13 @@ async function tryRm(path: string): Promise<void> {
   }
 }
 
+/**
+ * Factory for the AudioAssembly port. Every filesystem path it touches
+ * outside of req.inputs and req.out is a tmp file scoped to one
+ * concatToM4b call, tagged with a fresh uuid so two concurrent stitches
+ * never collide, and removed in a finally regardless of success, cover
+ * fallback, or abort.
+ */
 export function createFfmpegAudioAssembly(deps: FfmpegAudioAssemblyDeps = {}): AudioAssembly {
   const runExecFile = deps.execFile ?? defaultExecFile
 

@@ -15,11 +15,24 @@
  * BookRepository still makes any later direct read of that book fail
  * loudly, so nothing here weakens that protection, it only keeps one bad
  * book from taking every other book down with it.
+ *
+ * server/adapters/fs-library-migrator.ts is the real adapter. The
+ * in-memory fake is library-migrator.fake.ts's createFakeLibraryMigrator,
+ * and the shared behavioural spec both must satisfy is
+ * library-migrator.contract.ts's describeLibraryMigratorContract, which
+ * deliberately excludes fixture round trips, those live in the real
+ * adapter's own test file, server/adapters/fs-library-migrator.test.ts.
  */
 
 /** Why a book or the profile could not be migrated. */
 export type MigrationFailure = 'unreadable' | 'too-new'
 
+/**
+ * from and to are both set and equal for a 'current' outcome, since
+ * nothing was migrated. from is also set for a 'failed' outcome whenever
+ * the version could at least be read, and unset only when the document
+ * could not be parsed at all.
+ */
 export interface BookMigrationOutcome {
   bookId: string
   outcome: 'current' | 'migrated' | 'failed'
@@ -32,6 +45,12 @@ export interface BookMigrationOutcome {
   detail?: string
 }
 
+/**
+ * 'absent' is the one outcome unique to the profile, a book always has a
+ * meta.yml or it would not be discovered as a book at all, see
+ * BookMigrationOutcome above. It is also the only outcome that carries
+ * none of from, to, reason, or detail.
+ */
 export interface ProfileMigrationOutcome {
   /** 'absent' means the data directory has no learning-profile.yml at all, the ordinary shape of a fresh install whose profile was never created. */
   outcome: 'absent' | 'current' | 'migrated' | 'failed'
@@ -41,11 +60,21 @@ export interface ProfileMigrationOutcome {
   detail?: string
 }
 
+/**
+ * books lists exactly the subdirectories of books/ that have a meta.yml. A
+ * stray subdirectory without one is not a book this pass ever reports on,
+ * successfully or otherwise.
+ */
 export interface MigrationReport {
   profile: ProfileMigrationOutcome
   books: BookMigrationOutcome[]
 }
 
+/**
+ * Safe to call more than once. A document already migrated on an earlier
+ * call is simply reported 'current' the next time, never re-migrated and
+ * never re-backed-up.
+ */
 export interface LibraryMigrator {
   migrate(): Promise<MigrationReport>
 }

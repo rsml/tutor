@@ -15,6 +15,10 @@
  * path). This port keeps that contract. reveal() resolves once the OS has
  * been asked, regardless of whether the OS-side command actually
  * succeeded.
+ *
+ * The in-memory fake is os-file-manager.fake.ts's createFakeOsFileManager,
+ * and the shared behavioural spec both must satisfy is
+ * os-file-manager.contract.ts's describeOsFileManagerContract.
  */
 export interface OsFileManager {
   reveal(path: string): Promise<void>

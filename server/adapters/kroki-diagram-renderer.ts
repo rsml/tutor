@@ -27,6 +27,12 @@ export interface KrokiDiagramRendererDeps {
   timeoutMs?: number
 }
 
+/**
+ * Factory for the DiagramRenderer port. Charts render one at a time, in
+ * `charts` order, each independently timed out and independently falling
+ * back, so one slow or failing chart never blocks or fails the rest of
+ * the batch.
+ */
 export function createKrokiDiagramRenderer(deps: KrokiDiagramRendererDeps = {}): DiagramRenderer {
   const fetchImpl = deps.fetch ?? fetch
   const timeoutMs = deps.timeoutMs ?? DIAGRAM_RENDER_TIMEOUT_MS

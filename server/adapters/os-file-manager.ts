@@ -12,6 +12,11 @@ type SpawnFn = (
   options: { detached: boolean; stdio: 'ignore' },
 ) => { unref(): void }
 
+/**
+ * Constructor deps for createOsFileManager. Both fields exist only for
+ * tests, spawn so no test ever launches a real process, platform so a
+ * test can exercise a branch the host OS running the suite is not on.
+ */
 export interface OsFileManagerDeps {
   /** Defaults to node:child_process's real spawn. Inject a fake so no test ever launches a process. */
   spawn?: SpawnFn

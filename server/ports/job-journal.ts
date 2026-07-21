@@ -24,6 +24,13 @@ import type { GenerationJob, GenerationJobCheckpoint } from '@shared/domain.js'
  * risking the whole journal, and it avoids a read-modify-write race
  * between the Electron app and the MCP server when both point at the same
  * data directory.
+ *
+ * server/adapters/fs-job-journal.ts is the real adapter that implements
+ * this port itself, one YAML file per job, distinct from
+ * journalled-background-tasks.ts above, which is this port's consumer, not
+ * its implementer. The in-memory fake is job-journal.fake.ts's
+ * createFakeJobJournal, and the shared behavioural spec both must satisfy
+ * is job-journal.contract.ts's describeJobJournalContract.
  */
 export interface JobJournal {
   /** Persists a job at the start of its run, replacing any prior record for the same id. */

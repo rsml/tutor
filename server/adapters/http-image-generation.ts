@@ -99,12 +99,23 @@ class CategorizedError extends Error {
   }
 }
 
+/**
+ * Constructor deps for createHttpImageGeneration. fetch is overridden in
+ * every test, so no test run ever makes a real call to OpenAI or Google.
+ */
 export interface HttpImageGenerationDeps {
   keyVault: KeyVault
   /** Defaults to the global fetch. Inject a fake so a test never makes a real HTTP request. */
   fetch?: typeof fetch
 }
 
+/**
+ * Factory for the ImageGeneration port. generate() builds the model chain
+ * once per call from req.preferredModel and FALLBACK_CHAINS, and checks
+ * for a hard failure, auth or content policy, after every attempt, not
+ * only once the chain is exhausted, so a bad key fails fast instead of
+ * being retried against every fallback model in turn.
+ */
 export function createHttpImageGeneration(deps: HttpImageGenerationDeps): ImageGeneration {
   const { keyVault } = deps
   const doFetch = deps.fetch ?? fetch

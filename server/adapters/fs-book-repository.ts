@@ -36,6 +36,8 @@ import { booksDir, bookDir, padChapter, readYaml, writeYaml } from './fs-paths.j
  * a rejected promise carrying `code: 'ENOENT'`, straight from Node's own
  * readFile/stat, with no wrapping. See the NotFoundError doc comment on the
  * port for why that is exactly what the port contract expects here.
+ *
+ * Implements the BookRepository port defined in server/ports/book-repository.ts.
  */
 
 function validateReferenceName(name: string): void {
@@ -89,6 +91,13 @@ export async function cleanTmpArtifacts(dataDir: string, bookId: string): Promis
   return removed
 }
 
+/**
+ * Factory for the BookRepository port. Every markdown file this port
+ * writes, a chapter, the brief, or a reference's content, is not YAML, so
+ * none of them goes through fs-paths.ts's writeYaml. Each still follows
+ * the same tmp-then-rename sequence directly, so a crash mid-write can
+ * never leave a caller reading a half-written one either.
+ */
 export function createFsBookRepository(opts: { dataDir: string }): BookRepository {
   const { dataDir } = opts
 

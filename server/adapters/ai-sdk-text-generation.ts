@@ -23,6 +23,11 @@ import { nextDelayMs, RETRY_TOTAL_ELAPSED_CEILING_MS } from './retry-policy.js'
  * the `ai` package directly, which makes this the only module in server/
  * allowed to import from the `ai` package.
  *
+ * Talks to whichever of Anthropic, OpenAI, or Google the caller's ModelRef
+ * names, over the network, through the Vercel AI SDK. That call can time
+ * out, get rate limited, or hit a transient provider outage, which is why
+ * this adapter, not its callers, owns a hard timeout and a retry policy.
+ *
  * It owns four things that were duplicated across those call sites before
  * this port existed. The first is resolving a provider + model into a
  * callable client, lifted from the pre-port `services/model-client.ts`.
@@ -38,6 +43,11 @@ import { nextDelayMs, RETRY_TOTAL_ELAPSED_CEILING_MS } from './retry-policy.js'
  * the SDK's retrying can never run underneath this adapter's.
  */
 
+/**
+ * Constructor deps for createAiSdkTextGeneration. Only keyVault matters in
+ * production. sleep, rng, and now exist so a retry test can control timing
+ * and randomness deterministically instead of waiting out real delays.
+ */
 export interface AiSdkTextGenerationDeps {
   keyVault: KeyVault
   /**
@@ -241,6 +251,12 @@ function realSleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+/**
+ * Factory for the TextGeneration port. Builds all three methods over one
+ * resolved set of deps. Each method runs its own retry loop and its own
+ * composeAbortSignal call, so an in-flight streamText and a concurrent
+ * generateObject on the same instance never share retry or abort state.
+ */
 export function createAiSdkTextGeneration(deps: AiSdkTextGenerationDeps): TextGeneration {
   const sleep = deps.sleep ?? realSleep
   const rng = deps.rng ?? Math.random

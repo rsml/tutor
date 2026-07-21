@@ -35,6 +35,11 @@ import type { VoiceInfo } from '@shared/responses.js'
  * has no such singleton to reset, and a contract every implementation must
  * satisfy cannot include a method that only one implementation needs, so
  * __testing stays an adapter only test seam and is not part of this port.
+ *
+ * The in-memory fake is speech-synthesis.fake.ts's createFakeSpeechSynthesis,
+ * and the shared behavioural spec both must satisfy is
+ * speech-synthesis.contract.ts's describeSpeechSynthesisContract, fake
+ * only, for the same reason __testing above is adapter only.
  */
 
 /** What the installer still needs to download, and roughly how many bytes. Mirrors MissingComponents in audiobook-installer.ts. */
@@ -58,6 +63,12 @@ export type ProgressCallback = (progress: InstallProgress) => void
 /** Receives one call per sentence as synthesizeChapter streams audio, so a caller can show incremental progress. */
 export type SentenceCallback = (sentenceIdx: number, sentenceText: string) => void
 
+/**
+ * outPath is always a WAV file in current usage, see
+ * ConcatToM4bRequest.inputs in audio-assembly.ts, which AudioAssembly
+ * later reads and concatenates. Nothing here enforces the extension, the
+ * caller decides where the file goes.
+ */
 export interface SynthesizeChapterRequest {
   text: string
   voiceId: string
@@ -67,6 +78,12 @@ export interface SynthesizeChapterRequest {
   onSentence?: SentenceCallback
 }
 
+/**
+ * startWorkerPool and stopWorkerPool bracket a batch of synthesizeChapter
+ * calls. server/services/generate-audiobook.ts starts the pool once before
+ * narrating every chapter in a book and stops it once after, rather than
+ * once per chapter.
+ */
 export interface SpeechSynthesis {
   /** The narration voice catalogue, in a deliberate order that drives the voice picker UI. */
   listVoices(): VoiceInfo[]

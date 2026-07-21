@@ -10,6 +10,10 @@
  * and "give me a fresh id" as a value it receives, not a global it reaches
  * for, and lets a service test assert exact timestamps and ids by
  * injecting a controllable fake.
+ *
+ * server/adapters/system-clock.ts is the real adapter. The in-memory fake
+ * is clock.fake.ts's createFakeClock, and the shared behavioural spec both
+ * must satisfy is clock.contract.ts's describeClockContract.
  */
 export interface Clock {
   /** The current instant, in the same format as `new Date().toISOString()`. */

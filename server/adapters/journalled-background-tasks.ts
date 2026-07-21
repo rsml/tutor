@@ -3,6 +3,11 @@ import type { BackgroundTasks, StartTaskSpec, TaskHandle } from '../ports/backgr
 import type { JobJournal } from '../ports/job-journal.js'
 import type { Clock } from '../ports/clock.js'
 
+/**
+ * Constructor deps for createJournalledBackgroundTasks. All three are
+ * required. There is no meaningful default for the inner adapter being
+ * decorated, the journal it writes to, or the clock it timestamps with.
+ */
 export interface JournalledBackgroundTasksDeps {
   inner: BackgroundTasks
   journal: JobJournal

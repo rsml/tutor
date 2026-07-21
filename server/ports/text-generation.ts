@@ -6,14 +6,13 @@ import type { ProviderId } from '@shared/provider.js'
  * text token by token, generating a value that satisfies a Zod schema, and
  * running a short multi-step tool-calling conversation.
  *
- * Today those three shapes are each called directly against the Vercel AI
- * SDK from five route/service modules: 9 `generateObject` call sites and 6
- * `streamText` call sites (one of which drives tool calling and is really a
- * `runToolConversation` call in disguise). This port exists so those call
- * sites can depend on a shape instead of the SDK. Provider and model
- * resolution used to sit in its own service that every caller imported
- * directly, and it now lives in the adapter, so the SDK is an adapter-only
- * concern.
+ * Those three shapes used to be called directly against the Vercel AI SDK
+ * from the services themselves, and this port exists so a caller depends on
+ * a shape instead of on the SDK. Fifteen call sites go through it today, 8
+ * `generateObject`, 6 `streamText`, and 1 `runToolConversation`, which is
+ * the profile interview. Provider and model resolution used to sit in its
+ * own service that every caller imported directly, and it now lives in the
+ * adapter, so the SDK is an adapter-only concern.
  *
  * `signal` on every method means CANCELLATION ONLY, e.g. a "generate all
  * chapters" background task being cancelled. It is never a timeout. The
@@ -21,6 +20,13 @@ import type { ProviderId } from '@shared/provider.js'
  * with its own `AbortSignal.timeout(...)`. Every call site used to hand-roll
  * its own timeout/`AbortController` pair; this port is what let all of those
  * collapse into the adapter.
+ *
+ * server/adapters/ai-sdk-text-generation.ts is the real adapter, the only
+ * module in server/ allowed to import from the `ai` package. The in-memory
+ * fake is text-generation.fake.ts's createFakeTextGeneration, and the
+ * shared behavioural spec both must satisfy is
+ * text-generation.contract.ts's describeTextGenerationContract, fake only,
+ * since a real subject would call a live model.
  */
 
 /** Which provider and model to call. Validating that the pair is well-formed is the adapter's job. */
@@ -35,6 +41,11 @@ export interface ChatMessage {
   content: string
 }
 
+/**
+ * prompt and messages are mutually exclusive in practice, see the prompt
+ * field below, but nothing here is a discriminated union enforcing that,
+ * because every real call site already sends exactly one and never both.
+ */
 export interface StreamTextRequest {
   model: ModelRef
   system?: string
@@ -48,6 +59,11 @@ export interface StreamTextRequest {
   signal?: AbortSignal
 }
 
+/**
+ * The returned value is guaranteed to satisfy schema, not merely typed as
+ * if it does. Both the real adapter, through the underlying SDK call, and
+ * the fake, through schema.parse, validate before returning.
+ */
 export interface GenerateObjectRequest<T> {
   model: ModelRef
   schema: z.ZodType<T>
@@ -74,6 +90,12 @@ export interface ToolSpec<TInput = any, TResult = unknown> {
   execute: (input: TInput) => Promise<TResult>
 }
 
+/**
+ * Unlike StreamTextRequest, system and messages are both required here,
+ * and there is no prompt field. A tool calling conversation always needs
+ * an explicit system prompt and an explicit message history to have
+ * anything to call tools about.
+ */
 export interface RunToolConversationRequest {
   model: ModelRef
   system: string
@@ -129,9 +151,14 @@ export class TextGenerationError extends Error {
   }
 }
 
+/**
+ * There is no plain, one-shot text completion method. A caller that wants
+ * a single string rather than a stream collects streamText's chunks
+ * itself. Nothing here provides that convenience directly.
+ */
 export interface TextGeneration {
   /**
-   * Streams plain-text output. Covers 5 call sites, the table-of-contents
+   * Streams plain-text output. Covers 6 call sites across 5 modules, the table-of-contents
    * stream in `server/services/create-book.ts` (initial generation) and
    * `server/services/revise-toc.ts` (revision), the chapter-1 stream in
    * `server/services/start-book.ts`, the per-chapter stream in

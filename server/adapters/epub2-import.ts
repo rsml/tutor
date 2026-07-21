@@ -7,11 +7,29 @@ import TurndownService from 'turndown'
 import type { EpubPreview } from '@shared/responses.js'
 import type { EpubImport, ImportedBook, ImportedChapter, ImportedCover } from '../ports/epub-import.js'
 
+/**
+ * Implements the EpubImport port in server/ports/epub-import.ts, backed by
+ * the real epub2 parser and Turndown for HTML-to-markdown conversion.
+ * Parsing logic lifted from server/services/epub-importer.ts. Unlike that
+ * module, preview() and read() write nothing beyond the scratch file
+ * epub2's own API requires. It can only parse from a path, never a Buffer
+ * directly, so every call writes the input bytes to a temp file first and
+ * always removes it afterward, even when parsing throws.
+ *
+ * A file that is encrypted or DRM-protected is rejected with a message
+ * naming that specifically, rather than the generic parse-failure message
+ * any other malformed EPUB gets.
+ */
 // epub2's default export is the module namespace; the actual class is on .default
 const EPub = (EPub_ as unknown as { default: typeof EPub_ }).default ?? EPub_
 
 type EPubInstance = InstanceType<typeof EPub>
 
+/**
+ * Constructor override for createEpub2Import. tmpDir is the only field,
+ * overridden in tests so the scratch parse file lands in a directory the
+ * test controls and cleans up itself.
+ */
 export interface Epub2ImportDeps {
   /** Directory for the scratch file epub2 needs to parse from. Defaults to the OS temp dir. */
   tmpDir?: () => string

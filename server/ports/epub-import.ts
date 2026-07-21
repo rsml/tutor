@@ -15,6 +15,11 @@ import type { EpubPreview } from '@shared/responses.js'
  *
  * EpubPreview is the shape already sent over the wire by
  * POST /api/books/import/preview, defined once in shared/responses.ts.
+ *
+ * server/adapters/epub2-import.ts is the real adapter, wrapping the epub2
+ * parser and Turndown. The in-memory fake is epub-import.fake.ts's
+ * createFakeEpubImport, and the shared behavioural spec both must satisfy
+ * is epub-import.contract.ts's describeEpubImportContract.
  */
 
 /** One chapter recovered from the EPUB's spine, in reading order. */
@@ -50,6 +55,13 @@ export interface ImportedBook {
   cover?: ImportedCover
 }
 
+/**
+ * preview and read are independent, stateless parses of whatever bytes
+ * they are given. Neither caches or shares anything with the other, so
+ * server/services/import-book.ts calling both against the same EPUB, one
+ * per request across the preview and confirm steps, parses it twice
+ * rather than once.
+ */
 export interface EpubImport {
   /** Metadata only, for the import confirmation screen. Cheap: no chapter conversion. */
   preview(bytes: Buffer): Promise<EpubPreview>
