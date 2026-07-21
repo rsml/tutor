@@ -140,6 +140,7 @@ export function SkillsPanel({ open, onClose }: SkillsPanelProps) {
           <span className="text-sm font-medium text-content-primary">Prior Knowledge</span>
           <button
             onClick={onClose}
+            aria-label="Close skills"
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
             className="rounded-md p-1 text-content-muted transition-colors hover:text-content-primary"
           >
@@ -172,6 +173,7 @@ export function SkillsPanel({ open, onClose }: SkillsPanelProps) {
                   </div>
                   <button
                     onClick={() => removeSkill(i)}
+                    aria-label={`Remove ${skill.name} skill`}
                     className="rounded-md p-0.5 text-content-muted/50 transition-colors hover:text-content-primary"
                   >
                     <X className="size-3.5" />

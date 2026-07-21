@@ -99,6 +99,7 @@ export function InterviewPanel({ open, onClose, onMissingApiKey }: InterviewPane
           <span className="text-sm font-medium text-content-primary">Learning Profile Interview</span>
           <button
             onClick={() => onClose(!!profileResult)}
+            aria-label="Close interview"
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
             className="rounded-md p-1 text-content-muted transition-colors hover:text-content-primary"
           >
@@ -151,6 +152,7 @@ export function InterviewPanel({ open, onClose, onMissingApiKey }: InterviewPane
               <button
                 onClick={handleSubmit}
                 disabled={!input.trim() || isStreaming || isComplete}
+                aria-label="Send message"
                 className="rounded-md p-1 text-content-muted transition-colors hover:text-content-primary disabled:opacity-30"
               >
                 <SendHorizontal className="size-4" />

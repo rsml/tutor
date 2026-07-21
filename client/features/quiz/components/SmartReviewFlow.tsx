@@ -160,6 +160,7 @@ export function SmartReviewFlow({ queue, tocTitles, onRecordAttempt, onComplete 
           </Button>
           <Button
             onClick={() => dispatch({ type: isLast ? 'stop' : 'continue' })}
+            aria-label={isLast ? 'Done' : 'Continue'}
             className="bg-[oklch(0.55_0.20_285)] text-white hover:bg-[oklch(0.50_0.22_285)]"
           >
             {isLast ? 'Done' : 'Continue'}

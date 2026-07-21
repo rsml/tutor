@@ -133,6 +133,7 @@ export function SelectionTooltip({ selectedText, selectionRect, onAction, clearS
           {customPrompt.trim() && (
             <button
               onClick={handleCustomSubmit}
+              aria-label="Send question"
               className="rounded-md p-0.5 text-content-muted transition-colors hover:text-content-primary"
             >
               <SendHorizontal className="size-3.5" />

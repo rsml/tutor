@@ -245,6 +245,7 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
           </button>
           <button
             onClick={onClose}
+            aria-label="Close chat"
             className="rounded-md p-1 text-content-muted transition-colors hover:text-content-primary"
           >
             <X className="size-4" />
@@ -321,6 +322,7 @@ export function ChatPanel({ open, onClose, selectedText, chapterContent, initial
           <button
             onClick={handleSubmit}
             disabled={!input.trim() || isStreaming}
+            aria-label="Send message"
             className="rounded-md p-1 text-content-muted transition-colors hover:text-content-primary disabled:opacity-30"
           >
             <SendHorizontal className="size-4" />

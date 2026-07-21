@@ -93,6 +93,7 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkil
             <button
               type="button"
               onClick={onOpenSkills}
+              aria-label={skills.length > 0 ? `${skills.length} skill${skills.length !== 1 ? 's' : ''}` : 'No skills added'}
               className="flex items-center justify-between gap-3 rounded-lg border border-border-default/50 px-3 py-2 text-sm text-content-secondary transition-colors hover:bg-surface-raised hover:text-content-primary"
             >
               <span>{skills.length > 0 ? `${skills.length} skill${skills.length !== 1 ? 's' : ''}` : 'No skills added'}</span>
@@ -145,6 +146,8 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkil
                 <button
                   type="button"
                   onClick={() => togglePref(key)}
+                  aria-label={BOOL_PREF_LABELS[key]}
+                  aria-pressed={!!preferences[key as keyof Preferences]}
                   className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors ${
                     preferences[key as keyof Preferences] ? 'bg-[oklch(0.55_0.20_285)]' : 'bg-content-muted/30'
                   }`}
@@ -187,7 +190,7 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkil
         </ScrollableDialogBody>
         <ScrollableDialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button variant="primary" onClick={handleSave} disabled={saving || !loaded}>
+          <Button variant="primary" onClick={handleSave} disabled={saving || !loaded} aria-label={saving ? 'Saving' : 'Save'}>
             {saving ? 'Saving...' : 'Save'}
           </Button>
         </ScrollableDialogFooter>

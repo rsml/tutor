@@ -319,6 +319,7 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
                   <button
                     type="button"
                     onClick={() => { setEditValue(String(chapterCount)); setCountError(''); setEditingCount(true) }}
+                    aria-label="Edit chapter count"
                     className="w-[3.5rem] h-6 rounded-md border border-border-default/60 bg-surface-raised/50 px-2 text-center tabular-nums cursor-text text-content-primary hover:border-border-focus/50 hover:bg-surface-raised transition-colors"
                   >
                     {chapterCount}
@@ -353,6 +354,7 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
                 type="button"
                 role="switch"
                 aria-checked={advancedMode}
+                aria-label="Toggle advanced mode"
                 onClick={() => dispatch(setAdvancedMode(!advancedMode))}
                 className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${advancedMode ? 'bg-[oklch(0.55_0.20_285)]' : 'bg-white/15'}`}
               >

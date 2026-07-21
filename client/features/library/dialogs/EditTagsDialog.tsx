@@ -115,6 +115,7 @@ export function EditTagsDialog({ open, onOpenChange, bookId, currentTags, allTag
                 {suggestions.map((tag, i) => (
                   <button
                     key={tag}
+                    aria-label={tag}
                     className={`w-full px-3 py-1.5 text-left text-sm transition-colors ${
                       i === highlightIndex
                         ? 'bg-surface-muted text-content-primary'
@@ -140,6 +141,7 @@ export function EditTagsDialog({ open, onOpenChange, bookId, currentTags, allTag
                 <span className="text-xs">{tag}</span>
                 <button
                   onClick={() => removeTag(tag)}
+                  aria-label={`Remove ${tag} tag`}
                   className="ml-0.5 rounded-full p-0.5 hover:bg-foreground/10 transition-colors"
                 >
                   <X className="size-3" />

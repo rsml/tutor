@@ -108,6 +108,7 @@ export function SetSeriesDialog({
                   {suggestions.map((name, i) => (
                     <button
                       key={name}
+                      aria-label={name}
                       className={`w-full px-3 py-1.5 text-left text-sm transition-colors ${
                         i === highlightIndex
                           ? 'bg-surface-muted text-content-primary'

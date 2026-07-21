@@ -109,7 +109,7 @@ export function BackgroundTasksFooter() {
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle>Background Tasks</DialogTitle>
-              <button onClick={() => setExpanded(false)} className="text-content-muted hover:text-content-primary transition-colors">
+              <button onClick={() => setExpanded(false)} aria-label="Close" className="text-content-muted hover:text-content-primary transition-colors">
                 <ChevronDown className="size-4" />
               </button>
             </div>
@@ -155,6 +155,7 @@ export function BackgroundTasksFooter() {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleCancel(task.id)}
+                      aria-label="Cancel task"
                       className="shrink-0 size-7 p-0 text-content-muted hover:text-status-error"
                     >
                       <X className="size-3.5" />
@@ -164,6 +165,7 @@ export function BackgroundTasksFooter() {
                       variant="ghost"
                       size="sm"
                       onClick={() => dispatch(taskRemoved({ taskId: task.id }))}
+                      aria-label="Dismiss task"
                       className="shrink-0 size-7 p-0 text-content-muted hover:text-content-primary"
                     >
                       <X className="size-3.5" />

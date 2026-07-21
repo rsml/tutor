@@ -827,6 +827,7 @@ export function LibraryPage({
                 <span className="text-xs">{chip.label}</span>
                 <button
                   onClick={chip.onRemove}
+                  aria-label={`Remove ${chip.label} filter`}
                   className="ml-0.5 rounded-full p-0.5 hover:bg-foreground/10 transition-colors"
                 >
                   <X className="size-3" />

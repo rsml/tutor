@@ -68,7 +68,7 @@ export function GenerateAllModal({ open, onOpenChange, taskId, bookTitle, totalC
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle>Generating Book</DialogTitle>
-            <button onClick={() => onOpenChange(false)} className="text-content-muted hover:text-content-primary transition-colors">
+            <button onClick={() => onOpenChange(false)} aria-label="Close" className="text-content-muted hover:text-content-primary transition-colors">
               <ChevronDown className="size-4" />
             </button>
           </div>
