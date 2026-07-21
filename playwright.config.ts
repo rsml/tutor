@@ -54,6 +54,11 @@ export default defineConfig({
       // and gets its own CI job. One flag excludes it everywhere else.
       name: 'electron',
       grep: /@electron/,
+      // Serial. Two Electron apps launching at once each start their own
+      // Fastify server and load the audiobook stack, and on a loaded machine
+      // that turned a 6 second test into a 34 second one. There are two tests
+      // here and there is nothing to gain from overlapping them.
+      fullyParallel: false,
     },
   ],
 })

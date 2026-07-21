@@ -40,3 +40,79 @@ jobs:
       - run: pnpm lint
 
       - run: pnpm test
+
+  # The end-to-end journey suite, in its own job so it runs alongside verify
+  # rather than behind it. `pnpm test` stays the fast one and never waits on a
+  # browser. See e2e/README.md for what the journeys cover and why the server
+  # is faked at its edges rather than mocked at its HTTP boundary.
+  e2e-web:
+    runs-on: macos-14
+    env:
+      # The web project never launches Electron, so the binary is dead weight
+      # here. The e2e-electron job below deliberately omits this.
+      ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-playwright-
+
+      - run: pnpm exec playwright install chromium
+
+      # No separate build step. e2e/global-setup.ts runs `vite build` itself,
+      # so there is exactly one code path and no way for a job to run the
+      # journeys against a bundle it did not build.
+      - run: pnpm e2e --project=web
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report-web
+          path: playwright-report/
+          retention-days: 7
+
+  # Isolated from e2e-web because it launches a real GUI application and needs
+  # the Electron binary, which is the one thing every other job skips
+  # downloading. One `--project` flag keeps it out of the web suite.
+  e2e-electron:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Cache Electron binary
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/electron
+          key: ${{ runner.os }}-electron-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-electron-
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm e2e --project=electron
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report-electron
+          path: playwright-report/
+          retention-days: 7
