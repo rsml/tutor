@@ -1,6 +1,7 @@
 import { useState, useCallback, type ReactElement, type ComponentPropsWithoutRef } from 'react'
 import { Copy, Check } from 'lucide-react'
 import { MermaidDiagram } from '@client/features/markdown/MermaidDiagram'
+import { COPY_RESET_MS } from '@client/lib/constants'
 
 type PreProps = ComponentPropsWithoutRef<'pre'>
 
@@ -17,7 +18,7 @@ export function CodeBlock({ children, ...props }: PreProps) {
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(code)
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setTimeout(() => setCopied(false), COPY_RESET_MS)
   }, [code])
 
   if (language === 'mermaid') {
