@@ -15,6 +15,15 @@ Facts found in the code that contradict what this plan was written against. The 
 5. **AudioAssembly cover embedding.** `ConcatToM4bRequest` gained an optional `coverPath`. Retrying the stitch without a cover when embedding fails stays adapter-internal resilience rather than a caller concern.
 6. **Port count.** Thirteen ports shipped in S4, not the eleven plus two extras this plan estimated: TextGeneration, KeyVault, ImageGeneration, BookRepository, ArtifactStore, SpeechSynthesis, AudioAssembly, DiagramRenderer, EpubImport, EpubExport, BackgroundTasks, Clock, OsFileManager.
 7. **`services/mermaid-renderer.ts` is confirmed dead.** Only its own test imports it. Every other `mermaid-renderer` hit in the tree is a log prefix string or a temp file name, not an import.
+8. **Two ports were widened while their real adapters were built.** `AudioAssembly.concatToM4b` gained `bookTitle` alongside the architect's `coverPath`, because the real M4B stitch tags the file with the book's title as container metadata and as the FFMETADATA1 title line, and `AudiobookChapterEntry` carries only per-chapter titles. Without it the adapter could not reproduce today's tagging.
+9. **`generation-manager.ts` and the standalone `generate-quiz.ts` were not duplicates.** The generation-manager copy appended `MARKDOWN_FORMATTING_RULES` to the quiz prompt and the standalone one did not. Reconciling them onto one implementation therefore needed an explicit `includeFormattingRules` flag rather than a straight merge, so each caller keeps the prompt it has always sent.
+10. **The route split produced 46 route registrations, not 47.** Counted by grep across the original file, and the eight target modules account for all 46.
+11. **Three `server/domain/` modules were not pure.** `profile-context.ts`, `chapter-range.ts`, and `skill-progress-report.ts` all reached the filesystem through the `book-store` singleton. Each was split into a pure core plus a port-taking wrapper in `server/services/`, which is what section 6 intended by "server-only pure helpers" but the mechanical split alone did not achieve.
+12. **The singleton-to-factory risk was handled with deliberate temporary shims.** Rather than converting call sites and factories in one step across five parallel slices, each singleton became a thin shim over its new adapter in a single atomic commit, callers migrated onto ports slice by slice, and the shims were deleted only once nothing imported them. No half-converted state ever existed, so the production data directory was never at risk.
+
+## 0b. Final shape
+
+13 ports, 15 adapters, 52 services, 8 domain modules, 16 route modules, none over 200 lines. `server/composition-root.ts` is the only module that names a concrete adapter. `createPorts(overrides)` builds all thirteen, `createSharedServices(ports)` builds the in-memory state two route modules must share, and `buildServer(overrides)` threads both into every route plugin as plugin options.
 
 ## 1. Port catalog
 
