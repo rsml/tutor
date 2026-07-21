@@ -27,9 +27,22 @@ export function library(page: Page) {
       await newBook().click()
     },
 
-    /** The card for one book, located by its title. */
+    /**
+     * The card for one book, located by its title.
+     *
+     * Located by text and not by role, because a book card is a `div` with an
+     * `onClick` and carries no role and no accessible name. That is a real
+     * accessibility gap, reported to the architect rather than patched here,
+     * since this phase changes no production file. Clicking the title works
+     * because the click bubbles to the card that handles it.
+     */
     card(title: string) {
-      return page.getByRole('button', { name: new RegExp(title, 'i') })
+      return page.getByText(title, { exact: true }).first()
+    },
+
+    /** Opens a book in the reader. */
+    async openBook(title: string): Promise<void> {
+      await this.card(title).click()
     },
   }
 }
