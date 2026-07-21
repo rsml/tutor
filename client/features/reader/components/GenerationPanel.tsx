@@ -55,7 +55,7 @@ export function GenerationPanel({
           </div>
         )}
         {generationStage && (generationStage === 'saving' || generationStage === 'quiz') && (
-          <div className="mt-8 flex items-center gap-2 text-content-muted/50 text-sm">
+          <div role="status" aria-live="polite" className="mt-8 flex items-center gap-2 text-content-muted/50 text-sm">
             <Loader2 className="size-3 animate-spin" />
             <span>{generationStage === 'saving' ? 'Saving chapter...' : 'Creating quiz...'}</span>
           </div>
