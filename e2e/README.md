@@ -76,19 +76,23 @@ The fidelity guarantee is `support/scripted-text-generation.test.ts`, which runs
 
 ## Why no test ids
 
-There is not one `data-testid` in the client, and adding one would be the easy way out of every hard locator in this suite. The rule holds because addressing the UI by role and by name means the suite doubles as an accessibility net. Writing these journeys found five real gaps, all reported as an issue rather than papered over with a test id.
+There is not one `data-testid` in the client, and adding one would be the easy way out of every hard locator in this suite. The rule holds because addressing the UI by role and by name means the suite doubles as an accessibility net. Writing these journeys found seven real gaps, all filed as issue 51 rather than papered over with a test id.
 
 1. A book card is a `div` with an `onClick`, so it has no role, no accessible name, and no focus. A keyboard user cannot open a book at all. This is the serious one.
-2. The book context menu is a plain `div` of buttons with no `menu` or `menuitem` semantics.
-3. The Rename dialog's Title and Subtitle labels are not wired to their inputs.
-4. The Delete dialog's confirmation input has no label.
-5. The library toolbar's icon-only search and view toggles carry a `title` attribute but no `aria-label`.
+2. Two controls share the name "Next section", the chapter rail's and the tap zone's, both wired to the same callback.
+3. The book context menu is a plain `div` of buttons with no `menu` or `menuitem` semantics.
+4. The feedback form's textareas are not label-associated, so neither has an accessible name.
+5. The Rename dialog's Title and Subtitle labels are not wired to their inputs.
+6. The Delete dialog's confirmation input has no label.
+7. The library toolbar's icon-only search and view toggles carry a `title` attribute but no `aria-label`.
 
 The one sanctioned exception is a hidden `<input type="file">`, which has no role and no accessible name by construction. It is commented where it appears.
 
 ## Flake policy
 
 `retries: 0`, and that is the most load-bearing line in `playwright.config.ts`. The server is in process, the adapters are fakes, and nothing touches a network, so there is no legitimate source of nondeterminism left. A retry could only convert a real bug into a green run. A journey that flakes twice gets quarantined with `test.fixme` and an issue, never a blanket retry.
+
+Two assertions are quarantined today, and neither is flake. Both are blocked on issue 50, a real bug this suite found in chapter generation's event stream, and each `test.fixme` names it. They flip green when it is fixed.
 
 One real source of nondeterminism does exist inside the product and journeys have to respect it. `server/services/generate-quiz.ts` shuffles a quiz's options with `Math.random()` before saving, so a quiz option must be located by its text and never by its position.
 
