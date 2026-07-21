@@ -57,6 +57,13 @@ for (const failureCase of CASES) {
   })
 }
 
-test('chapter 1 generation failure reaches the creation wizard intact', async ({ page, app, model }) => {
-  await runWizardChapterOneFailureCase({ page, app, model }, CASES[0])
-})
+// Every case runs through the wizard, the typed subclass included. That case
+// is the one Phase 7 cares about most, because its error taxonomy is exactly
+// a set of typed subclasses, and leaving it to run only on the quarantined
+// reader path would have meant this phase never actually demonstrated that a
+// subclass reaches the screen with its message intact.
+for (const failureCase of CASES) {
+  test(`chapter 1 generation failure reaches the creation wizard intact: ${failureCase.name}`, async ({ page, app, model }) => {
+    await runWizardChapterOneFailureCase({ page, app, model }, failureCase)
+  })
+}
