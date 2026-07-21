@@ -6,6 +6,7 @@ import { ReviseTocPanel } from '@client/components/ReviseTocPanel'
 import { useAppSelector, selectHasApiKeyForFunction, selectFunctionModel, selectFontSize, selectQuizLength } from '@client/store'
 import { useStreamingContent } from '@client/hooks/useStreamingContent'
 import { parseSSEStream } from '@client/lib/parse-sse-stream'
+import type { CreateBookEvent, ReviseTocEvent, StartBookEvent } from '@shared/events'
 import { apiUrl } from '@client/api/http'
 import { formatTocAsMarkdown } from '@client/lib/format-toc'
 import { toast } from '@client/lib/toast'
@@ -70,7 +71,7 @@ export function CreationView(props: CreationViewProps) {
         const body = await res.json().catch(() => null)
         throw new Error(body?.message || `Start failed: ${res.status}`)
       }
-      await parseSSEStream(res, {
+      await parseSSEStream<StartBookEvent>(res, {
         onEvent: (event) => {
           switch (event.type) {
             case 'chapter':
@@ -121,7 +122,7 @@ export function CreationView(props: CreationViewProps) {
         const body = await res.json().catch(() => null)
         throw new Error(body?.message || `Revise failed: ${res.status}`)
       }
-      await parseSSEStream(res, {
+      await parseSSEStream<ReviseTocEvent>(res, {
         onEvent: (event) => {
           switch (event.type) {
             case 'toc':
@@ -166,7 +167,7 @@ export function CreationView(props: CreationViewProps) {
         throw new Error(body?.message || `Request failed: ${res.status}`)
       }
 
-      await parseSSEStream(res, {
+      await parseSSEStream<CreateBookEvent>(res, {
         onEvent: (event) => {
           switch (event.type) {
             case 'book_created':

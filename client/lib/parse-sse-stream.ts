@@ -1,33 +1,29 @@
 /**
- * Parsed SSE event types emitted by the generation endpoints.
+ * Reader for the Server-Sent Event streams the generation routes write.
+ *
+ * The event vocabulary itself lives in `@shared/events`, one union per stream,
+ * so the client and the server cannot drift apart on what an event looks like.
+ * This module only knows the wire format, which is `data: ` followed by one
+ * JSON document per line.
  */
-export type SSEEvent =
-  | { type: 'book_created'; bookId: string; title: string; totalChapters: number }
-  | { type: 'toc'; text: string }
-  | { type: 'toc_done'; bookId: string; title: string; subtitle?: string; totalChapters: number }
-  | { type: 'toc_revised'; bookId: string; title: string; subtitle?: string; totalChapters: number }
-  | { type: 'skills_classified' }
-  | { type: 'chapter'; text: string; buffered?: boolean }
-  | { type: 'stage'; stage: string }
-  | { type: 'done'; bookId?: string; title?: string; totalChapters?: number; chapterNum?: number }
-  | { type: 'error'; message: string }
 
-export interface SSECallbacks {
-  onEvent: (event: SSEEvent) => void
+export interface SSECallbacks<TEvent> {
+  onEvent: (event: TEvent) => void
 }
 
 /**
  * Consume an SSE stream from a fetch Response, parsing `data: {...}` lines
  * and invoking the callback for each parsed event.
+ *
+ * The caller establishes that the response has a body worth reading, which is
+ * what `openStream` in `@client/api/sse` does before delegating here. A
+ * response with no body simply produces no events.
  */
-export async function parseSSEStream(
+export async function parseSSEStream<TEvent>(
   response: Response,
-  callbacks: SSECallbacks,
+  callbacks: SSECallbacks<TEvent>,
 ): Promise<void> {
-  if (!response.body) {
-    callbacks.onEvent({ type: 'error', message: 'No response body' })
-    return
-  }
+  if (!response.body) return
 
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
@@ -44,7 +40,7 @@ export async function parseSSEStream(
     for (const line of lines) {
       if (!line.startsWith('data: ')) continue
       try {
-        const data = JSON.parse(line.slice(6)) as SSEEvent
+        const data = JSON.parse(line.slice(6)) as TEvent
         callbacks.onEvent(data)
       } catch {
         // Skip malformed SSE lines

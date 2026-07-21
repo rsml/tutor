@@ -1,5 +1,5 @@
 import { TASK_STREAM_RECONNECT_MS } from '@client/lib/constants'
-import { parseSSEStream, type SSEEvent } from '@client/lib/parse-sse-stream'
+import { parseSSEStream } from '@client/lib/parse-sse-stream'
 import { ApiError, apiFetch, apiUrl, expectOk, type JsonRequestInit } from './http'
 
 /**
@@ -46,11 +46,15 @@ async function readChunks(response: Response, onChunk: (chunk: string) => void):
  * Consume a server-sent event stream, reporting each parsed event. Used by
  * every generation endpoint, which is anything that writes a chapter or a
  * table of contents while the user watches.
+ *
+ * The event type is supplied by the caller from `@shared/events`, which names
+ * one union per stream rather than one loose union for all of them, so a
+ * handler cannot claim to receive an event its endpoint never sends.
  */
-export async function streamGeneration(
+export async function streamGeneration<TEvent>(
   path: string,
   init: JsonRequestInit | undefined,
-  onEvent: (event: SSEEvent) => void,
+  onEvent: (event: TEvent) => void,
 ): Promise<void> {
   await parseSSEStream(await openStream(path, init), { onEvent })
 }

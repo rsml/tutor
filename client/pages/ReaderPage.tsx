@@ -9,6 +9,7 @@ import { useTextSelection } from '@client/hooks/useTextSelection'
 import { useSectionNavigation } from '@client/hooks/useSectionNavigation'
 import { useStreamingContent } from '@client/hooks/useStreamingContent'
 import { parseSSEStream } from '@client/lib/parse-sse-stream'
+import type { GenerateChapterEvent } from '@shared/events'
 import { store, useAppDispatch, useAppSelector, setChapterFeedback, setChapterQuizResult, recordQuizAttempt, selectFontSize, selectReadingWidth, selectQuizLength, selectFunctionModel } from '@client/store'
 import { apiUrl } from '@client/api/http'
 import { cn } from '@client/lib/utils'
@@ -105,7 +106,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
           const res = await fetch(apiUrl(`/api/books/${book.id}/generation-stream`), { signal: controller.signal })
           if (!res.ok || controller.signal.aborted) return
 
-          await parseSSEStream(res, {
+          await parseSSEStream<GenerateChapterEvent>(res, {
             onEvent: (event) => {
               if (event.type === 'chapter') {
                 if (event.buffered) {
@@ -386,7 +387,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
         throw new Error(body?.message || 'Generation failed')
       }
 
-      await parseSSEStream(res, {
+      await parseSSEStream<GenerateChapterEvent>(res, {
         onEvent: (event) => {
           if (event.type === 'chapter') {
             streaming.appendChunk(event.text)
@@ -463,7 +464,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
         throw new Error(body?.message || 'Regeneration failed')
       }
 
-      await parseSSEStream(res, {
+      await parseSSEStream<GenerateChapterEvent>(res, {
         onEvent: (event) => {
           if (event.type === 'chapter') {
             streaming.appendChunk(event.text)
