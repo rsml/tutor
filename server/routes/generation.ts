@@ -80,7 +80,13 @@ export async function generationRoutes(fastify: FastifyInstance, { ports, servic
   const createBook = createCreateBook({ ai: ports.textGeneration, books: ports.bookRepository, clock: ports.clock })
   const reviseToc = createReviseToc({ ai: ports.textGeneration, books: ports.bookRepository, clock: ports.clock })
   const startBook = createStartBook({ ai: ports.textGeneration, books: ports.bookRepository, clock: ports.clock })
-  const generateAllChapters = createGenerateAllChapters({ backgroundTasks: ports.backgroundTasks, chapterStream, generateNextChapter })
+  // journal is passed here, not only in the resume pass that rebuilds this
+  // service at boot. Without it the checkpoint calls inside the generate-all
+  // loop would be unreachable in production, which is worse than never
+  // having written them, and an interrupted run would resume with no record
+  // of how far it had got. The checkpoint is still advisory, resume always
+  // recomputes its start point from meta.generatedUpTo on disk.
+  const generateAllChapters = createGenerateAllChapters({ backgroundTasks: ports.backgroundTasks, chapterStream, generateNextChapter, journal: ports.jobJournal })
 
   // --- Single-chapter generation (next / regenerate), backed by the shared hub ---
 
