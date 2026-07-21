@@ -25,6 +25,7 @@ import {
   StartBookBodySchema,
   GenerateAudiobookBodySchema,
 } from '@shared/contracts.js'
+import { DEFAULT_PROVIDER } from '@shared/provider.js'
 import { isInstalled as isAudiobookEngineInstalled } from '../services/audiobook-installer.js'
 import { generateAudiobook } from '../services/audiobook-generator.js'
 import { listVoices } from '../services/kokoro-service.js'
@@ -870,7 +871,7 @@ Write this chapter now.`,
     const timeout = createTimeout()
     try {
       const result = await generateObject({
-        model: createModelClient(provider ?? 'anthropic', model),
+        model: createModelClient(provider ?? DEFAULT_PROVIDER, model),
         abortSignal: timeout.signal,
         schema: z.object({
           questions: z.array(z.object({
@@ -976,7 +977,7 @@ IMPORTANT: ONLY ask about concepts, facts, and ideas explicitly discussed in the
     const timeout = createTimeout()
     try {
       const result = await generateObject({
-        model: createModelClient(provider ?? 'anthropic', model),
+        model: createModelClient(provider ?? DEFAULT_PROVIDER, model),
         abortSignal: timeout.signal,
         schema: z.object({
           rationale: z.string().describe('1-3 sentence explanation of why these changes are suggested, citing evidence from quiz performance and feedback'),
@@ -1079,7 +1080,7 @@ Suggest profile updates based on this completed book. Return the complete update
       let tocText = ''
       const tocTimeout = createTimeout()
       const tocResult = streamText({
-        model: createModelClient(provider ?? 'anthropic', model),
+        model: createModelClient(provider ?? DEFAULT_PROVIDER, model),
         abortSignal: tocTimeout.signal,
         system: `You are creating a table of contents for a personalized learning book.
 
@@ -1217,7 +1218,7 @@ ${MARKDOWN_FORMATTING_RULES}`,
         let revisedText = ''
         const timeout = createTimeout()
         const result = streamText({
-          model: createModelClient(body.provider ?? 'anthropic', body.model),
+          model: createModelClient(body.provider ?? DEFAULT_PROVIDER, body.model),
           abortSignal: timeout.signal,
           system: `You are revising an existing table of contents. Apply ONLY the reader's targeted changes. Every chapter the reader did not mention must be preserved EXACTLY — same title, same description, same position.
 
@@ -1344,9 +1345,9 @@ ${feedback}`,
         const details = promptParts.length > 1 ? promptParts.slice(1).join('\n\n') : undefined
 
         await generateFirstChapterAndQuiz(bookId, send, {
-          provider: body.provider ?? 'anthropic',
+          provider: body.provider ?? DEFAULT_PROVIDER,
           model: body.model,
-          quizProvider: body.quizProvider ?? body.provider ?? 'anthropic',
+          quizProvider: body.quizProvider ?? body.provider ?? DEFAULT_PROVIDER,
           quizModel: body.quizModel ?? body.model,
           quizLength: body.quizLength ?? 3,
           profileContext,
@@ -1444,7 +1445,7 @@ ${feedback}`,
     const timeout = createTimeout()
     try {
       const result = await generateObject({
-        model: createModelClient(provider ?? 'anthropic', model),
+        model: createModelClient(provider ?? DEFAULT_PROVIDER, model),
         abortSignal: timeout.signal,
         schemaName: 'BookSuggestion',
         schemaDescription: 'A suggested next book for the learner. Must include all three fields: topic, details, and reasoning.',
@@ -1507,7 +1508,7 @@ ${skillProgressContext || 'No skill mastery data yet.'}
     const timeout = createTimeout()
     try {
       const result = await generateObject({
-        model: createModelClient(provider ?? 'anthropic', model),
+        model: createModelClient(provider ?? DEFAULT_PROVIDER, model),
         abortSignal: timeout.signal,
         schema: z.object({
           details: z.string().describe('Specific focus areas, goals, and context for this book (2-4 sentences)'),
