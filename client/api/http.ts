@@ -1,3 +1,11 @@
+import {
+  DEFAULT_API_PORT,
+  HEALTH_PREWARM_ATTEMPTS,
+  HEALTH_PREWARM_INTERVAL_MS,
+  PROBE_TIMEOUT_MS,
+  REQUEST_RETRY_DELAY_MS,
+} from '@client/lib/constants'
+
 let _base = ''
 let _ready: Promise<void> | null = null
 
@@ -19,12 +27,12 @@ export function initApiBase(): Promise<void> {
     // trip, capped at ~1.5s in degenerate cases. Non-fatal if it never
     // returns ok; individual requests still get their chance to fail with
     // an actionable diagnostic.
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < HEALTH_PREWARM_ATTEMPTS; i++) {
       try {
         const r = await fetch(`${_base}/api/health`)
         if (r.ok) return
       } catch { /* retry */ }
-      await new Promise(r => setTimeout(r, 50))
+      await new Promise(r => setTimeout(r, HEALTH_PREWARM_INTERVAL_MS))
     }
     console.warn('[init-api-base] /api/health never returned ok; proceeding anyway')
   })()
@@ -42,12 +50,12 @@ export function getBase(): string {
 }
 
 export function getApiPort(): number {
-  if (!_base) return 3147
+  if (!_base) return DEFAULT_API_PORT
   try {
     const url = new URL(_base)
-    return url.port ? parseInt(url.port) : 3147
+    return url.port ? parseInt(url.port) : DEFAULT_API_PORT
   } catch {
-    return 3147
+    return DEFAULT_API_PORT
   }
 }
 
@@ -73,7 +81,7 @@ async function diagnose(url: string): Promise<Record<string, unknown>> {
     if (!baseForHealth) {
       probe.healthSkipped = 'no base resolved'
     } else {
-      const r = await fetch(`${baseForHealth}/api/health`, { signal: AbortSignal.timeout(5000) })
+      const r = await fetch(`${baseForHealth}/api/health`, { signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) })
       probe.healthStatus = r.status
     }
   } catch (e) {
@@ -86,7 +94,7 @@ async function diagnose(url: string): Promise<Record<string, unknown>> {
         'Access-Control-Request-Method': 'POST',
         'Access-Control-Request-Headers': 'content-type,x-trace-id',
       },
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
     })
     probe.optionsStatus = r.status
     probe.allowOrigin = r.headers.get('access-control-allow-origin')
@@ -216,7 +224,7 @@ export async function apiFetch(path: string, init?: ApiRequestInit): Promise<Res
     }
     log(entry)
 
-    await new Promise(r => setTimeout(r, 200))
+    await new Promise(r => setTimeout(r, REQUEST_RETRY_DELAY_MS))
     try {
       const res = await fetch(url, request)
       log({ ...entry, stage: 'recovered', recovered: true, status: res.status })
