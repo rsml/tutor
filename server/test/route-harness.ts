@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { FastifyInstance } from 'fastify'
 import type { BookMeta, Toc } from '@shared/domain.js'
 import { buildServer } from '../index.js'
-import * as store from '../services/book-store.js'
+import { createFsBookRepository } from '../adapters/fs-book-repository.js'
 
 // Shared harness for the route characterization suite (server/routes/*.characterization.test.ts).
 //
@@ -34,12 +34,13 @@ const DEFAULT_CHAPTER_ONE = '# Chapter One\n\nThis is the seeded content for cha
 
 /**
  * Seeds a book — meta.yml, toc.yml, and chapters/01.md — entirely through
- * book-store.js (never raw fs), so fixtures always go through the same
- * validation and atomic-write path as production code. Returns the saved
- * meta so callers can read back the generated id. Pass a partial BookMeta
- * to override any default field, e.g. seedBook({ status: 'generating' }).
+ * createFsBookRepository (never raw fs), so fixtures always go through the
+ * same validation and atomic-write path as production code. Returns the
+ * saved meta so callers can read back the generated id. Pass a partial
+ * BookMeta to override any default field, e.g. seedBook({ status: 'generating' }).
  */
 export async function seedBook(partial: Partial<BookMeta> = {}): Promise<BookMeta> {
+  const books = createFsBookRepository({ dataDir: dataDir() })
   const id = partial.id ?? `seed-${randomUUID().slice(0, 8)}`
   const now = new Date().toISOString()
   const meta: BookMeta = {
@@ -55,8 +56,8 @@ export async function seedBook(partial: Partial<BookMeta> = {}): Promise<BookMet
     audioGeneratedChapters: [],
     ...partial,
   }
-  await store.saveBook(meta)
-  await store.saveToc(id, DEFAULT_TOC)
-  await store.saveChapter(id, 1, DEFAULT_CHAPTER_ONE)
+  await books.saveBook(meta)
+  await books.saveToc(id, DEFAULT_TOC)
+  await books.saveChapter(id, 1, DEFAULT_CHAPTER_ONE)
   return meta
 }
