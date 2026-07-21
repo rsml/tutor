@@ -1,4 +1,4 @@
-export function formatSkillProgress(result: import('../services/book-store.js').SkillProgressResult): string {
+export function formatSkillProgress(result: import('@shared/responses.js').SkillProgress): string {
   if (result.skills.length === 0) return ''
 
   const { stats, skills } = result
