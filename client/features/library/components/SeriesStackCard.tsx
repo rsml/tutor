@@ -1,6 +1,7 @@
 import { memo } from 'react'
 import { NoiseOverlay } from '@client/components/NoiseOverlay'
-import { apiUrl } from '@client/api/http'
+import { coverUrl as buildCoverUrl } from '@client/api'
+import type { LibraryBook } from '@shared/responses'
 
 function stringToHue(str: string): number {
   let hash = 0
@@ -10,17 +11,9 @@ function stringToHue(str: string): number {
   return ((hash % 360) + 360) % 360
 }
 
-interface Book {
-  id: string
-  title: string
-  hasCover?: boolean
-  coverUpdatedAt?: string | null
-  showTitleOnCover?: boolean
-}
-
 interface SeriesStackCardProps {
   seriesName: string
-  books: Book[]
+  books: LibraryBook[]
   chaptersRead: number
   totalChapters: number
   onClick: () => void
@@ -42,7 +35,7 @@ function SeriesStackCardInner({ seriesName, books, chaptersRead, totalChapters, 
   const bookCount = books.length
 
   const coverBook = books.find(b => b.hasCover)
-  const coverUrl = coverBook ? apiUrl(`/api/books/${coverBook.id}/cover?v=${coverBook.coverUpdatedAt ?? ''}`) : undefined
+  const coverUrl = coverBook ? buildCoverUrl({ id: coverBook.id, coverUpdatedAt: coverBook.coverUpdatedAt ?? undefined }) : undefined
 
   return (
     <div className="group relative cursor-pointer card-lift" onClick={onClick} onContextMenu={onContextMenu}>

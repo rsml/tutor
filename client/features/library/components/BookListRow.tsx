@@ -2,33 +2,10 @@ import { Headphones } from 'lucide-react'
 import { Badge } from '@client/components/ui/badge'
 import { StarRating } from '@client/features/reader/components/StarRating'
 import { isGenerating as isGeneratingBook, isAwaitingTocApproval } from '@shared/book-status'
-
-interface Book {
-  id: string
-  title: string
-  subtitle?: string
-  prompt?: string
-  chaptersRead: number
-  totalChapters: number
-  generatedUpTo: number
-  status?: string
-  rating?: number
-  finalQuizScore?: number
-  finalQuizTotal?: number
-  hasCover?: boolean
-  showTitleOnCover?: boolean
-  coverUpdatedAt?: string | null
-  createdAt: string
-  tags: string[]
-  series?: string
-  seriesOrder?: number
-  sortOrder?: number
-  imported?: boolean
-  hasAudiobook?: boolean
-}
+import type { LibraryBook } from '@shared/responses'
 
 export interface BookListRowProps {
-  book: Book
+  book: LibraryBook
   chaptersRead: number
   onClick: () => void
   onContextMenu?: (e: React.MouseEvent) => void

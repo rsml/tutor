@@ -1,37 +1,17 @@
 import { ArrowLeft } from 'lucide-react'
 import { BookCard } from '@client/features/library/components/BookCard'
 import { NoiseOverlay } from '@client/components/NoiseOverlay'
-import { apiUrl } from '@client/api/http'
+import { coverUrl } from '@client/api'
 import { isComplete } from '@shared/book-status'
-
-interface Book {
-  id: string
-  title: string
-  subtitle?: string
-  chaptersRead: number
-  totalChapters: number
-  generatedUpTo: number
-  status?: string
-  rating?: number
-  finalQuizScore?: number
-  finalQuizTotal?: number
-  hasCover?: boolean
-  showTitleOnCover?: boolean
-  coverUpdatedAt?: string | null
-  createdAt: string
-  tags: string[]
-  series?: string
-  seriesOrder?: number
-  hasAudiobook?: boolean
-}
+import type { LibraryBook } from '@shared/responses'
 
 interface SeriesViewProps {
   seriesName: string
-  books: Book[]
+  books: LibraryBook[]
   readingPositions: Record<string, { chapter: number }>
-  onBookClick: (book: Book) => void
+  onBookClick: (book: LibraryBook) => void
   onBack: () => void
-  onContextMenu?: (book: Book, e: React.MouseEvent) => void
+  onContextMenu?: (book: LibraryBook, e: React.MouseEvent) => void
 }
 
 export function SeriesView({ seriesName, books, readingPositions, onBookClick, onBack, onContextMenu }: SeriesViewProps) {
@@ -95,7 +75,7 @@ export function SeriesView({ seriesName, books, readingPositions, onBookClick, o
                   totalChapters={book.totalChapters}
                   status={book.status}
                   rating={book.rating}
-                  coverUrl={book.hasCover ? apiUrl(`/api/books/${book.id}/cover?v=${book.coverUpdatedAt ?? ''}`) : undefined}
+                  coverUrl={book.hasCover ? coverUrl({ id: book.id, coverUpdatedAt: book.coverUpdatedAt ?? undefined }) : undefined}
                   showTitleOnCover={book.showTitleOnCover}
                   hasAudiobook={book.hasAudiobook}
                   onClick={() => onBookClick(book)}
