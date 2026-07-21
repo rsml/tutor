@@ -1,6 +1,5 @@
 import { AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, Loader2, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { toast } from '@client/lib/toast'
 import { Button } from '@client/components/ui/button'
 import { SelectionTooltip } from '@client/features/reader/components/SelectionTooltip'
 import { ChatPanel } from '@client/features/chat/components/ChatPanel'
@@ -11,9 +10,10 @@ import { useGenerationResume, type TocChapterSummary } from '@client/features/re
 import { useExternalGenerationPoll } from '@client/features/reader/hooks/useExternalGenerationPoll'
 import { useChapterGeneration } from '@client/features/reader/hooks/useChapterGeneration'
 import { useReaderScroll } from '@client/features/reader/hooks/useReaderScroll'
+import { useReaderQuiz } from '@client/features/reader/hooks/useReaderQuiz'
+import { useChapterCompletion } from '@client/features/reader/hooks/useChapterCompletion'
 import { useStreamingContent } from '@client/hooks/useStreamingContent'
-import { store, useAppDispatch, useAppSelector, setChapterFeedback, setChapterQuizResult, recordQuizAttempt, selectFontSize, selectReadingWidth, selectQuizLength, selectFunctionModel } from '@client/store'
-import { ApiError, generateFinalQuiz, getChapterQuiz, submitChapterFeedback, saveChapterProgress, rateBook } from '@client/api'
+import { store, useAppDispatch, useAppSelector, selectFontSize, selectReadingWidth, selectQuizLength, selectFunctionModel } from '@client/store'
 import type { LibraryBook } from '@shared/responses'
 import { PAGE_SCROLL_FRACTION, READER_LINE_HEIGHT, LINE_SCROLL_LINES, PAGE_SCROLL_MS, LINE_SCROLL_MS } from '@client/lib/constants'
 import { cn } from '@client/lib/utils'
@@ -55,8 +55,6 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
   const [generatedUpTo, setGeneratedUpTo] = useState(book.totalChapters)
   const [tocChapters, setTocChapters] = useState<TocChapterSummary[]>([])
   const [showToc, setShowToc] = useState(false)
-  const [quizQuestions, setQuizQuestions] = useState<Array<{ question: string; options: string[]; correctIndex: number }>>([])
-  const [quizAnswers, setQuizAnswers] = useState<number[]>([])
   const [generationStage, setGenerationStage] = useState<string | null>(null)
   const [generatingChapterNum, setGeneratingChapterNum] = useState<number | null>(null)
   const [generationError, setGenerationError] = useState<string | null>(null)
@@ -64,13 +62,6 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
   const bufferBoundaryRef = useRef(0)
 
   const streaming = useStreamingContent()
-
-  const [finalQuizQuestions, setFinalQuizQuestions] = useState<Array<{ question: string; options: string[]; correctIndex: number }>>([])
-  const [finalQuizScore, setFinalQuizScore] = useState(0)
-  const [finalQuizTotal, setFinalQuizTotal] = useState(0)
-  const [bookRating, setBookRating] = useState(0)
-  const [finalQuizLoading, setFinalQuizLoading] = useState(false)
-  const [finalQuizError, setFinalQuizError] = useState<string | null>(null)
 
   const { provider: genProvider, model: genModel } = useAppSelector(selectFunctionModel('generation'))
   const { provider: quizProvider, model: quizModel } = useAppSelector(selectFunctionModel('quiz'))
@@ -183,117 +174,39 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     setChatOpen(o => !o)
   }, [chatOpen])
 
-  const syncChapterCompleted = useCallback((chapNum: number) => {
-    saveChapterProgress(book.id, chapNum, { scroll: 1, completed: true, completedAt: new Date().toISOString() }).catch(() => {})
-  }, [book.id])
+  const {
+    quizQuestions, quizAnswers, quizLoading,
+    finalQuizQuestions, finalQuizScore, finalQuizTotal, finalQuizLoading, finalQuizError,
+    handleKeepGoing, fetchFinalQuiz, handleFinalQuizComplete, handleFinalQuizSkip,
+    handleQuizComplete, handleQuizSkip,
+  } = useReaderQuiz({
+    bookId: book.id,
+    chapterIndex,
+    quizModel,
+    quizProvider,
+    quizLength,
+    dispatch,
+    setPhase,
+    scrollRef,
+  })
 
-  const [quizLoading, setQuizLoading] = useState(false)
-
-  const handleKeepGoing = useCallback(async () => {
-    syncChapterCompleted(chapterIndex + 1)
-    setQuizLoading(true)
-    try {
-      const data = await getChapterQuiz(book.id, chapterIndex + 1, { model: quizModel, provider: quizProvider, quizLength })
-      if (data.questions.length > 0) {
-        setQuizQuestions(data.questions)
-        setQuizLoading(false)
-        setPhase('quiz')
-        scrollRef.current?.scrollTo({ top: 0 })
-        return
-      }
-    } catch (err) {
-      // A non-2xx answer (ApiError) degrades to feedback the same way an
-      // empty question list does, silently. Only a genuine transport failure
-      // (no response at all) is worth telling the reader about.
-      if (!(err instanceof ApiError)) {
-        toast.error('Failed to load quiz — skipping to feedback')
-      }
-    }
-    setQuizLoading(false)
-    setPhase('feedback')
-    scrollRef.current?.scrollTo({ top: 0 })
-  }, [book.id, chapterIndex, syncChapterCompleted, quizModel, quizProvider, quizLength])
-
-  const fetchFinalQuiz = useCallback(async () => {
-    setFinalQuizLoading(true)
-    setFinalQuizError(null)
-    setPhase('final-quiz')
-    scrollRef.current?.scrollTo({ top: 0 })
-
-    try {
-      const data = await generateFinalQuiz(book.id, { model: quizModel, provider: quizProvider })
-      setFinalQuizQuestions(data.questions)
-    } catch (err) {
-      setFinalQuizError(err instanceof Error ? err.message : 'An unexpected error occurred.')
-    }
-    setFinalQuizLoading(false)
-  }, [book.id, quizModel, quizProvider])
-
-  const handleFinishBook = useCallback(async () => {
-    syncChapterCompleted(chapterIndex + 1)
-    await fetchFinalQuiz()
-  }, [chapterIndex, syncChapterCompleted, fetchFinalQuiz])
-
-  const handleFinalQuizComplete = useCallback((answers: number[]) => {
-    const score = answers.filter((a, i) => a === finalQuizQuestions[i].correctIndex).length
-    setFinalQuizScore(score)
-    setFinalQuizTotal(finalQuizQuestions.length)
-    setPhase('rating')
-    scrollRef.current?.scrollTo({ top: 0 })
-  }, [finalQuizQuestions])
-
-  const handleRatingSubmit = useCallback(async () => {
-    try {
-      await rateBook(book.id, { rating: bookRating, finalQuizScore, finalQuizTotal })
-    } catch { /* fire-and-forget */ }
-    setPhase('complete')
-    scrollRef.current?.scrollTo({ top: 0 })
-  }, [book.id, bookRating, finalQuizScore, finalQuizTotal])
-
-  const handleQuizComplete = useCallback((answers: number[]) => {
-    setQuizAnswers(answers)
-    const result = {
-      questions: quizQuestions.map((q, i) => ({
-        ...q,
-        userAnswer: answers[i],
-        correct: answers[i] === q.correctIndex,
-      })),
-      score: answers.filter((a, i) => a === quizQuestions[i].correctIndex).length,
-    }
-    dispatch(setChapterQuizResult({ bookId: book.id, chapterNum: chapterIndex + 1, result }))
-    dispatch(recordQuizAttempt({
-      bookId: book.id,
-      chapterNum: chapterIndex + 1,
-      questions: quizQuestions,
-      answers,
-    }))
-    setPhase('feedback')
-    scrollRef.current?.scrollTo({ top: 0 })
-  }, [quizQuestions, dispatch, book.id, chapterIndex])
-
-  const handleQuizSkip = useCallback(() => {
-    setQuizAnswers([])
-    setPhase('feedback')
-    scrollRef.current?.scrollTo({ top: 0 })
-  }, [])
-
-  const handleFeedbackSubmit = useCallback(async (liked: string, disliked: string) => {
-    dispatch(setChapterFeedback({ bookId: book.id, chapterNum: chapterIndex + 1, liked, disliked }))
-
-    try {
-      await submitChapterFeedback(book.id, chapterIndex + 1, { liked, disliked, quizAnswers })
-    } catch { /* fire-and-forget */ }
-
-    // If next chapter already exists, skip generation and advance directly
-    if (chapterIndex + 2 <= generatedUpTo) {
-      setReadingPosition(chapterIndex + 1, 0)
-      setPhase('reading')
-      scrollRef.current?.scrollTo({ top: 0 })
-      return
-    }
-
-    await startGenerationStream()
-  }, [book.id, chapterIndex, generatedUpTo, quizAnswers, dispatch, setReadingPosition, startGenerationStream])
+  const {
+    syncChapterCompleted, handleFeedbackSubmit, handleFinishBook, handleRatingSubmit,
+    bookRating, setBookRating,
+  } = useChapterCompletion({
+    bookId: book.id,
+    chapterIndex,
+    generatedUpTo,
+    quizAnswers,
+    finalQuizScore,
+    finalQuizTotal,
+    fetchFinalQuiz,
+    dispatch,
+    setPhase,
+    setReadingPosition,
+    startGenerationStream,
+    scrollRef,
+  })
 
   // Scroll to top on section change
   useEffect(() => {
@@ -324,7 +237,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
         if (isLastSectionOfBook) {
           handleFinishBook()
         } else if (isLastSectionOfChapter && !isLastChapter) {
-          handleKeepGoing()
+          handleKeepGoing(syncChapterCompleted)
         } else {
           goNext()
         }
@@ -344,7 +257,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [phase, goPrev, goNext, fontSize, smoothScrollBy, quizLoading, isLastSectionOfBook, isLastSectionOfChapter, isLastChapter, handleFinishBook, handleKeepGoing])
+  }, [phase, goPrev, goNext, fontSize, smoothScrollBy, quizLoading, isLastSectionOfBook, isLastSectionOfChapter, isLastChapter, handleFinishBook, handleKeepGoing, syncChapterCompleted])
 
   // The chapter number to show on the generating tab
   const generatingTabLabel = generatingChapterNum ?? chapterIndex + 2
@@ -556,7 +469,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
                         <div className="mt-12 flex justify-center">
                           <Button
                             size="lg"
-                            onClick={isLastSectionOfBook ? handleFinishBook : handleKeepGoing}
+                            onClick={isLastSectionOfBook ? handleFinishBook : () => handleKeepGoing(syncChapterCompleted)}
                             disabled={quizLoading}
                             className="bg-[oklch(0.55_0.20_285)] text-white font-semibold hover:bg-[oklch(0.50_0.22_285)]"
                           >
@@ -705,12 +618,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
                                 Retry
                               </Button>
                               <button
-                                onClick={() => {
-                                  setFinalQuizScore(0)
-                                  setFinalQuizTotal(0)
-                                  setPhase('rating')
-                                  scrollRef.current?.scrollTo({ top: 0 })
-                                }}
+                                onClick={() => handleFinalQuizSkip(0)}
                                 className="text-sm text-content-muted hover:text-content-secondary transition-colors"
                               >
                                 Skip quiz
@@ -732,12 +640,7 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
                   <QuizPanel
                     questions={finalQuizQuestions}
                     onComplete={handleFinalQuizComplete}
-                    onSkip={() => {
-                      setFinalQuizScore(0)
-                      setFinalQuizTotal(finalQuizQuestions.length)
-                      setPhase('rating')
-                      scrollRef.current?.scrollTo({ top: 0 })
-                    }}
+                    onSkip={() => handleFinalQuizSkip(finalQuizQuestions.length)}
                     title="Final Quiz"
                     subtitle={`Test your understanding across all ${book.totalChapters} chapters.`}
                   />
