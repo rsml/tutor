@@ -27,6 +27,16 @@ export type LibraryBook = BookMeta & {
 /** The stage a background chapter generation is in, consumed directly by server/services/chapter-generation-stream.ts, not mirrored from elsewhere. */
 export type GenerationStage = 'streaming' | 'saving' | 'quiz' | 'done' | 'error'
 
+/** Mirrors TextGenerationErrorKind in server/ports/text-generation.ts, so the client can switch on an AI failure class without importing zod or anything under server/. Pinned together by the drift guard in server/ports/ai-error-kind.drift.test.ts. */
+export type AiErrorKind =
+  | 'auth-failed'
+  | 'rate-limited'
+  | 'overloaded'
+  | 'timed-out'
+  | 'network-failed'
+  | 'content-refused'
+  | 'unknown'
+
 /** GET /api/books/:id/generation-status — background chapter generation progress for one book. */
 export type GenerationStatus =
   | { active: false }

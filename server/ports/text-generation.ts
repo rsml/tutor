@@ -94,6 +94,41 @@ export interface TextChunk {
   text: string
 }
 
+/** The failure classes TextGenerationError can carry. Mirrored by `AiErrorKind` in shared/responses.ts, pinned together by the drift guard in ai-error-kind.drift.test.ts. */
+export type TextGenerationErrorKind =
+  | 'auth-failed'
+  | 'rate-limited'
+  | 'overloaded'
+  | 'timed-out'
+  | 'network-failed'
+  | 'content-refused'
+  | 'unknown'
+
+/**
+ * TextGenerationError is a failure from any TextGeneration method. It
+ * carries enough structure for a caller to decide whether to retry and
+ * what to show the user. `reason` is human readable and safe to display to
+ * a user as is. It is never a raw SDK error message. `kind` is a wire
+ * value, mirrored by `AiErrorKind` in shared/responses.ts, so the client
+ * can switch on a failure class without importing zod or anything under
+ * server/. The precedent for a typed error on a port is `NotFoundError` in
+ * server/ports/book-repository.ts.
+ */
+export class TextGenerationError extends Error {
+  readonly retryAfterMs?: number
+
+  constructor(
+    readonly kind: TextGenerationErrorKind,
+    readonly reason: string,
+    readonly retryable: boolean = false,
+    options: { retryAfterMs?: number; cause?: unknown } = {},
+  ) {
+    super(reason, { cause: options.cause })
+    this.name = 'TextGenerationError'
+    this.retryAfterMs = options.retryAfterMs
+  }
+}
+
 export interface TextGeneration {
   /**
    * Streams plain-text output. Covers 5 call sites, the table-of-contents

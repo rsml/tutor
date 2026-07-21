@@ -37,6 +37,22 @@ export interface FakeTextGeneration extends TextGeneration {
   scriptGenerateObject(value: unknown): void
   /** Queues the steps the next runToolConversation() call works through, in order. A 'tool-call' step invokes that tool's execute() as a side effect and yields nothing; a 'text' step yields one TextChunk. */
   scriptToolConversation(steps: ToolConversationStep[]): void
+  /**
+   * Optional. A sibling branch declares its own FakeTextGeneration
+   * implementation as a full object literal, predating failure scripting,
+   * so a required member here would break that branch's typecheck at
+   * merge. createFakeTextGeneration implements both this and
+   * scriptStreamFailure for real. Queues a rejection consumed by the next
+   * generateObject() call.
+   */
+  scriptFailure?(error: unknown): void
+  /**
+   * Optional for the same reason as scriptFailure. Queues a stream that
+   * yields opts.afterChunks, defaulting to no chunks, and then throws
+   * error, so a caller can pin exactly how many chunks reach the client
+   * before a stream fails.
+   */
+  scriptStreamFailure?(error: unknown, opts?: { afterChunks?: string[] }): void
 }
 
 const DEFAULT_STREAM_CHUNKS = ['[fake streamed text]']
@@ -52,6 +68,8 @@ export function createFakeTextGeneration(): FakeTextGeneration {
   const streamQueue: string[][] = []
   const objectQueue: unknown[] = []
   const toolConversationQueue: ToolConversationStep[][] = []
+  const failureQueue: unknown[] = []
+  const streamFailureQueue: Array<{ error: unknown; afterChunks: string[] }> = []
 
   function scriptStreamText(chunks: string[]): void {
     streamQueue.push(chunks)
@@ -65,6 +83,14 @@ export function createFakeTextGeneration(): FakeTextGeneration {
     toolConversationQueue.push(steps)
   }
 
+  function scriptFailure(error: unknown): void {
+    failureQueue.push(error)
+  }
+
+  function scriptStreamFailure(error: unknown, opts?: { afterChunks?: string[] }): void {
+    streamFailureQueue.push({ error, afterChunks: opts?.afterChunks ?? [] })
+  }
+
   async function* yieldChunks(chunks: string[], signal?: AbortSignal): AsyncGenerator<string> {
     for (const chunk of chunks) {
       if (signal?.aborted) throw signal.reason
@@ -72,8 +98,21 @@ export function createFakeTextGeneration(): FakeTextGeneration {
     }
   }
 
+  /** Like yieldChunks, but throws error once every chunk has been yielded, so a caller can pin how many chunks reach the client before a stream fails. */
+  async function* yieldChunksThenFail(chunks: string[], error: unknown, signal?: AbortSignal): AsyncGenerator<string> {
+    for (const chunk of chunks) {
+      if (signal?.aborted) throw signal.reason
+      yield chunk
+    }
+    throw error
+  }
+
   function streamText(req: StreamTextRequest): AsyncIterable<string> {
     requests.streamText.push(req)
+    const scriptedFailure = streamFailureQueue.shift()
+    if (scriptedFailure) {
+      return yieldChunksThenFail(scriptedFailure.afterChunks, scriptedFailure.error, req.signal)
+    }
     const chunks = streamQueue.shift() ?? DEFAULT_STREAM_CHUNKS
     return yieldChunks(chunks, req.signal)
   }
@@ -81,6 +120,9 @@ export function createFakeTextGeneration(): FakeTextGeneration {
   async function generateObject<T>(req: GenerateObjectRequest<T>): Promise<T> {
     requests.generateObject.push(req as GenerateObjectRequest<unknown>)
     if (req.signal?.aborted) throw req.signal.reason
+    if (failureQueue.length > 0) {
+      throw failureQueue.shift()
+    }
     if (objectQueue.length === 0) {
       throw new Error(
         'createFakeTextGeneration: no scripted generateObject response queued. Call scriptGenerateObject(value) before the code under test invokes generateObject().',
@@ -117,6 +159,8 @@ export function createFakeTextGeneration(): FakeTextGeneration {
     scriptStreamText,
     scriptGenerateObject,
     scriptToolConversation,
+    scriptFailure,
+    scriptStreamFailure,
     streamText,
     generateObject,
     runToolConversation,
