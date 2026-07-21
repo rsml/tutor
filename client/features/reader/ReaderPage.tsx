@@ -100,6 +100,11 @@ export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
     bufferBoundaryRef,
     userHasScrolledRef,
     scrollRef,
+    // An auth failure is the one generation error the reader can actually
+    // do something about, so it opens the dialog that fixes it rather than
+    // leaving the user staring at a retry button that will fail identically
+    // until the key is corrected.
+    onAuthFailure: () => setMissingKeyAlert(true),
   })
 
   // Poll for external chapter updates (e.g. from Claude Code via MCP)

@@ -27,9 +27,12 @@ import { bookRepository, seedBook } from '../support/seed.js'
  * response's, filed as github.com/rsml/tutor/issues/50 and out of scope for
  * this phase. TEST 1 therefore never asserts on-screen chapter 2 content and
  * never waits on it, it waits on the model's own recorded request instead.
- * TEST 2 is the on-screen assertion, quarantined with test.fixme until issue
- * 50 lands, so a reader does not mistake TEST 1's silence on rendering for
- * an oversight.
+ * TEST 2 is the on-screen assertion. It was quarantined with test.fixme
+ * until issue 50 landed, so a reader would not mistake TEST 1's silence on
+ * rendering for an oversight. Phase 7 fixed issue 50 and TEST 2 now runs.
+ * TEST 1 is deliberately left as it is rather than folded into TEST 2,
+ * because asserting the adaptive loop through the model's recorded request
+ * is a different and stronger claim than asserting pixels.
  *
  * See support/journeys/quiz.ts for why every quiz option below is located by
  * exact text rather than position. generate-quiz.ts shuffles the options
@@ -96,11 +99,12 @@ test('quiz answers and chapter feedback shape the chapter-2 prompt the model act
   expect(chapterTwo?.prompt).toContain(wronglyAnswered.question)
 })
 
-test.fixme('renders chapter 2 in the reader once generation finishes', async ({ page, app }) => {
-  // Quarantined by github.com/rsml/tutor/issues/50. pipeHubToSse closes the
-  // SSE reply with zero bytes before the browser ever hears "done", so
-  // chapter 2 never reaches the screen today. Flip back to test() once that
-  // lands, nothing else here should need to change.
+test('renders chapter 2 in the reader once generation finishes', async ({ page, app }) => {
+  // Was quarantined by github.com/rsml/tutor/issues/50, where pipeHubToSse
+  // closed the SSE reply with zero bytes before the browser ever heard
+  // "done", so chapter 2 never reached the screen. Fixed in Phase 7 by
+  // watching the response for disconnect instead of the request. Nothing
+  // else in this test had to change, exactly as predicted.
   await seedBook(app.dataDir, { generatedUpTo: 1 })
 
   await page.goto('/')

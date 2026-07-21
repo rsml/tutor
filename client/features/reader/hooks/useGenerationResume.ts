@@ -21,6 +21,13 @@ export interface UseGenerationResumeOptions {
   bufferBoundaryRef: MutableRefObject<number>
   userHasScrolledRef: MutableRefObject<boolean>
   scrollRef: RefObject<HTMLElement | null>
+  /**
+   * Called when a generation failed specifically because the provider
+   * rejected the credentials. The reader opens its existing missing-key
+   * dialog, which is actionable, instead of leaving the user with a generic
+   * error they have no way to resolve from the reader.
+   */
+  onAuthFailure?: () => void
 }
 
 /**
@@ -59,6 +66,7 @@ export function useGenerationResume({
   bufferBoundaryRef,
   userHasScrolledRef,
   scrollRef,
+  onAuthFailure,
 }: UseGenerationResumeOptions): void {
   useEffect(() => {
     let cancelled = false
@@ -72,8 +80,21 @@ export function useGenerationResume({
         // Check merged generation status
         if (data.generation.active) {
           const gen = data.generation
-          // If already done/error, just use the metadata we already have
-          if (gen.stage === 'done' || gen.stage === 'error') return
+          if (gen.stage === 'done') return
+
+          // A generation that already failed before this reader mounted,
+          // including one the server marked interrupted when it restarted
+          // mid-chapter. Previously this returned silently, which left the
+          // reader sitting in whatever phase it had, showing nothing and
+          // offering no way forward, even though the retry affordance for
+          // exactly this case already existed one phase away.
+          if (gen.stage === 'error') {
+            setGenerationStage(null)
+            setGenerationError(gen.error ?? 'Generation was interrupted.')
+            setPhase('generation-error')
+            if (gen.errorKind === 'auth-failed') onAuthFailure?.()
+            return
+          }
 
           // Active generation — set phase immediately and connect to stream
           setGeneratingChapterNum(gen.chapterNum)
@@ -107,6 +128,7 @@ export function useGenerationResume({
               setGenerationStage(null)
               setGenerationError(event.message)
               setPhase('generation-error')
+              if (event.kind === 'auth-failed') onAuthFailure?.()
             }
           })
         }

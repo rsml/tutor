@@ -4,6 +4,7 @@ import {
   type GenerationFailureCase,
 } from '../support/journeys/generation-failure.js'
 import { test } from '../support/app.js'
+import { TextGenerationError } from '@server/ports/text-generation.js'
 
 /**
  * Journey (h) locks in that a scripted provider failure reaches the reader
@@ -16,18 +17,18 @@ import { test } from '../support/app.js'
  * to CASES below. The navigation and assertions in the support module do
  * not change.
  *
- * The reader-path cases below are `test.fixme`, not `test`, because issue
- * #50 means `POST /api/books/:id/generate-next` never delivers an SSE event
- * to a real browser at all, success or failure, so no assertion against
- * GenerationPanel can pass yet. The wizard case is unaffected and carries
- * journey (h)'s claim today. Flip `test.fixme` back to `test` once #50
- * lands.
+ * The reader-path cases below were quarantined with `test.fixme` while
+ * issue #50 meant `POST /api/books/:id/generate-next` never delivered an SSE
+ * event to a real browser at all, success or failure, so no assertion
+ * against GenerationPanel could pass. Phase 7 fixed that, the listener now
+ * watches the response rather than the request, so they run.
  */
 
 /**
- * A stand-in for whatever typed error class Phase 7's AI error taxonomy
- * introduces. The point of this case is only that a subclass survives
- * `throws` all the way to the screen, not this particular shape.
+ * A stand-in kept from before Phase 7's taxonomy existed. It still earns its
+ * place: it proves an arbitrary subclass survives `throws` all the way to
+ * the screen, which is a weaker and more general claim than the
+ * TextGenerationError cases below make.
  */
 class ScriptedProviderError extends Error {
   constructor(message: string) {
@@ -35,6 +36,35 @@ class ScriptedProviderError extends Error {
     this.name = 'ScriptedProviderError'
   }
 }
+
+/**
+ * One case per error class Phase 7's taxonomy can produce, built with the
+ * real `TextGenerationError` rather than a stand-in. `reason` is the
+ * class's `message`, and the SSE error event carries exactly that, so what
+ * the user reads is what the adapter decided.
+ *
+ * The three chosen are the ones whose handling genuinely differs.
+ * `auth-failed` never retries and routes the reader to the missing-key
+ * dialog, `rate-limited` retries up to four times, and `content-refused`
+ * never retries because retrying a refusal just earns another refusal.
+ */
+const TAXONOMY_CASES: GenerationFailureCase[] = [
+  {
+    name: 'an auth-failed TextGenerationError',
+    thrown: new TextGenerationError('auth-failed', 'No API key configured for provider: anthropic', false),
+    expected: /No API key configured for provider: anthropic/,
+  },
+  {
+    name: 'a rate-limited TextGenerationError',
+    thrown: new TextGenerationError('rate-limited', 'The provider is rate limiting this key. Try again shortly.', true),
+    expected: /rate limiting this key/,
+  },
+  {
+    name: 'a content-refused TextGenerationError',
+    thrown: new TextGenerationError('content-refused', 'The provider declined to generate this content.', false),
+    expected: /declined to generate this content/,
+  },
+]
 
 const CASES: GenerationFailureCase[] = [
   {
@@ -47,12 +77,11 @@ const CASES: GenerationFailureCase[] = [
     thrown: new ScriptedProviderError('rate limited after 3 retries, provider returned HTTP 529'),
     expected: /rate limited after 3 retries, provider returned HTTP 529/,
   },
+  ...TAXONOMY_CASES,
 ]
 
 for (const failureCase of CASES) {
-  // Quarantined behind issue #50 (pipeHubToSse ends /generate-next's SSE
-  // reply before any event is delivered). Not run until that lands.
-  test.fixme(`chapter generation failure reaches the reader intact: ${failureCase.name}`, async ({ page, app, model }) => {
+  test(`chapter generation failure reaches the reader intact: ${failureCase.name}`, async ({ page, app, model }) => {
     await runGenerationFailureCase({ page, app, model }, failureCase)
   })
 }
