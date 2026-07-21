@@ -9,7 +9,8 @@ import {
 } from '@client/components/ui/dialog'
 import { Button } from '@client/components/ui/button'
 import { useAppSelector, useAppDispatch, selectBackgroundTasks, selectRunningTasks, taskRemoved, type ClientTask } from '@client/store'
-import { apiUrl } from '@client/api/http'
+import { cancelTask } from '@client/api'
+import { TASK_ROW_DISMISS_MS } from '@client/lib/constants'
 
 function TaskIcon({ status }: { status: ClientTask['status'] }) {
   switch (status) {
@@ -54,7 +55,7 @@ export function BackgroundTasksFooter() {
   useEffect(() => {
     const ids = terminalTaskIds.split(',').filter(Boolean)
     const timers = ids.map(id =>
-      setTimeout(() => dispatch(taskRemoved({ taskId: id })), 10_000),
+      setTimeout(() => dispatch(taskRemoved({ taskId: id })), TASK_ROW_DISMISS_MS),
     )
     return () => timers.forEach(clearTimeout)
   }, [terminalTaskIds, dispatch])
@@ -66,7 +67,7 @@ export function BackgroundTasksFooter() {
 
   const handleCancel = async (taskId: string) => {
     try {
-      await fetch(apiUrl(`/api/tasks/${taskId}`), { method: 'DELETE' })
+      await cancelTask(taskId)
     } catch {
       toast.error('Failed to cancel task')
     }
