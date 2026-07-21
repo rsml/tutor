@@ -4,14 +4,14 @@ import { parseBody } from '../http/parse.js'
 import { sendMediaWithRange } from '../http/send-media-range.js'
 import { bookIdSchema, bookChapterSchema } from '../http/route-params.js'
 import { STATUS_BAD_REQUEST, STATUS_CONFLICT, STATUS_NOT_FOUND } from '../http/status.js'
-import type { Ports } from '../composition-root.js'
+import type { Ports, SharedServices } from '../composition-root.js'
 import { createGenerateAudiobook } from '../services/generate-audiobook.js'
 import { resolveChapterAudioFile } from '../services/resolve-chapter-audio-file.js'
 
 // Per-book audiobook generation routes. The top-level audiobook engine
 // install and voice routes (/api/audiobook/*) live in routes/audiobook.ts —
 // two files, two concerns.
-export async function audiobookGenerationRoutes(fastify: FastifyInstance, opts: { ports: Ports }) {
+export async function audiobookGenerationRoutes(fastify: FastifyInstance, opts: { ports: Ports; services: SharedServices }) {
   const { ports } = opts
   const generateAudiobook = createGenerateAudiobook({
     bookRepository: ports.bookRepository,

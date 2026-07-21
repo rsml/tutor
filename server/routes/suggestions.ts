@@ -5,7 +5,7 @@ import { bookIdSchema } from '../http/route-params.js'
 import { createSuggestNextBook } from '../services/suggest-next-book.js'
 import { createSuggestBookDetails } from '../services/suggest-book-details.js'
 import { createSuggestProfileUpdates } from '../services/suggest-profile-updates.js'
-import type { Ports } from '../composition-root.js'
+import type { Ports, SharedServices } from '../composition-root.js'
 
 /**
  * Every AI-driven suggestion route: what to learn next, what a new book's
@@ -18,7 +18,7 @@ import type { Ports } from '../composition-root.js'
  * assessment.ts, where the mechanical route split originally left it — it
  * suggests profile updates, which belongs with the other suggestion routes.
  */
-export async function suggestionRoutes(fastify: FastifyInstance, { ports }: { ports: Ports }) {
+export async function suggestionRoutes(fastify: FastifyInstance, { ports }: { ports: Ports; services: SharedServices }) {
   const suggestNextBook = createSuggestNextBook({ books: ports.bookRepository, textGeneration: ports.textGeneration })
   const suggestBookDetails = createSuggestBookDetails({ books: ports.bookRepository, textGeneration: ports.textGeneration })
   const suggestProfileUpdates = createSuggestProfileUpdates({ books: ports.bookRepository, textGeneration: ports.textGeneration })

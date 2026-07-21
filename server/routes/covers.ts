@@ -4,12 +4,12 @@ import { parseBody } from '../http/parse.js'
 import { COVER_CACHE_MAX_AGE_S } from '../constants.js'
 import { bookIdSchema } from '../http/route-params.js'
 import { STATUS_NOT_FOUND, STATUS_CONFLICT } from '../http/status.js'
-import type { Ports } from '../composition-root.js'
+import type { Ports, SharedServices } from '../composition-root.js'
 import { createGenerateCover } from '../services/generate-cover.js'
 import { createSuggestCoverPrompt } from '../services/suggest-cover-prompt.js'
 import { getCoverFile } from '../services/serve-cover.js'
 
-export async function coverRoutes(fastify: FastifyInstance, opts: { ports: Ports }) {
+export async function coverRoutes(fastify: FastifyInstance, opts: { ports: Ports; services: SharedServices }) {
   const { ports } = opts
   const generateCover = createGenerateCover({
     bookRepository: ports.bookRepository,

@@ -12,6 +12,8 @@ import { createEpubGenExport } from './adapters/epub-gen-export.js'
 import { createInMemoryBackgroundTasks } from './adapters/in-memory-background-tasks.js'
 import { createSystemClock } from './adapters/system-clock.js'
 import { createOsFileManager } from './adapters/os-file-manager.js'
+import { createChapterGenerationStream, type ChapterGenerationStream } from './services/chapter-generation-stream.js'
+import { createGenerateNextChapter } from './services/generate-next-chapter.js'
 
 import type { BookRepository } from './ports/book-repository.js'
 import type { ArtifactStore } from './ports/artifact-store.js'
@@ -98,5 +100,44 @@ export function createPorts(overrides: Partial<Ports> = {}): Ports {
     clock: createSystemClock(),
     osFileManager: createOsFileManager(),
     ...overrides,
+  }
+}
+
+/**
+ * In-memory application state shared across route modules within one
+ * running server, built once by {@link createSharedServices} and handed to
+ * every route plugin alongside Ports.
+ *
+ * This is deliberately not a Ports field. A port names an external
+ * dependency the app can swap an adapter for, such as the filesystem, an AI
+ * provider, or kroki.io. A ChapterGenerationStream is not external at all,
+ * it is in-memory orchestration state that server/routes/generation.ts
+ * starts and server/routes/library.ts reads (to embed generation status on
+ * GET /api/books/:id), and the two route modules must observe the exact
+ * same live instance rather than each holding its own, always-empty copy.
+ * Building it here, once, and threading it through is what replaces the
+ * module-scope registry the two route modules used to share it through.
+ */
+export interface SharedServices {
+  chapterGenerationStream: ChapterGenerationStream
+}
+
+/**
+ * Builds the in-memory services shared across route modules, once per
+ * server instance, from the same resolved ports {@link createPorts}
+ * returned for that instance.
+ */
+export function createSharedServices(ports: Ports): SharedServices {
+  const generateNextChapter = createGenerateNextChapter({
+    ai: ports.textGeneration,
+    books: ports.bookRepository,
+    clock: ports.clock,
+  })
+
+  return {
+    chapterGenerationStream: createChapterGenerationStream({
+      books: ports.bookRepository,
+      generateNextChapter,
+    }),
   }
 }

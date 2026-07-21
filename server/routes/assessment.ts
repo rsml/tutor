@@ -5,7 +5,7 @@ import { bookIdSchema, bookChapterSchema } from '../http/route-params.js'
 import { createGetChapterQuiz } from '../services/get-chapter-quiz.js'
 import { createSubmitFeedback } from '../services/submit-feedback.js'
 import { createGenerateFinalQuiz } from '../services/generate-final-quiz.js'
-import type { Ports } from '../composition-root.js'
+import type { Ports, SharedServices } from '../composition-root.js'
 
 /**
  * Chapter quizzes, chapter feedback, and the whole-book final quiz. Wiring
@@ -18,8 +18,8 @@ import type { Ports } from '../composition-root.js'
  * assessment, so its route registration now lives in suggestions.ts
  * alongside /api/books/suggest and /api/books/suggest-details.
  */
-export async function assessmentRoutes(fastify: FastifyInstance, { ports }: { ports: Ports }) {
-  const getChapterQuiz = createGetChapterQuiz({ books: ports.bookRepository })
+export async function assessmentRoutes(fastify: FastifyInstance, { ports }: { ports: Ports; services: SharedServices }) {
+  const getChapterQuiz = createGetChapterQuiz({ books: ports.bookRepository, textGeneration: ports.textGeneration })
   const submitFeedback = createSubmitFeedback({ books: ports.bookRepository })
   const generateFinalQuiz = createGenerateFinalQuiz({ books: ports.bookRepository, textGeneration: ports.textGeneration })
 

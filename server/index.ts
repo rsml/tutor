@@ -20,7 +20,7 @@ import { audiobookRoutes } from './routes/audiobook.js'
 import { recoverFromCrash } from './services/book-store.js'
 import { registerErrorHandler } from './http/error-handler.js'
 import { STATUS_FORBIDDEN, STATUS_NO_CONTENT } from './http/status.js'
-import { createPorts, type Ports } from './composition-root.js'
+import { createPorts, createSharedServices, type Ports } from './composition-root.js'
 
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
@@ -53,11 +53,13 @@ function isAllowedOrigin(origin: string): boolean {
  * That is how the characterization suite drives streaming and generation
  * routes without a provider key, and how Electron supplies its own
  * BrowserWindow-backed diagram renderer. Every route plugin receives the
- * resolved ports as a plugin option, so a route module never reaches for a
- * concrete adapter and never has to be edited when one is swapped.
+ * resolved ports, plus the shared in-memory services built from them, as
+ * its plugin options, so a route module never reaches for a concrete
+ * adapter and never has to be edited when one is swapped.
  */
 export async function buildServer(overrides: Partial<Ports> = {}): Promise<FastifyInstance> {
   const ports = createPorts(overrides)
+  const services = createSharedServices(ports)
   const fastify = Fastify({
     logger: {
       level: 'info',
@@ -112,26 +114,28 @@ export async function buildServer(overrides: Partial<Ports> = {}): Promise<Fasti
 
   await fastify.register(rateLimit, { global: false })
 
-  // Every route plugin gets the same resolved ports as its plugin options.
-  // Fastify hands a plugin its options as the second argument, so a route
-  // module reads what it needs off `{ ports }` instead of importing an
-  // adapter, and nothing in this file changes when one is swapped.
-  await fastify.register(chatRoutes, { ports })
-  await fastify.register(libraryRoutes, { ports })
-  await fastify.register(readingRoutes, { ports })
-  await fastify.register(assessmentRoutes, { ports })
-  await fastify.register(suggestionRoutes, { ports })
-  await fastify.register(epubRoutes, { ports })
-  await fastify.register(audiobookGenerationRoutes, { ports })
-  await fastify.register(generationRoutes, { ports })
-  await fastify.register(authoringRoutes, { ports })
-  await fastify.register(settingsRoutes, { ports })
-  await fastify.register(profileRoutes, { ports })
-  await fastify.register(taskRoutes, { ports })
-  await fastify.register(coverRoutes, { ports })
-  await fastify.register(importRoutes, { ports })
-  await fastify.register(modelsRoutes, { ports })
-  await fastify.register(audiobookRoutes, { ports })
+  // Every route plugin gets the same resolved ports, and the same shared
+  // services built from them, as its plugin options. Fastify hands a plugin
+  // its options as the second argument, so a route module reads what it
+  // needs off `{ ports, services }` instead of importing an adapter or a
+  // module-scope singleton, and nothing in this file changes when one is
+  // swapped.
+  await fastify.register(chatRoutes, { ports, services })
+  await fastify.register(libraryRoutes, { ports, services })
+  await fastify.register(readingRoutes, { ports, services })
+  await fastify.register(assessmentRoutes, { ports, services })
+  await fastify.register(suggestionRoutes, { ports, services })
+  await fastify.register(epubRoutes, { ports, services })
+  await fastify.register(audiobookGenerationRoutes, { ports, services })
+  await fastify.register(generationRoutes, { ports, services })
+  await fastify.register(authoringRoutes, { ports, services })
+  await fastify.register(settingsRoutes, { ports, services })
+  await fastify.register(profileRoutes, { ports, services })
+  await fastify.register(taskRoutes, { ports, services })
+  await fastify.register(coverRoutes, { ports, services })
+  await fastify.register(importRoutes, { ports, services })
+  await fastify.register(modelsRoutes, { ports, services })
+  await fastify.register(audiobookRoutes, { ports, services })
 
   fastify.get('/api/health', async () => ({ status: 'ok' }))
 

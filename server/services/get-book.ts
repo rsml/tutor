@@ -5,9 +5,9 @@ import type { BookDetail, GenerationStatus } from '@shared/responses.js'
 export interface GetBookDetailDeps {
   books: BookRepository
   /** Reads current in-memory chapter-generation state. Not a port: it is
-   * synchronous, process-local state owned by generation-manager.ts, not an
-   * external dependency, so it's injected as a plain function rather than
-   * added to the Ports interface. */
+   * synchronous, process-local state owned by the shared ChapterGenerationStream
+   * instance composition-root.ts builds, not an external dependency, so it's
+   * injected as a plain function rather than added to the Ports interface. */
   getGenerationStatus: (bookId: string) => GenerationStatus
 }
 

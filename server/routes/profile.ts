@@ -5,9 +5,9 @@ import { getProfile } from '../services/get-profile.js'
 import { saveProfile } from '../services/save-profile.js'
 import { suggestSkills } from '../services/suggest-skills.js'
 import { interviewProfile } from '../services/interview-profile.js'
-import type { Ports } from '../composition-root.js'
+import type { Ports, SharedServices } from '../composition-root.js'
 
-export async function profileRoutes(fastify: FastifyInstance, opts: { ports: Ports }) {
+export async function profileRoutes(fastify: FastifyInstance, opts: { ports: Ports; services: SharedServices }) {
   const { ports } = opts
 
   fastify.get('/api/profile', async () => {

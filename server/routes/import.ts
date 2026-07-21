@@ -3,10 +3,10 @@ import { ImportEpubBodySchema, ImportEpubConfirmBodySchema } from '@shared/contr
 import { parseBody } from '../http/parse.js'
 import { IMPORT_BODY_LIMIT_BYTES } from '../constants.js'
 import { STATUS_BAD_REQUEST, STATUS_INTERNAL_SERVER_ERROR } from '../http/status.js'
-import type { Ports } from '../composition-root.js'
+import type { Ports, SharedServices } from '../composition-root.js'
 import { createImportBook } from '../services/import-book.js'
 
-export async function importRoutes(fastify: FastifyInstance, opts: { ports: Ports }) {
+export async function importRoutes(fastify: FastifyInstance, opts: { ports: Ports; services: SharedServices }) {
   const { previewEpub, importEpub } = createImportBook({
     epubImport: opts.ports.epubImport,
     bookRepository: opts.ports.bookRepository,

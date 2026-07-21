@@ -1,9 +1,9 @@
 import type { FastifyInstance } from 'fastify'
 import { SetApiKeyBodySchema, RemoveApiKeyBodySchema } from '@shared/contracts.js'
 import { parseBody } from '../http/parse.js'
-import type { Ports } from '../composition-root.js'
+import type { Ports, SharedServices } from '../composition-root.js'
 
-export async function settingsRoutes(fastify: FastifyInstance, opts: { ports: Ports }) {
+export async function settingsRoutes(fastify: FastifyInstance, opts: { ports: Ports; services: SharedServices }) {
   const { ports } = opts
 
   fastify.post<{ Body: unknown }>('/api/settings/api-key', async (request) => {

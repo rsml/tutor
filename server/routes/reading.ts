@@ -4,9 +4,9 @@ import { bookChapterSchema } from '../http/route-params.js'
 import { parseBody } from '../http/parse.js'
 import { createReadChapter } from '../services/read-chapter.js'
 import { createRecordChapterProgress } from '../services/record-chapter-progress.js'
-import type { Ports } from '../composition-root.js'
+import type { Ports, SharedServices } from '../composition-root.js'
 
-export async function readingRoutes(fastify: FastifyInstance, { ports }: { ports: Ports }) {
+export async function readingRoutes(fastify: FastifyInstance, { ports }: { ports: Ports; services: SharedServices }) {
   const readChapter = createReadChapter({ books: ports.bookRepository })
   const recordChapterProgress = createRecordChapterProgress({ books: ports.bookRepository })
 

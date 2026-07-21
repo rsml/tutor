@@ -5,6 +5,7 @@ import { buildServer } from './index.js'
 import { createFakeDiagramRenderer } from './ports/diagram-renderer.fake.js'
 import { createFakeBookRepository } from './ports/book-repository.fake.js'
 import { createFakeKeyVault } from './ports/key-vault.fake.js'
+import { createFakeTextGeneration } from './ports/text-generation.fake.js'
 
 /**
  * The composition root is the only module that names a concrete adapter, so
@@ -92,6 +93,61 @@ describe('buildServer overrides', () => {
     const res = await fastify.inject({ method: 'GET', url: '/api/health' })
     expect(res.statusCode).toBe(200)
     expect(res.json()).toEqual({ status: 'ok' })
+    await fastify.close()
+  })
+})
+
+describe('shared services', () => {
+  // The regression this guards against: server/routes/generation.ts and
+  // server/routes/library.ts used to share one ChapterGenerationStream
+  // through a module-scope registry (generation-manager.ts). Now both read
+  // services.chapterGenerationStream, built once in createSharedServices and
+  // passed into every route plugin alongside ports. If a future change ever
+  // gave one of the two route modules its own separately-built stream
+  // instead, generation.ts would still drive a generation to completion,
+  // but library.ts would report it as never having started.
+  it('generation.ts and library.ts observe the same ChapterGenerationStream instance', async () => {
+    const bookRepository = createFakeBookRepository()
+    await bookRepository.saveBook({
+      id: 'shared-stream-book',
+      title: 'Shared Stream Book',
+      prompt: 'Prove the two routes share one generation stream',
+      status: 'reading',
+      totalChapters: 1,
+      generatedUpTo: 0,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      tags: [],
+      audioGeneratedChapters: [],
+    })
+    await bookRepository.saveToc('shared-stream-book', { chapters: [{ title: 'Chapter One', description: 'd' }] })
+
+    const textGeneration = createFakeTextGeneration()
+    textGeneration.scriptStreamText(['Chapter text.'])
+    // Quiz generation is a non-fatal side effect of generating a chapter
+    // (see generate-next-chapter.ts); scripting it too just keeps this
+    // test's output free of its otherwise-harmless "no response queued" log.
+    textGeneration.scriptGenerateObject({ questions: [] })
+
+    const fastify = await buildServer({ bookRepository, textGeneration })
+
+    // Drive a generation through generation.ts's route. inject() resolves
+    // once the SSE stream's terminal event is written, so by the time this
+    // await returns, the shared hub has moved this book to its 'done' stage.
+    const genRes = await fastify.inject({
+      method: 'POST',
+      url: '/api/books/shared-stream-book/generate-next',
+      payload: { model: 'claude-sonnet-4-6' },
+    })
+    expect(genRes.statusCode).toBe(200)
+
+    // library.ts's GET /api/books/:id reads services.chapterGenerationStream
+    // too, so it must observe the run generation.ts just drove rather than
+    // an independent, always-inactive instance of its own.
+    const bookRes = await fastify.inject({ method: 'GET', url: '/api/books/shared-stream-book' })
+    expect(bookRes.statusCode).toBe(200)
+    expect(bookRes.json().generation).toMatchObject({ active: true, stage: 'done', chapterNum: 1 })
+
     await fastify.close()
   })
 })

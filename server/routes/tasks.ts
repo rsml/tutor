@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
-import type { Ports } from '../composition-root.js'
+import type { Ports, SharedServices } from '../composition-root.js'
 
-export async function taskRoutes(fastify: FastifyInstance, opts: { ports: Ports }) {
+export async function taskRoutes(fastify: FastifyInstance, opts: { ports: Ports; services: SharedServices }) {
   const { ports } = opts
 
   fastify.get('/api/tasks', async () => {

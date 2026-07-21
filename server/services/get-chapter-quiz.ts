@@ -1,21 +1,23 @@
 import type { Quiz } from '@shared/domain.js'
 import { DEFAULT_PROVIDER } from '@shared/provider.js'
 import type { BookRepository } from '../ports/book-repository.js'
+import type { TextGeneration } from '../ports/text-generation.js'
 import { DEFAULT_MODEL, DEFAULT_QUIZ_LENGTH } from '../constants.js'
-import { generateQuiz } from './generation-manager.js'
+import { createGenerateQuiz } from './generate-quiz.js'
 import { validateChapterNum } from './validate-chapter-num.js'
 
 /**
  * Fetches a chapter's quiz, generating one on demand if it was never saved
  * (e.g. the reader reconnects to a chapter whose quiz file went missing).
- * On-demand generation still delegates to generation-manager.ts's
- * generateQuiz — that module is a sibling slice's and is not converted to
- * the TextGeneration port here, so this service changes nothing about how
- * that quiz gets built, only how the chapter and quiz are read and saved.
+ * On-demand generation always includes the shared markdown formatting
+ * rules, matching the chapter-N quiz prompt every other chapter's
+ * generation has always used (see generate-quiz.ts's own doc for why that
+ * flag defaults to false but this call site sets it explicitly).
  */
 
 export interface GetChapterQuizDeps {
   books: BookRepository
+  textGeneration: TextGeneration
 }
 
 export interface GetChapterQuizRequest {
@@ -27,6 +29,8 @@ export interface GetChapterQuizRequest {
 }
 
 export function createGetChapterQuiz(deps: GetChapterQuizDeps) {
+  const generateQuiz = createGenerateQuiz({ ai: deps.textGeneration })
+
   return async function getChapterQuiz(req: GetChapterQuizRequest): Promise<Quiz> {
     const { bookId, chapterNum } = req
     await validateChapterNum(deps.books, bookId, chapterNum)
@@ -42,7 +46,7 @@ export function createGetChapterQuiz(deps: GetChapterQuizDeps) {
     const provider = req.provider || DEFAULT_PROVIDER
     const quizLength = req.quizLength ?? DEFAULT_QUIZ_LENGTH
 
-    const quiz = await generateQuiz(provider, model, chapterContent, quizLength)
+    const quiz = await generateQuiz({ provider, model, chapterContent, quizLength, includeFormattingRules: true })
     await deps.books.saveQuiz(bookId, chapterNum, quiz)
     return quiz
   }

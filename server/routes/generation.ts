@@ -13,12 +13,11 @@ import { createCreateBook } from '../services/create-book.js'
 import { createReviseToc } from '../services/revise-toc.js'
 import { createStartBook } from '../services/start-book.js'
 import { createGenerateNextChapter } from '../services/generate-next-chapter.js'
-import { createChapterGenerationStream, type ChapterGenerationStream } from '../services/chapter-generation-stream.js'
+import type { ChapterGenerationStream } from '../services/chapter-generation-stream.js'
 import { createGenerateAllChapters } from '../services/generate-all-chapters.js'
-import { registerChapterGenerationStream } from '../services/generation-manager.js'
 import type { BackgroundTasks } from '../ports/background-tasks.js'
 import type { BookMeta } from '@shared/domain.js'
-import type { Ports } from '../composition-root.js'
+import type { Ports, SharedServices } from '../composition-root.js'
 
 const SSE_HEADERS = { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' } as const
 
@@ -61,10 +60,9 @@ function pipeHubToSse(request: FastifyRequest, reply: FastifyReply, hub: Chapter
   })
 }
 
-export async function generationRoutes(fastify: FastifyInstance, { ports }: { ports: Ports }) {
+export async function generationRoutes(fastify: FastifyInstance, { ports, services }: { ports: Ports; services: SharedServices }) {
   const generateNextChapter = createGenerateNextChapter({ ai: ports.textGeneration, books: ports.bookRepository, clock: ports.clock })
-  const chapterStream = createChapterGenerationStream({ books: ports.bookRepository, generateNextChapter })
-  registerChapterGenerationStream(chapterStream)
+  const chapterStream = services.chapterGenerationStream
 
   const createBook = createCreateBook({ ai: ports.textGeneration, books: ports.bookRepository, clock: ports.clock })
   const reviseToc = createReviseToc({ ai: ports.textGeneration, books: ports.bookRepository, clock: ports.clock })

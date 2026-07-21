@@ -5,14 +5,14 @@ import type { BookRepository } from '../ports/book-repository.js'
 import type { TextGeneration } from '../ports/text-generation.js'
 import { planFinalQuiz } from '../domain/final-quiz-plan.js'
 import { shuffleQuizOptions } from '../domain/quiz-scoring.js'
-import { QUIZ_QUALITY_RULES } from './generation-manager.js'
+import { QUIZ_QUALITY_RULES } from './generate-quiz.js'
 
 /**
  * Builds (or returns the cached) whole-book final quiz. The character
  * budget per chapter, question count, and focus instructions come from
  * domain/final-quiz-plan.ts, tiered by how many chapters the book has
  * generated so far. The shuffle is domain/quiz-scoring.ts's, not
- * generation-manager.ts's — this service makes its own AI call through the
+ * generate-quiz.ts's — this service makes its own AI call through the
  * TextGeneration port rather than delegating generation elsewhere, so its
  * shuffle needs to be the one with an injectable random source.
  */

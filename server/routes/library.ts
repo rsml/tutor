@@ -2,7 +2,6 @@ import type { FastifyInstance } from 'fastify'
 import { PatchBookBodySchema, RatingBodySchema } from '@shared/contracts.js'
 import { bookIdSchema } from '../http/route-params.js'
 import { parseBody } from '../http/parse.js'
-import * as genManager from '../services/generation-manager.js'
 import { createListLibrary } from '../services/list-library.js'
 import { createSearchLibrary } from '../services/search-library.js'
 import { createGetBookDetail, createGetBookToc } from '../services/get-book.js'
@@ -11,12 +10,12 @@ import { createDeleteBook } from '../services/delete-book.js'
 import { createResetBook } from '../services/reset-book.js'
 import { createRateBook } from '../services/rate-book.js'
 import { createGetSkillProgress } from '../services/get-skill-progress.js'
-import type { Ports } from '../composition-root.js'
+import type { Ports, SharedServices } from '../composition-root.js'
 
-export async function libraryRoutes(fastify: FastifyInstance, { ports }: { ports: Ports }) {
+export async function libraryRoutes(fastify: FastifyInstance, { ports, services }: { ports: Ports; services: SharedServices }) {
   const listLibrary = createListLibrary({ books: ports.bookRepository, artifacts: ports.artifactStore })
   const searchLibrary = createSearchLibrary({ books: ports.bookRepository })
-  const getBookDetail = createGetBookDetail({ books: ports.bookRepository, getGenerationStatus: genManager.getStatus })
+  const getBookDetail = createGetBookDetail({ books: ports.bookRepository, getGenerationStatus: services.chapterGenerationStream.getStatus })
   const getBookToc = createGetBookToc({ books: ports.bookRepository })
   const updateBookDetails = createUpdateBookDetails({ books: ports.bookRepository, clock: ports.clock })
   const deleteBook = createDeleteBook({ books: ports.bookRepository, artifacts: ports.artifactStore })

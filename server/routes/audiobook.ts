@@ -1,13 +1,13 @@
 import type { FastifyInstance } from 'fastify'
 import { VOICE_PREVIEW_CACHE_MAX_AGE_S } from '../constants.js'
 import { STATUS_NOT_FOUND, STATUS_CONFLICT } from '../http/status.js'
-import type { Ports } from '../composition-root.js'
+import type { Ports, SharedServices } from '../composition-root.js'
 
 // Top-level audiobook engine routes (not scoped to a specific book).
 //
 // Per-book audiobook routes live in routes/audiobook-generation.ts — two
 // files, two concerns.
-export async function audiobookRoutes(fastify: FastifyInstance, opts: { ports: Ports }) {
+export async function audiobookRoutes(fastify: FastifyInstance, opts: { ports: Ports; services: SharedServices }) {
   const { ports } = opts
 
   // GET /api/audiobook/status — engine install state

@@ -1,10 +1,10 @@
 import type { FastifyInstance } from 'fastify'
 import { bookIdSchema } from '../http/route-params.js'
 import { STATUS_BAD_REQUEST, STATUS_CONFLICT, STATUS_NOT_FOUND } from '../http/status.js'
-import type { Ports } from '../composition-root.js'
+import type { Ports, SharedServices } from '../composition-root.js'
 import { createExportEpub, getEpubFile } from '../services/export-epub.js'
 
-export async function epubRoutes(fastify: FastifyInstance, opts: { ports: Ports }) {
+export async function epubRoutes(fastify: FastifyInstance, opts: { ports: Ports; services: SharedServices }) {
   const { ports } = opts
   const exportEpub = createExportEpub({
     bookRepository: ports.bookRepository,

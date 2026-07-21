@@ -12,7 +12,7 @@ import { createSaveAuthoringToc } from '../services/authoring/toc.js'
 import { createSaveReference, createListReferences, createGetReference } from '../services/authoring/references.js'
 import { createGetAllFeedback } from '../services/authoring/feedback.js'
 import { createSaveQuiz } from '../services/authoring/quiz.js'
-import type { Ports } from '../composition-root.js'
+import type { Ports, SharedServices } from '../composition-root.js'
 // Body schemas for the eight MCP authoring writes. Kept here rather than in
 // shared/contracts.ts, since these are MCP-authoring-only shapes with no
 // client-side counterpart to share them with.
@@ -59,7 +59,7 @@ const bookRefSchema = {
 // book content directly (skeletons, chapter content, metadata, briefs,
 // summaries, TOC, references, feedback, quizzes) rather than through the
 // AI generation flow.
-export async function authoringRoutes(fastify: FastifyInstance, { ports }: { ports: Ports }) {
+export async function authoringRoutes(fastify: FastifyInstance, { ports }: { ports: Ports; services: SharedServices }) {
   const createSkeleton = createCreateSkeleton({ books: ports.bookRepository, clock: ports.clock })
   const saveChapterContent = createSaveChapterContent({ books: ports.bookRepository })
   const updateBookMeta = createUpdateBookMeta({ books: ports.bookRepository, clock: ports.clock })

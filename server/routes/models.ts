@@ -2,9 +2,9 @@ import type { FastifyInstance } from 'fastify'
 import { MODEL_LIST_TIMEOUT_MS } from '../constants.js'
 import { providerParamSchema } from '../http/route-params.js'
 import { listProviderModels } from '../services/list-provider-models.js'
-import type { Ports } from '../composition-root.js'
+import type { Ports, SharedServices } from '../composition-root.js'
 
-export async function modelsRoutes(fastify: FastifyInstance, opts: { ports: Ports }) {
+export async function modelsRoutes(fastify: FastifyInstance, opts: { ports: Ports; services: SharedServices }) {
   fastify.get<{ Params: { provider: string } }>(
     '/api/providers/:provider/models',
     { schema: { params: providerParamSchema } },
