@@ -20,6 +20,13 @@ export default defineConfig({
       '**/dist-electron/**',
       '.worktrees/**',
       '.claude/worktrees/**',
+      // The Playwright journey suite. Vitest's default include collects
+      // *.spec.ts, so without this line `pnpm test` would try to run the
+      // journeys, and `pnpm test` is deliberately the fast one. Journeys
+      // are `pnpm e2e`. Only the journeys are excluded, not all of e2e/,
+      // because the scripted adapter's contract test lives under e2e/ as a
+      // *.test.ts and vitest is exactly the runner that should own it.
+      'e2e/**/*.spec.ts',
     ],
   },
   resolve: {
