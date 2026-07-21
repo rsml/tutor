@@ -22,6 +22,7 @@ import { useAppSelector, useAppDispatch, selectFunctionModel, selectHasApiKeyFor
 import { createSkeleton, getApiPort, suggestDetails, suggestTopic } from '@client/api'
 import { generateMcpConfig } from '@client/lib/mcp-config'
 import { cn } from '@client/lib/utils'
+import { MCP_COMMAND_TOAST_MS } from '@client/lib/constants'
 import { store } from '@client/store'
 
 const CHAPTER_COUNTS = [1, 3, 6, 12, 25, 50]
@@ -152,7 +153,7 @@ export function WizardModal({ open, onOpenChange, onCreate }: WizardModalProps) 
       setReasoning(null)
       toast.success(
         `Book "${data.title}" created. Command copied — paste in your terminal to start generation.`,
-        { duration: 8000 },
+        { duration: MCP_COMMAND_TOAST_MS },
       )
     } catch (err) {
       toast.error('Failed: ' + (err instanceof Error ? err.message : 'Unknown error'))
