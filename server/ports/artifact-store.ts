@@ -1,7 +1,7 @@
 import type { AudiobookManifest } from '@shared/domain.js'
 
 /**
- * The port that server/services/book-store.ts stands in front of today for
+ * The port that server/adapters/fs-artifact-store.ts implements today for
  * every binary artifact a book can have. Covers, the exported EPUB file,
  * audiobook audio and its manifest, plus startup crash recovery for all of
  * the above.
@@ -25,8 +25,9 @@ import type { AudiobookManifest } from '@shared/domain.js'
  */
 
 /**
- * What a startup crash recovery pass changed. Mirrors the shape
- * server/services/book-store.ts returns today.
+ * What a startup crash recovery pass changed. Mirrors the shape the
+ * composed recovery pass in server/services/recover-from-crash.ts returns
+ * today.
  *
  * artifactsRemoved is fully owned by this port, and lists every stray
  * artifact this pass deleted. booksReset is part of the shape for
@@ -34,9 +35,10 @@ import type { AudiobookManifest } from '@shared/domain.js'
  * BookRepository data, which this port cannot see or change on its own.
  * An adapter that only implements ArtifactStore therefore always returns
  * booksReset as an empty array. Reconciling a book's status after a crash,
- * the way book-store.ts does today in one combined pass, is a composition
- * level concern that reads both ports, not something either port should
- * own alone. See the contract test for the one crash recovery rule this
+ * the way server/services/recover-from-crash.ts does today in one
+ * combined pass, is a composition level concern that reads both ports,
+ * not something either port should own alone. See the contract test for
+ * the one crash recovery rule this
  * port can pin by itself, that a saved audiobook manifest without a
  * matching audiobook file is treated as a stray and removed.
  */
@@ -64,11 +66,13 @@ export interface ArtifactStore {
   epubPath(bookId: string): string
   epubExists(bookId: string): boolean
   /**
-   * Not a method book-store.ts exports today. Its callers currently read
-   * epubPath() and write the file themselves with the same mkdir, tmp
+   * Not a method the pre-port book-store.ts exported. Its callers used to
+   * read epubPath() and write the file themselves with the same mkdir, tmp
    * file, and rename sequence saveCover and saveChapter already use. This
    * method exists so ArtifactStore owns that sequence once, the same way
-   * it already does for every other artifact.
+   * it already does for every other artifact, and
+   * server/services/export-epub.ts calls it directly today instead of
+   * writing the file itself.
    */
   writeEpub(bookId: string, data: Buffer): Promise<void>
 

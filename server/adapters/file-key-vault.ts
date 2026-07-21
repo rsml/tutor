@@ -21,9 +21,9 @@ import type { KeyVault } from '../ports/key-vault.js'
  * Every `{PROVIDER}_API_KEY` environment variable present at construction
  * time overrides whatever was loaded from disk for that provider.
  *
- * Logic lifted verbatim from `server/services/key-store.ts`, which now
- * shims over a single instance of this factory. See that file's own doc
- * comment for why.
+ * Logic lifted verbatim from the pre-port `server/services/key-store.ts`.
+ * server/composition-root.ts now constructs a single instance of this
+ * factory as part of building Ports.
  */
 export function createFileKeyVault(opts: { dataDir: string }): KeyVault {
   const { dataDir } = opts

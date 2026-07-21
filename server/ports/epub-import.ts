@@ -3,14 +3,15 @@ import type { EpubPreview } from '@shared/responses.js'
 /**
  * Parses an EPUB file into the data Tutor needs to preview or import it.
  *
- * Abstracts server/services/epub-importer.ts, whose current implementation
- * mixes EPUB parsing with persistence. It imports the book store and calls
- * saveBook, saveToc, saveChapter, and saveCover directly, so today the only
- * way to check "did we parse this EPUB correctly" is to also exercise the
- * filesystem. This port removes that coupling. read() returns pure data,
- * meaning the meta fields, an ordered chapters array, and optional cover
- * bytes, and it writes nothing. A later service takes that data, assigns
- * the book its id, timestamps, and status, and persists it.
+ * Abstracts what server/services/epub-importer.ts used to do in one
+ * module, mixing EPUB parsing with persistence. That module imported the
+ * book store and called saveBook, saveToc, saveChapter, and saveCover
+ * directly, so checking "did we parse this EPUB correctly" meant also
+ * exercising the filesystem. This port removes that coupling. read()
+ * returns pure data, meaning the meta fields, an ordered chapters array,
+ * and optional cover bytes, and it writes nothing.
+ * server/services/import-book.ts is the service that takes that data,
+ * assigns the book its id, timestamps, and status, and persists it.
  *
  * EpubPreview is the shape already sent over the wire by
  * POST /api/books/import/preview, defined once in shared/responses.ts.

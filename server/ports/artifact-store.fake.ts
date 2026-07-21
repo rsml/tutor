@@ -126,10 +126,11 @@ export function createFakeArtifactStore(options: { root?: string } = {}): Artifa
     async recoverFromCrash(): Promise<CrashRecoveryReport> {
       const report: CrashRecoveryReport = { booksReset: [], artifactsRemoved: [] }
       for (const bookId of manifests.keys()) {
-        // Mirrors book-store.ts: a saved manifest with no matching
-        // audiobook file is a stray left by an interrupted generation, so
-        // recovery clears it. audiobooksPresent can never hold this id
-        // through this port alone, which is the point explained above.
+        // Mirrors fs-artifact-store.ts's real recoverFromCrash. A saved
+        // manifest with no matching audiobook file is a stray left by an
+        // interrupted generation, so recovery clears it. audiobooksPresent
+        // can never hold this id through this port alone, which is the
+        // point explained above.
         if (audiobooksPresent.has(bookId)) continue
         manifests.delete(bookId)
         report.artifactsRemoved.push(audioDir(bookId))

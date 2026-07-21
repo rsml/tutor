@@ -32,11 +32,14 @@ import {
  * filesystem or data dir.
  *
  * getRecommendedWorkerCount and __testing deliberately have no home on the
- * SpeechSynthesis interface (see speech-synthesis.ts's JSDoc). __testing
- * still needs a place to live because kokoro-service.ts's thin shim resets
- * this adapter's one production singleton between test cases, so it's
- * attached to the richer KokoroSpeechSynthesis type this factory actually
- * returns, alongside but outside the SpeechSynthesis contract itself.
+ * SpeechSynthesis interface (see speech-synthesis.ts's JSDoc).
+ * getRecommendedWorkerCount is not even one of this adapter's own exports
+ * anymore, server/services/generate-audiobook.ts keeps its own private
+ * copy of that arithmetic instead. __testing is attached to the richer
+ * KokoroSpeechSynthesis type this factory actually returns, alongside but
+ * outside the SpeechSynthesis contract itself, so a test that shares one
+ * instance across cases can reset its lazily loaded KokoroTTS instance and
+ * soft concurrency queue instead of reaching into the closure.
  */
 
 // Hardcoded voice catalogue mirrors @kokoro-js voices (see

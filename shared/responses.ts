@@ -24,7 +24,7 @@ export type LibraryBook = BookMeta & {
   hasAudiobook: boolean
 }
 
-/** The stage a background chapter generation is in. Mirrors GenerationStage in server/services/generation-manager.ts. */
+/** The stage a background chapter generation is in, consumed directly by server/services/chapter-generation-stream.ts, not mirrored from elsewhere. */
 export type GenerationStage = 'streaming' | 'saving' | 'quiz' | 'done' | 'error'
 
 /** GET /api/books/:id/generation-status — background chapter generation progress for one book. */
@@ -71,7 +71,7 @@ export type SkillProgress = {
   }>
 }
 
-/** The kind of background job a task runs. Mirrors TaskType in server/services/task-manager.ts. */
+/** The kind of background job a task runs, consumed directly by server/ports/background-tasks.ts's StartTaskSpec, not mirrored from elsewhere. */
 export type TaskType =
   | 'generate-all'
   | 'generate-epub'
@@ -79,10 +79,10 @@ export type TaskType =
   | 'install-audiobook'
   | 'generate-audiobook'
 
-/** A background task's lifecycle state. Mirrors TaskStatus in server/services/task-manager.ts. */
+/** A background task's lifecycle state, consumed directly by server/ports/background-tasks.ts's Task alias, not mirrored from elsewhere. */
 export type TaskStatus = 'running' | 'done' | 'error' | 'cancelled'
 
-/** A background task's current progress. Mirrors TaskProgress in server/services/task-manager.ts. */
+/** A background task's current progress, consumed directly by server/ports/background-tasks.ts's Task alias, not mirrored from elsewhere. */
 export type TaskProgress = {
   current: number
   total: number

@@ -23,7 +23,7 @@ describe('audiobook engine routes (characterization)', () => {
       expect(res.statusCode).toBe(200)
       const body = res.json()
       // Not environment-dependent: both the kokoro model and ffmpeg are
-      // looked up relative to TUTOR_DATA_DIR (server/services/kokoro-service.ts
+      // looked up relative to TUTOR_DATA_DIR (server/adapters/kokoro-speech-synthesis.ts
       // and audiobook-installer.ts), which setup-env.ts always points at a
       // brand-new, empty temp directory for this test file, never the real
       // user data dir or the system PATH. So this is deterministically false

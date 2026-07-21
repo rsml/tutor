@@ -25,10 +25,10 @@ export interface InMemoryBackgroundTasksDeps {
  * lives for the lifetime of the process from the moment the module is
  * first imported.
  *
- * server/services/task-manager.ts now holds a single module-scope instance
- * of this factory and re-exports its behaviour under the original function
- * names, so every existing call site keeps working unchanged. See that
- * file's own header comment for why it still exists as a shim.
+ * server/composition-root.ts now constructs a single instance of this
+ * factory as part of building Ports, and every consumer receives it
+ * through the BackgroundTasks port rather than importing task-manager.ts's
+ * exported functions directly.
  *
  * The controller behind each TaskHandle is kept in a private, adapter-only
  * Map and is never returned to a caller, only its signal is (see

@@ -12,8 +12,8 @@ import type {
  *
  * The voice catalogue is a small synthetic set rather than a copy of the
  * real 28 voice Kokoro list, so this file never drifts out of sync with
- * kokoro-service.ts and so a reader can tell at a glance that the ids are
- * fake rather than real Kokoro voice ids.
+ * kokoro-speech-synthesis.ts and so a reader can tell at a glance that the
+ * ids are fake rather than real Kokoro voice ids.
  */
 
 const FAKE_VOICES = [

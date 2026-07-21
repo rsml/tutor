@@ -12,7 +12,7 @@ import type {
 import type { SkillProgress } from '@shared/responses.js'
 
 /**
- * The port that server/services/book-store.ts stands in front of today for
+ * The port that server/adapters/fs-book-repository.ts implements today for
  * every structured piece of a book, meaning YAML metadata and Markdown text
  * rather than binary files. Books, tables of contents, chapters, per
  * chapter and final quizzes, feedback, reading progress, the global

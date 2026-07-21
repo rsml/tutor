@@ -7,8 +7,8 @@ import { STATUS_NOT_FOUND, STATUS_RANGE_NOT_SATISFIABLE } from './status.js'
  * at 0 for streams, breaking <audio> playback). Sets CORS expose
  * headers so cross-origin <audio> elements can read media metadata.
  *
- * Used by the audiobook routes in server/routes/books.ts to serve the
- * M4B file and legacy per-chapter MP3s with seek support.
+ * Used by the audiobook routes in server/routes/audiobook-generation.ts to
+ * serve the M4B file and legacy per-chapter MP3s with seek support.
  */
 export async function sendMediaWithRange(
   reply: FastifyReply,

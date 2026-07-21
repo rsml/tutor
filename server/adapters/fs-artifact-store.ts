@@ -20,7 +20,7 @@ import { booksDir, bookDir, padChapter, readYaml, writeYaml } from './fs-paths.j
  * artifact-store.contract.ts uses (a saved audiobook manifest with no
  * BookMeta behind it at all). It never changes a book's status, and always
  * reports booksReset as empty, because that is BookRepository data this
- * adapter cannot see. See server/services/book-store.ts for the
+ * adapter cannot see. See server/services/recover-from-crash.ts for the
  * composition that reconciles status on top of this report.
  */
 

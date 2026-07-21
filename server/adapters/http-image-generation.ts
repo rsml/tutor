@@ -16,10 +16,10 @@ import type { GeneratedImage, ImageGeneration, ImageGenerationRequest } from '..
  * user's preferred one breaks, and never crash on a recoverable error,
  * only surface auth or content-policy failures.
  *
- * The one real change from that module: it never resolves an API key
- * itself. A KeyVault is injected instead, so this adapter never imports
- * server/services/key-store.ts, and that module is free to change (or
- * become its own shim) independently of this file. fetch is injected too,
+ * The one real change from that module is that it never resolves an API
+ * key itself. A KeyVault is injected instead, so this adapter depends on
+ * the KeyVault port rather than importing a concrete key store module
+ * directly. fetch is injected too,
  * defaulting to the global, so a test can assert every path (success,
  * fallback, auth failure, content-policy failure, exhausted chain)
  * without ever making a real HTTP request.

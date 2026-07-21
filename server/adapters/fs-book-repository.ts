@@ -56,8 +56,8 @@ function stripUserAnswers(quiz: Quiz): Quiz {
  * progress.yml.tmp, and final-quiz.yml.tmp. Not part of the BookRepository
  * port, since no method there is about crash recovery, only ArtifactStore
  * declares recoverFromCrash(). This is exported alongside the factory so
- * server/services/book-store.ts's crash-recovery composition (see its doc
- * comment) can sweep this adapter's own debris through this module instead
+ * server/services/recover-from-crash.ts's crash-recovery composition (see
+ * its own doc comment) can sweep this adapter's own debris through this module instead
  * of reaching around it with raw fs calls of its own. Returns the paths it
  * removed.
  */

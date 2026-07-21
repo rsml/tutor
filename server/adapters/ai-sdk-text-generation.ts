@@ -16,17 +16,15 @@ import type {
 } from '../ports/text-generation.js'
 
 /**
- * The real TextGeneration adapter. Once every call site listed in
- * server/ports/text-generation.ts moves onto the port (a later stage),
- * this becomes the only module in server/ allowed to import from the `ai`
- * package. Until then, it exists alongside the nine `generateObject` and
- * six `streamText` call sites it will eventually replace, none of which
- * are touched by this change.
+ * The real TextGeneration adapter. Every call site listed in
+ * server/ports/text-generation.ts now goes through it instead of calling
+ * the `ai` package directly, which makes this the only module in server/
+ * allowed to import from the `ai` package.
  *
- * It owns three things that are duplicated across those call sites today.
- * The first is resolving a provider + model into a callable client,
- * lifted from `services/model-client.ts`, which now delegates to
- * {@link resolveModelClient}. The second is the five-minute generation
+ * It owns three things that were duplicated across those call sites before
+ * this port existed. The first is resolving a provider + model into a
+ * callable client, lifted from the pre-port `services/model-client.ts`.
+ * The second is the five-minute generation
  * timeout, composed by {@link composeAbortSignal}. The third is the
  * `experimental_repairText` logging hook used when a model's JSON output
  * fails to parse. Previously that hook only ran on the
@@ -41,9 +39,10 @@ export interface AiSdkTextGenerationDeps {
 /**
  * Resolves a provider + model identifier into a callable AI SDK model,
  * looking up the provider's API key in `keyVault`. Exported, not just used
- * internally by {@link createAiSdkTextGeneration}, so `services/model-client.ts`
- * can delegate to it while keeping its own `(provider: string, model: string)`
- * signature. That function takes raw, not-yet-validated strings rather
+ * internally by {@link createAiSdkTextGeneration}, so its provider and
+ * model validation can be unit tested directly in
+ * ai-sdk-text-generation.test.ts, without driving a full `generateObject`
+ * or `streamText` call. It takes raw, not-yet-validated strings rather
  * than the port's `ModelRef`, so the validation lives here rather than
  * assuming some earlier caller already did it.
  */

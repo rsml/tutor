@@ -35,10 +35,10 @@ describe('AI-touching routes (characterization): validation and error paths only
     // This is the proof that a valid create-book request never reaches the
     // network when no API key is configured: the SSE stream still opens
     // (200), but the only events are book_created followed immediately by a
-    // same-process "no API key" error from model-client.ts (thrown while
-    // building the model client, before streamText ever issues a request),
-    // and the book is left in a 'failed' status rather than any
-    // in-progress one.
+    // same-process "no API key" error from ai-sdk-text-generation.ts's
+    // resolveModelClient (thrown while building the model client, before
+    // streamText ever issues a request), and the book is left in a
+    // 'failed' status rather than any in-progress one.
     it('opens the SSE stream but fails synchronously with "no API key", never reaching the network', async () => {
       const res = await app.inject({
         method: 'POST',

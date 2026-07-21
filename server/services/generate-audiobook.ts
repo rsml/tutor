@@ -56,15 +56,14 @@ export type GenerateAudiobookResult =
   | { outcome: 'started'; taskId: string }
 
 /**
- * Worker-count sizing policy, lifted verbatim from
+ * Worker-count sizing policy, lifted verbatim from the pre-port
  * server/services/kokoro-service.ts's getRecommendedWorkerCount. Kept as a
- * private copy here rather than imported, because kokoro-service.ts is a
- * temporary shim over the SpeechSynthesis adapter singleton (see that
- * file's own doc) and this sizing policy is not part of the SpeechSynthesis
- * port's contract (see speech-synthesis.ts's own doc for why): it is a pure
- * function of the host machine, not a synthesis capability. RAM budget is
- * 25% of total RAM at 600MB per worker, capped by CPU count and a hard
- * ceiling of 16, with an optional caller override.
+ * private copy here rather than imported, because this sizing policy is
+ * not part of the SpeechSynthesis port's contract. See speech-synthesis.ts's
+ * own doc for why. It is a pure function of the host machine, not a
+ * synthesis capability. RAM budget is 25% of total RAM at 600MB per
+ * worker, capped by CPU count and a hard ceiling of 16, with an optional
+ * caller override.
  */
 function recommendedWorkerCount(totalMemBytes: number, cpuCount: number, override?: number): number {
   const ramBudget = Math.floor((totalMemBytes * 0.25) / (600 * 1024 * 1024))

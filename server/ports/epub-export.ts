@@ -1,11 +1,11 @@
 /**
  * Renders a book's chapters into EPUB bytes.
  *
- * Abstracts the epub-gen-memory usage inline in the POST
- * /api/books/:id/export-epub route handler in server/routes/books.ts. That
- * handler builds an options object (title, author, numberChaptersInTOC,
+ * Abstracts the epub-gen-memory usage that used to be inline in the POST
+ * /api/books/:id/export-epub route handler, before this port existed. That
+ * handler built an options object (title, author, numberChaptersInTOC,
  * prependChapterTitles, an optional cover file URL, and optional inlined
- * CSS) plus an ordered chapter array, then calls epub-gen-memory's default
+ * CSS) plus an ordered chapter array, then called epub-gen-memory's default
  * export to get a Buffer back. This port keeps that library, and the CJS
  * double-default handling it needs under Electron, entirely inside the
  * adapter.

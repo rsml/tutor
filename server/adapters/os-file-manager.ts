@@ -20,13 +20,12 @@ export interface OsFileManagerDeps {
 }
 
 /**
- * The real OsFileManager. Its logic is lifted from the platform switch in
- * the POST /api/books/:id/audiobook/reveal route handler in
- * server/routes/books.ts: `open -R` on macOS, `explorer.exe /select,` on
- * Windows, or `xdg-open` on the parent directory on Linux. That route is
- * not rewired to this adapter yet, it keeps its own inline copy for now,
- * so this file has no callers today. A later stage wires the route to
- * this adapter and deletes its inline copy.
+ * The real OsFileManager. Its logic is lifted from the platform switch that
+ * used to live inline in the POST /api/books/:id/audiobook/reveal route
+ * handler, `open -R` on macOS, `explorer.exe /select,` on Windows, or
+ * `xdg-open` on the parent directory on Linux.
+ * server/routes/audiobook-generation.ts now calls this adapter through the
+ * port instead of keeping its own copy.
  *
  * Matches the port's contract exactly: the whole platform switch is
  * wrapped in try/catch, and reveal() resolves either way, regardless of

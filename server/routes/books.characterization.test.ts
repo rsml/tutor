@@ -4,9 +4,10 @@ import { createTestServer, seedBook } from '../test/route-harness.js'
 import { getDataDir } from '@shared/node/data-dir.js'
 import { createFsBookRepository } from '../adapters/fs-book-repository.js'
 
-// Characterization tests for server/routes/books.ts — the happy-path CRUD,
-// TOC, chapter, progress, feedback, quiz, and rating routes. These assert
-// what the routes do TODAY, including quirks, not what they should do.
+// Characterization tests for the happy-path CRUD, TOC, chapter, progress,
+// feedback, quiz, and rating routes, split across server/routes/library.ts,
+// reading.ts, assessment.ts, and authoring.ts today. These assert what the
+// routes do TODAY, including quirks, not what they should do.
 // Status codes and response shapes (keys) are asserted; AI-generated prose
 // is never asserted here (these routes don't generate any in the paths
 // under test — see ai-routes.characterization.test.ts for the AI paths).

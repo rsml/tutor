@@ -7,9 +7,9 @@ import type { TaskEvent } from '@shared/events.js'
  * can kick a job off, the client can poll or subscribe to its progress
  * over SSE, and the job can be cancelled mid-flight.
  *
- * Abstracts server/services/task-manager.ts, which today is a bare module
- * of exported functions closing over a single module-level Map. A port
- * makes that swappable and lets services depend on shape rather than
+ * Abstracts what server/services/task-manager.ts used to be, a bare
+ * module of exported functions closing over a single module-level Map. A
+ * port makes that swappable and lets services depend on shape rather than
  * concrete functions.
  *
  * The one rule this port exists to enforce: callers receive a TaskHandle

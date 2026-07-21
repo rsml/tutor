@@ -96,21 +96,25 @@ export interface TextChunk {
 
 export interface TextGeneration {
   /**
-   * Streams plain-text output. Covers 5 call sites: the table-of-contents
-   * stream (initial generation and revision) and the chapter-1 stream in
-   * `server/routes/books.ts`, the chapter stream in
-   * `server/services/generation-manager.ts`, and the inline reader-chat
-   * stream in `server/routes/chat.ts`.
+   * Streams plain-text output. Covers 5 call sites, the table-of-contents
+   * stream in `server/services/create-book.ts` (initial generation) and
+   * `server/services/revise-toc.ts` (revision), the chapter-1 stream in
+   * `server/services/start-book.ts`, the per-chapter stream in
+   * `server/services/generate-next-chapter.ts`, and the inline reader-chat
+   * stream in `server/services/explain-passage.ts`.
    */
   streamText(req: StreamTextRequest): AsyncIterable<string>
 
   /**
-   * Generates a value satisfying `schema`. Covers 9 call sites: quiz
-   * generation, skill classification, the final quiz, and profile/next-book/
-   * book-detail suggestions in `server/routes/books.ts`; skill suggestions
-   * in `server/routes/profile.ts`; the cover-prompt suggestion in
-   * `server/routes/covers.ts`; and quiz generation in
-   * `server/services/generation-manager.ts`.
+   * Generates a value satisfying `schema`. Covers 8 call sites, quiz
+   * generation in `server/services/generate-quiz.ts`, skill classification
+   * in `server/services/start-book.ts`, the final quiz in
+   * `server/services/generate-final-quiz.ts`, profile suggestions in
+   * `server/services/suggest-profile-updates.ts`, next-book suggestions in
+   * `server/services/suggest-next-book.ts`, book-detail suggestions in
+   * `server/services/suggest-book-details.ts`, skill suggestions in
+   * `server/services/suggest-skills.ts`, and the cover-prompt suggestion in
+   * `server/services/suggest-cover-prompt.ts`.
    */
   generateObject<T>(req: GenerateObjectRequest<T>): Promise<T>
 
@@ -118,10 +122,11 @@ export interface TextGeneration {
    * Runs a short tool-calling conversation and yields only the model's text
    * output. A tool call happens as a side effect of invoking
    * `ToolSpec.execute` and is never surfaced on the returned iterable.
-   * Covers exactly one call site: the profile interview in
-   * `server/routes/profile.ts`, which today filters the SDK's `fullStream`
-   * down to `text-delta` parts. This method is that filtered stream,
-   * pre-filtered.
+   * Covers exactly one call site, the profile interview in
+   * `server/services/interview-profile.ts`, invoked from
+   * `server/routes/profile.ts`. This method is that filtered stream,
+   * pre-filtered, so the caller never touches the SDK's `fullStream`
+   * directly.
    */
   runToolConversation(req: RunToolConversationRequest): AsyncIterable<TextChunk>
 }

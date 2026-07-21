@@ -2,43 +2,39 @@ import type { VoiceInfo } from '@shared/responses.js'
 
 /**
  * Text to speech narration for audiobook generation, backed today by the
- * kokoro-js ONNX model in server/services/kokoro-service.ts and its bundled
- * installer in server/services/audiobook-installer.ts. This port exists so
- * that code depending on narration never imports kokoro-js or its model
- * loading directly. kokoro-js downloads and runs a real ONNX model, so it
- * cannot run inside a test process.
+ * kokoro-js ONNX model in server/adapters/kokoro-speech-synthesis.ts and
+ * its bundled installer in server/services/audiobook-installer.ts. This
+ * port exists so that code depending on narration never imports kokoro-js
+ * or its model loading directly. kokoro-js downloads and runs a real ONNX
+ * model, so it cannot run inside a test process.
  *
  * The install surface, isInstalled, missingComponents, and install, covers
  * both the Kokoro model and the ffmpeg binary, not narration alone. That
  * matches the real code exactly. audiobook-installer.ts bundles the two
  * downloads into one installer because the product only ever offers
- * installing narration as a single step, and kokoro-service.ts re-exports
- * that installer's isInstalled function verbatim as isModelInstalled. The
- * AudioAssembly port only covers ffmpeg's runtime behaviour, probing and
- * concatenating audio that is assumed to already be installed, so it has no
- * install surface of its own.
+ * installing narration as a single step, and the real adapter's
+ * isInstalled method defaults directly to that installer's isInstalled
+ * function. The AudioAssembly port only covers ffmpeg's runtime
+ * behaviour, probing and concatenating audio that is assumed to already be
+ * installed, so it has no install surface of its own.
  *
- * Two exports of kokoro-service.ts deliberately have no home on this
- * interface.
- *
- * getRecommendedWorkerCount is a pure function of the host machine's RAM
- * and CPU count, read from os.totalmem and os.cpus, not of the synthesis
- * engine itself. It already has its own dedicated test suite in
- * kokoro-service.test.ts that asserts on arithmetic and never touches
- * synthesis behaviour, which is a sign it is a sizing policy the caller
+ * getRecommendedWorkerCount, one of the pre-port kokoro-service.ts's
+ * exports, deliberately has no home on this interface, and it is not even
+ * part of the real adapter today. server/services/generate-audiobook.ts
+ * keeps its own private copy of that arithmetic, a pure function of the
+ * host machine's RAM and CPU count read from os.totalmem and os.cpus, not
+ * of the synthesis engine itself, because it is a sizing policy the caller
  * computes and hands to startWorkerPool, not a capability the synthesis
- * engine provides. It stays a free function for the future generate
- * audiobook service, or a server/domain module, to call directly and pass
- * the result into startWorkerPool.
+ * engine provides.
  *
- * __testing, exported by both kokoro-service.ts and audiobook-installer.ts,
- * resets module level singleton state that only the real adapter has, a
- * lazily loaded KokoroTTS instance and a soft concurrency queue.
- * audiobook-installer.ts says outright in its own comment that this seam is
- * not part of the public API contract. A fake has no such singleton to
- * reset, and a contract every implementation must satisfy cannot include a
- * method that only one implementation needs, so __testing stays an adapter
- * only test seam and is not part of this port.
+ * __testing, exported by both server/adapters/kokoro-speech-synthesis.ts
+ * and audiobook-installer.ts, resets module level singleton state that
+ * only the real adapter has, a lazily loaded KokoroTTS instance and a soft
+ * concurrency queue. audiobook-installer.ts says outright in its own
+ * comment that this seam is not part of the public API contract. A fake
+ * has no such singleton to reset, and a contract every implementation must
+ * satisfy cannot include a method that only one implementation needs, so
+ * __testing stays an adapter only test seam and is not part of this port.
  */
 
 /** What the installer still needs to download, and roughly how many bytes. Mirrors MissingComponents in audiobook-installer.ts. */
