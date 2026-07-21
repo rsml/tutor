@@ -6,6 +6,8 @@ Books suggested and generated just for you based on your feedback, quiz results,
 
 Talks about this project live in [rsml/talks](https://github.com/rsml/talks).
 
+Reading the code? Start at [ARCHITECTURE.md](ARCHITECTURE.md). The vocabulary is in [CONTEXT.md](CONTEXT.md) and the decisions, with what each one cost, are in [docs/adr/](docs/adr/README.md).
+
 <p align="center">
   <img src="docs/screenshots/library.png" alt="Tutor library showing AI-generated books with custom covers" width="100%">
 </p>
