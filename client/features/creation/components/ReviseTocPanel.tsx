@@ -114,6 +114,7 @@ export function ReviseTocPanel({ open, onClose, onSubmit, submitting }: ReviseTo
           <button
             onClick={handleSubmit}
             disabled={!feedback.trim() || submitting}
+            aria-label="Send revision"
             className="rounded-md p-1 text-content-muted transition-colors hover:text-content-primary disabled:opacity-30"
           >
             {submitting ? <Loader2 className="size-4 animate-spin" /> : <SendHorizontal className="size-4" />}
