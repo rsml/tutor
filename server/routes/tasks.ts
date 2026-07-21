@@ -1,9 +1,11 @@
 import type { FastifyInstance } from 'fastify'
-import * as taskManager from '../services/task-manager.js'
+import type { Ports } from '../composition-root.js'
 
-export async function taskRoutes(fastify: FastifyInstance) {
+export async function taskRoutes(fastify: FastifyInstance, opts: { ports: Ports }) {
+  const { ports } = opts
+
   fastify.get('/api/tasks', async () => {
-    return taskManager.listTasks()
+    return ports.backgroundTasks.list()
   })
 
   fastify.get('/api/tasks/stream', async (request, reply) => {
@@ -15,13 +17,13 @@ export async function taskRoutes(fastify: FastifyInstance) {
       })
 
       // Send current tasks as initial state
-      const currentTasks = taskManager.listTasks()
+      const currentTasks = ports.backgroundTasks.list()
       for (const task of currentTasks) {
         reply.raw.write(`data: ${JSON.stringify({ type: 'task_created', task })}\n\n`)
       }
 
       let ended = false
-      const unsubscribe = taskManager.subscribeGlobal((event) => {
+      const unsubscribe = ports.backgroundTasks.subscribe((event) => {
         if (ended) return
         reply.raw.write(`data: ${JSON.stringify(event)}\n\n`)
       })
@@ -50,7 +52,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const success = taskManager.cancelTask(request.params.taskId)
+      const success = ports.backgroundTasks.cancel(request.params.taskId)
       if (!success) {
         return reply.status(404).send({ error: 'Task not found or not cancellable' })
       }
