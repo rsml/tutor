@@ -9,7 +9,14 @@ import { apiUrl } from './http'
  * version tag that keeps a regenerated file from being served from cache.
  */
 
-/** Cover image for a book, tagged with the moment the cover last changed. */
+/**
+ * Cover image for a book, tagged with the moment the cover last changed.
+ *
+ * The tag is deliberately not percent encoded here while the audiobook one
+ * below is. Both are only cache keys that the server ignores, and normalising
+ * them would change every cover URL in every install for no gain, so the
+ * difference is left as it is on purpose rather than by oversight.
+ */
 export function coverUrl(book: { id: string; coverUpdatedAt?: string }): string {
   return apiUrl(`/api/books/${book.id}/cover?v=${book.coverUpdatedAt ?? ''}`)
 }
