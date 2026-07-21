@@ -20,7 +20,7 @@ import type { Ports } from '../composition-root.js'
  */
 export async function suggestionRoutes(fastify: FastifyInstance, { ports }: { ports: Ports }) {
   const suggestNextBook = createSuggestNextBook({ books: ports.bookRepository, textGeneration: ports.textGeneration })
-  const suggestBookDetails = createSuggestBookDetails({ textGeneration: ports.textGeneration })
+  const suggestBookDetails = createSuggestBookDetails({ books: ports.bookRepository, textGeneration: ports.textGeneration })
   const suggestProfileUpdates = createSuggestProfileUpdates({ books: ports.bookRepository, textGeneration: ports.textGeneration })
 
   fastify.post<{ Body: unknown }>(

@@ -1,17 +1,16 @@
 import { z } from 'zod'
 import { DEFAULT_PROVIDER, type ProviderId } from '@shared/provider.js'
+import type { BookRepository } from '../ports/book-repository.js'
 import type { TextGeneration } from '../ports/text-generation.js'
-import { buildProfileContext } from '../domain/profile-context.js'
+import { getProfileContext } from './profile-context.js'
 
 /**
  * Suggests specific focus areas and goals for a book topic, tailored to the
- * reader's learning profile. Has no BookRepository dependency of its own —
- * buildProfileContext() still reads the profile through the book-store.js
- * shim internally, since that function belongs to a sibling slice and is
- * not converted to a port here.
+ * reader's learning profile.
  */
 
 export interface SuggestBookDetailsDeps {
+  books: BookRepository
   textGeneration: TextGeneration
 }
 
@@ -28,7 +27,7 @@ export interface BookDetailsSuggestion {
 export function createSuggestBookDetails(deps: SuggestBookDetailsDeps) {
   return async function suggestBookDetails(req: SuggestBookDetailsRequest): Promise<BookDetailsSuggestion> {
     const { topic, model, provider } = req
-    const profileContext = await buildProfileContext()
+    const profileContext = await getProfileContext(deps.books)
 
     return deps.textGeneration.generateObject({
       model: { provider: provider ?? DEFAULT_PROVIDER, model },

@@ -3,7 +3,7 @@ import { DEFAULT_PROVIDER, type ProviderId } from '@shared/provider.js'
 import type { Toc } from '@shared/domain.js'
 import type { BookRepository } from '../ports/book-repository.js'
 import type { TextGeneration } from '../ports/text-generation.js'
-import { buildProfileContext } from '../domain/profile-context.js'
+import { getProfileContext } from './profile-context.js'
 import { formatSkillProgress } from '../domain/skill-progress-report.js'
 import { summarizeBookEvidence, type ClientChapterQuizHistory } from '../domain/learning-evidence.js'
 
@@ -38,7 +38,7 @@ export function createSuggestNextBook(deps: SuggestNextBookDeps) {
     const { model, provider, quizHistory, mode } = req
 
     const allBooks = await deps.books.listBooks()
-    const profileContext = await buildProfileContext()
+    const profileContext = await getProfileContext(deps.books)
     const profileUpdatedAt = await deps.books.getProfileUpdatedAt()
     const skillProgress = await deps.books.getSkillProgress()
     const skillProgressContext = formatSkillProgress(skillProgress)

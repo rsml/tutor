@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import * as store from '../services/book-store.js'
 import type { LearningProfile } from '@shared/domain.js'
+import { createFakeBookRepository } from '../ports/book-repository.fake.js'
 import { createFakeTextGeneration } from '../ports/text-generation.fake.js'
 import { createSuggestBookDetails } from './suggest-book-details.js'
 
@@ -24,33 +24,26 @@ describe('createSuggestBookDetails', () => {
     const textGeneration = createFakeTextGeneration()
     textGeneration.scriptGenerateObject({ details: 'Focus on ownership and borrowing first.' })
 
-    const suggestBookDetails = createSuggestBookDetails({ textGeneration })
+    const suggestBookDetails = createSuggestBookDetails({ books: createFakeBookRepository(), textGeneration })
     const result = await suggestBookDetails({ topic: 'Rust for Rubyists', model: 'claude-x' })
 
     expect(result).toEqual({ details: 'Focus on ownership and borrowing first.' })
     expect(textGeneration.requests.generateObject[0].prompt).toContain('Rust for Rubyists')
   })
 
-  // Order matters for these next two: setup-env.ts gives the whole test
-  // FILE one temp data directory (not one per `it`), so the "no profile
-  // saved" case must run before anything in this file saves a profile.
   it('falls back to "No profile available." when no profile has been saved', async () => {
     const textGeneration = createFakeTextGeneration()
     textGeneration.scriptGenerateObject({ details: 'x' })
 
-    const suggestBookDetails = createSuggestBookDetails({ textGeneration })
+    const suggestBookDetails = createSuggestBookDetails({ books: createFakeBookRepository(), textGeneration })
     await suggestBookDetails({ topic: 'Topic', model: 'claude-x' })
 
     expect(textGeneration.requests.generateObject[0].prompt).toContain('=== LEARNER PROFILE ===\nNo profile available.')
   })
 
   it('includes the reader\'s learning profile context in the prompt', async () => {
-    // buildProfileContext() reads the profile through the book-store.js shim
-    // internally (not yet converted to a port — a sibling slice owns that
-    // change). Seeding a real profile through the same shim is the only way
-    // to prove profileContext's actual value reaches the prompt rather than
-    // just its "no profile saved" fallback text.
-    await store.saveProfile({
+    const books = createFakeBookRepository()
+    await books.saveProfile({
       style: 'Concise, example-driven',
       identity: 'A backend engineer curious about Rust.',
       preferences: FULL_PREFERENCES,
@@ -60,7 +53,7 @@ describe('createSuggestBookDetails', () => {
     const textGeneration = createFakeTextGeneration()
     textGeneration.scriptGenerateObject({ details: 'x' })
 
-    const suggestBookDetails = createSuggestBookDetails({ textGeneration })
+    const suggestBookDetails = createSuggestBookDetails({ books, textGeneration })
     await suggestBookDetails({ topic: 'Topic', model: 'claude-x' })
 
     const { prompt } = textGeneration.requests.generateObject[0]
@@ -72,7 +65,7 @@ describe('createSuggestBookDetails', () => {
     const textGeneration = createFakeTextGeneration()
     textGeneration.scriptGenerateObject({ details: 'x' })
 
-    const suggestBookDetails = createSuggestBookDetails({ textGeneration })
+    const suggestBookDetails = createSuggestBookDetails({ books: createFakeBookRepository(), textGeneration })
     await suggestBookDetails({ topic: 'Topic', model: 'claude-x' })
 
     expect(textGeneration.requests.generateObject[0].model).toEqual({ provider: 'anthropic', model: 'claude-x' })
@@ -82,7 +75,7 @@ describe('createSuggestBookDetails', () => {
     const textGeneration = createFakeTextGeneration()
     textGeneration.scriptGenerateObject({ details: 'x' })
 
-    const suggestBookDetails = createSuggestBookDetails({ textGeneration })
+    const suggestBookDetails = createSuggestBookDetails({ books: createFakeBookRepository(), textGeneration })
     await suggestBookDetails({ topic: 'Topic', model: 'gpt-x', provider: 'openai' })
 
     expect(textGeneration.requests.generateObject[0].model).toEqual({ provider: 'openai', model: 'gpt-x' })

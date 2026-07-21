@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest'
-import * as store from '../services/book-store.js'
 import type { BookMeta, LearningProfile } from '@shared/domain.js'
 import { createFakeBookRepository } from '../ports/book-repository.fake.js'
 import { createFakeTextGeneration } from '../ports/text-generation.fake.js'
@@ -31,10 +30,6 @@ const FULL_PREFERENCES: LearningProfile['preferences'] = {
 }
 
 describe('createSuggestNextBook', () => {
-  // Order matters here: setup-env.ts gives this whole test FILE one temp
-  // data directory, so any test relying on "no profile saved yet" must run
-  // before the one test below that saves a profile through the shim.
-
   it('falls back to "No books or quiz data yet." and "No profile available." with nothing recorded', async () => {
     const books = createFakeBookRepository()
     const textGeneration = createFakeTextGeneration()
@@ -144,25 +139,17 @@ describe('createSuggestNextBook', () => {
   })
 
   it('includes the reader\'s learning profile context and last-updated date in the prompt', async () => {
-    // buildProfileContext() reads the profile through the book-store.js shim
-    // internally (a sibling slice owns the eventual signature change to take
-    // a LearningProfile parameter instead). Seeding a real profile through
-    // the same shim is the only way to prove profileContext's actual value,
-    // not just its fallback text, reaches the prompt. profileUpdatedAt, by
-    // contrast, already comes from the injected BookRepository port, so it
-    // has to be seeded on the fake separately — in production both paths
-    // read the same real files, but in this test they are deliberately two
-    // different stores, which is exactly the transitional seam the
-    // orchestrator's note anticipated.
-    await store.saveProfile({
+    // getProfileContext(deps.books) and deps.books.getProfileUpdatedAt() both
+    // read the same injected BookRepository now, so one seed on the fake
+    // proves both the profile's actual value and its last-updated date reach
+    // the prompt.
+    const books = createFakeBookRepository()
+    await books.saveProfile({
       style: 'Concise, example-driven',
       identity: 'A backend engineer curious about Rust.',
       preferences: FULL_PREFERENCES,
       skills: [],
     })
-
-    const books = createFakeBookRepository()
-    await books.saveProfile({ style: '', identity: '', preferences: FULL_PREFERENCES, skills: [] })
     const textGeneration = createFakeTextGeneration()
     textGeneration.scriptGenerateObject({ topic: 'T', details: 'D', reasoning: 'R' })
 

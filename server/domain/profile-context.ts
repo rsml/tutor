@@ -1,5 +1,4 @@
 import type { LearningProfile } from '@shared/domain.js'
-import * as store from '../services/book-store.js'
 
 export const DEPTH_LABELS = ['high-level overview', 'light coverage', 'balanced depth', 'detailed', 'comprehensive deep-dive']
 export const PACE_LABELS = ['very deliberate pace', 'measured pace', 'moderate pace', 'brisk pace', 'very fast pace']
@@ -17,10 +16,6 @@ export const FORMALITY_LABELS = ['very casual', 'casual', 'balanced formality', 
  * that: it reads the profile and swallows the "not found" case into an
  * empty string for every generation service under server/services/ that
  * needs one.
- *
- * This is the phase-plan name for this function. buildProfileContext below
- * is the pre-existing, book-store-shim-backed version kept only for
- * server/routes/suggestions.ts, which has not migrated onto this one yet.
  */
 export function describeLearningProfile(profile: LearningProfile): string {
   const parts: string[] = []
@@ -58,21 +53,4 @@ export function describeLearningProfile(profile: LearningProfile): string {
   }
 
   return parts.join('\n')
-}
-
-/**
- * @deprecated Shim-backed form kept only until server/routes/suggestions.ts
- * (a sibling slice's file) migrates its two call sites onto
- * describeLearningProfile(profile), reading the profile through
- * ports.bookRepository.getProfile() itself. Goes away with the book-store
- * shim it reads through. Every other caller in this codebase already uses
- * describeLearningProfile above; do not add new callers of this one.
- */
-export async function buildProfileContext(): Promise<string> {
-  try {
-    const profile = await store.getProfile()
-    return describeLearningProfile(profile)
-  } catch {
-    return ''
-  }
 }
