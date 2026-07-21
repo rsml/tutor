@@ -16,6 +16,24 @@ import type { FakeTextGeneration } from './text-generation.fake.js'
  * because this port never gets a real adapter, there is no future subject
  * that would need the narrower type.
  */
+
+/**
+ * The extra scripting surface the failure taxonomy block below needs, kept
+ * as its own local type instead of added to FakeTextGeneration itself.
+ * FakeTextGeneration is not guaranteed to grow these two methods, so this
+ * contract detects them structurally at runtime, `'scriptFailure' in
+ * subject`, and this type only describes what that detection unlocks once
+ * it succeeds.
+ */
+interface FailureScriptable {
+  scriptFailure(error: unknown): void
+  scriptStreamFailure(error: unknown, opts?: { afterChunks?: string[] }): void
+}
+
+function canScriptFailures(subject: FakeTextGeneration): subject is FakeTextGeneration & FailureScriptable {
+  return 'scriptFailure' in subject && 'scriptStreamFailure' in subject
+}
+
 export function describeTextGenerationContract(
   label: string,
   makeSubject: () => FakeTextGeneration | Promise<FakeTextGeneration>,
@@ -210,6 +228,52 @@ export function describeTextGenerationContract(
 
         expect(textGen.requests.runToolConversation[0].messages).toEqual([{ role: 'user', content: 'I like code examples' }])
         expect(textGen.requests.runToolConversation[0].system).toBe('Interview the reader.')
+      })
+    })
+
+    describe('failure taxonomy', () => {
+      const schema = z.object({ questions: z.array(z.string()) })
+
+      it('propagates a scripted failure out of generateObject with its kind, reason, and retryable intact', async () => {
+        const textGen = await makeSubject()
+        if (!canScriptFailures(textGen)) return // this subject carries no failure injection surface, see FailureScriptable above
+
+        const scripted = { name: 'TextGenerationError', message: 'rate limited', kind: 'rate-limited', reason: 'rate limited', retryable: true }
+        textGen.scriptFailure(scripted)
+
+        await expect(textGen.generateObject({ model, schema, prompt: 'x' })).rejects.toMatchObject({
+          kind: 'rate-limited',
+          reason: 'rate limited',
+          retryable: true,
+        })
+      })
+
+      it('rejects on the first iteration when a scripted stream failure has no chunks before it', async () => {
+        const textGen = await makeSubject()
+        if (!canScriptFailures(textGen)) return
+
+        const scripted = { name: 'TextGenerationError', message: 'boom', kind: 'unknown', reason: 'boom', retryable: false }
+        textGen.scriptStreamFailure(scripted, { afterChunks: [] })
+
+        const iterator = textGen.streamText({ model, prompt: 'x' })[Symbol.asyncIterator]()
+        await expect(iterator.next()).rejects.toMatchObject({ kind: 'unknown' })
+      })
+
+      it('yields every chunk scripted before a stream failure, then throws, with no chunk duplicated', async () => {
+        const textGen = await makeSubject()
+        if (!canScriptFailures(textGen)) return
+
+        const scripted = { name: 'TextGenerationError', message: 'overloaded', kind: 'overloaded', reason: 'overloaded', retryable: true }
+        textGen.scriptStreamFailure(scripted, { afterChunks: ['a', 'b'] })
+
+        const received: string[] = []
+        await expect((async () => {
+          for await (const chunk of textGen.streamText({ model, prompt: 'x' })) {
+            received.push(chunk)
+          }
+        })()).rejects.toMatchObject({ kind: 'overloaded' })
+
+        expect(received).toEqual(['a', 'b'])
       })
     })
   })
