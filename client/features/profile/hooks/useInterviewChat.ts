@@ -1,17 +1,13 @@
 import { useCallback, useRef, useState } from 'react'
-import { apiUrl } from '@client/api/http'
+import { streamInterview, type InterviewValue, type ProfileResponse } from '@client/api'
+import type { ProviderId } from '@client/lib/providers'
 import type { ChatMessage } from '@client/features/chat/hooks/useStreamingChat'
 
-interface ProfileResult {
-  aboutMe: string
-  preferences: Record<string, boolean | number>
-}
-
-export function useInterviewChat({ model, provider }: { model: string; provider: string }) {
+export function useInterviewChat({ model, provider }: { model: string; provider: ProviderId }) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
-  const [profileResult, setProfileResult] = useState<ProfileResult | null>(null)
+  const [profileResult, setProfileResult] = useState<ProfileResponse | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
   const sendMessage = useCallback(async (userMessage: string) => {
@@ -26,74 +22,24 @@ export function useInterviewChat({ model, provider }: { model: string; provider:
     const controller = new AbortController()
     abortRef.current = controller
 
+    const handleValue = (value: InterviewValue) => {
+      if (value.type === 'text') {
+        setMessages(prev => {
+          const updated = [...prev]
+          const last = updated[updated.length - 1]
+          if (last.role === 'assistant') {
+            updated[updated.length - 1] = { ...last, content: last.content + value.content }
+          }
+          return updated
+        })
+      } else {
+        setProfileResult(value.profile)
+        setIsComplete(true)
+      }
+    }
+
     try {
-      const res = await fetch(apiUrl('/api/profile/interview'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, provider, userMessage, history }),
-        signal: controller.signal,
-      })
-
-      if (!res.ok || !res.body) {
-        throw new Error(`Interview request failed: ${res.status}`)
-      }
-
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() ?? ''
-
-        for (const line of lines) {
-          if (!line.trim()) continue
-          try {
-            const parsed = JSON.parse(line)
-            if (parsed.type === 'text') {
-              setMessages(prev => {
-                const updated = [...prev]
-                const last = updated[updated.length - 1]
-                if (last.role === 'assistant') {
-                  updated[updated.length - 1] = { ...last, content: last.content + parsed.content }
-                }
-                return updated
-              })
-            } else if (parsed.type === 'profile_complete') {
-              setProfileResult(parsed.profile)
-              setIsComplete(true)
-            }
-          } catch {
-            // skip unparseable lines
-          }
-        }
-      }
-
-      // Process any remaining buffer
-      if (buffer.trim()) {
-        try {
-          const parsed = JSON.parse(buffer)
-          if (parsed.type === 'text') {
-            setMessages(prev => {
-              const updated = [...prev]
-              const last = updated[updated.length - 1]
-              if (last.role === 'assistant') {
-                updated[updated.length - 1] = { ...last, content: last.content + parsed.content }
-              }
-              return updated
-            })
-          } else if (parsed.type === 'profile_complete') {
-            setProfileResult(parsed.profile)
-            setIsComplete(true)
-          }
-        } catch {
-          // ignore
-        }
-      }
+      await streamInterview({ model, provider, userMessage, history }, handleValue, controller.signal)
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
         setMessages(prev => {

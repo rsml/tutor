@@ -5,19 +5,8 @@ import { ProfileDiffView, type DiffChange } from '@client/features/profile/compo
 import { ProfileEditView } from '@client/features/profile/components/ProfileEditView'
 import { type Skill, type Preferences, BOOL_PREF_LABELS, SLIDER_PREFS, DEFAULT_PREFS } from '@client/lib/profile-constants'
 import { useAppSelector, selectFunctionModel } from '@client/store'
-import { apiUrl } from '@client/api/http'
+import { getProfile, getProfileSuggestions, saveProfile, type ProfileSuggestions } from '@client/api'
 import { cn } from '@client/lib/utils'
-
-interface ProfileSuggestions {
-  rationale: string
-  skills: {
-    added: Array<{ name: string; level: number }>
-    removed: string[]
-    updated: Array<{ name: string; oldLevel: number; newLevel: number }>
-  }
-  preferences: Array<{ key: string; oldValue: boolean | number; newValue: boolean | number }>
-  aboutMe: string
-}
 
 interface CurrentProfile {
   aboutMe: string
@@ -56,23 +45,16 @@ export function ProfileUpdatePage({ bookId, bookTitle, onComplete }: {
     async function load() {
       try {
         // Fetch current profile
-        const profileRes = await fetch(apiUrl('/api/profile'))
-        const profileData = await profileRes.json()
+        const profileData = await getProfile()
         const profile: CurrentProfile = {
-          aboutMe: profileData.aboutMe ?? profileData.identity ?? '',
+          aboutMe: profileData.aboutMe ?? '',
           skills: profileData.skills ?? [],
           preferences: { ...DEFAULT_PREFS, ...profileData.preferences },
         }
         if (!cancelled) setCurrentProfile(profile)
 
         // Fetch AI suggestions
-        const suggestRes = await fetch(apiUrl(`/api/books/${bookId}/profile-suggestions`), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model, provider }),
-        })
-        if (!suggestRes.ok) throw new Error('Failed to generate suggestions')
-        const suggestData = await suggestRes.json()
+        const suggestData = await getProfileSuggestions(bookId, { model, provider })
         if (!cancelled) {
           setSuggestions(suggestData)
           setLoading(false)
@@ -199,14 +181,10 @@ export function ProfileUpdatePage({ bookId, bookTitle, onComplete }: {
     if (!finalProfile) return
     setSaving(true)
     try {
-      await fetch(apiUrl('/api/profile'), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          aboutMe: finalProfile.aboutMe.trim(),
-          preferences: finalProfile.preferences,
-          skills: finalProfile.skills,
-        }),
+      await saveProfile({
+        aboutMe: finalProfile.aboutMe.trim(),
+        preferences: finalProfile.preferences,
+        skills: finalProfile.skills,
       })
       onComplete()
     } catch {

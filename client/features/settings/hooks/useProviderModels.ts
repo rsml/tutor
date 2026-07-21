@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { useAppDispatch, useAppSelector, selectProviderModels, providerModelsLoading, providerModelsSuccess, providerModelsError } from '@client/store'
 import { PROVIDERS, IMAGE_MODELS, type ProviderId, type ModelOption } from '@client/lib/providers'
-import { apiUrl } from '@client/api/http'
+import { getProviderModels } from '@client/api'
 
 interface UseProviderModelsResult {
   chat: ModelOption[]
@@ -30,11 +30,7 @@ export function useProviderModels(provider: ProviderId): UseProviderModelsResult
     if (inflight.has(provider)) return
     inflight.add(provider)
     dispatch(providerModelsLoading(provider))
-    fetch(apiUrl(`/api/providers/${provider}/models`))
-      .then(async res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.json() as Promise<{ chat: ModelOption[]; image: ModelOption[] }>
-      })
+    getProviderModels(provider)
       .then(data => {
         dispatch(providerModelsSuccess({ provider, chat: data.chat, image: data.image }))
       })

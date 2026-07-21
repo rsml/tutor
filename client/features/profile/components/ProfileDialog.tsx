@@ -10,7 +10,8 @@ import {
   DialogTitle,
 } from '@client/components/ui/dialog'
 import { TickSlider } from '@client/components/ui/tick-slider'
-import { apiUrl } from '@client/api/http'
+import { saveProfile } from '@client/api'
+import { useLearningProfile } from '@client/features/profile/hooks/useLearningProfile'
 import { type Skill, type Preferences, BOOL_PREF_LABELS, BOOL_KEYS, SLIDER_PREFS, DEFAULT_PREFS } from '@client/lib/profile-constants'
 
 interface ProfileDialogProps {
@@ -27,6 +28,7 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkil
   const [saving, setSaving] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  const { refresh } = useLearningProfile()
 
   useEffect(() => {
     if (!open) {
@@ -35,25 +37,18 @@ export function ProfileDialog({ open, onOpenChange, onStartInterview, onOpenSkil
     }
     // Always re-fetch when opening
     setLoaded(false)
-    fetch(apiUrl('/api/profile'))
-      .then(res => res.json())
-      .then(data => {
-        if (data.aboutMe) setAboutMe(data.aboutMe)
-        if (data.preferences) setPreferences(prev => ({ ...prev, ...data.preferences }))
-        if (data.skills) setSkills(data.skills)
-        setLoaded(true)
-      })
-      .catch(() => setLoaded(true))
-  }, [open])
+    refresh().then(data => {
+      if (data?.aboutMe) setAboutMe(data.aboutMe)
+      if (data?.preferences) setPreferences(prev => ({ ...prev, ...data.preferences }))
+      if (data?.skills) setSkills(data.skills)
+      setLoaded(true)
+    })
+  }, [open, refresh])
 
   const handleSave = async () => {
     setSaving(true)
     try {
-      await fetch(apiUrl('/api/profile'), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ aboutMe: aboutMe.trim(), preferences, skills }),
-      })
+      await saveProfile({ aboutMe: aboutMe.trim(), preferences, skills })
       onOpenChange(false)
     } catch {
       // silent
