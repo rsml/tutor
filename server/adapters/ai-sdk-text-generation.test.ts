@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { LanguageModel } from 'ai'
 import { AI_GENERATION_TIMEOUT_MS } from '../constants.js'
 import { createFakeKeyVault } from '../ports/key-vault.fake.js'
+import { TextGenerationError } from '../ports/text-generation.js'
 import { composeAbortSignal, resolveModelClient } from './ai-sdk-text-generation.js'
 
 // resolveModelClient's return type, LanguageModel, is a union that also
@@ -50,6 +51,21 @@ describe('resolveModelClient', () => {
       .toThrow('No API key configured for provider: anthropic')
   })
 
+  it('throws a TextGenerationError with kind auth-failed for a missing key, not a plain Error', () => {
+    const keyVault = createFakeKeyVault()
+    let caught: unknown
+
+    try {
+      resolveModelClient(keyVault, 'anthropic', 'claude-sonnet-4-6')
+    } catch (err) {
+      caught = err
+    }
+
+    expect(caught).toBeInstanceOf(TextGenerationError)
+    expect((caught as TextGenerationError).kind).toBe('auth-failed')
+    expect((caught as TextGenerationError).retryable).toBe(false)
+  })
+
   it('resolves an anthropic model client once a key is present', () => {
     const keyVault = createFakeKeyVault({ anthropic: 'sk-test-dummy' })
 
@@ -80,18 +96,18 @@ describe('resolveModelClient', () => {
 
 describe('composeAbortSignal', () => {
   it('is not aborted when neither the caller signal nor the timeout has fired', () => {
-    const combined = composeAbortSignal(undefined, AI_GENERATION_TIMEOUT_MS)
+    const { signal } = composeAbortSignal(undefined, AI_GENERATION_TIMEOUT_MS)
 
-    expect(combined.aborted).toBe(false)
+    expect(signal.aborted).toBe(false)
   })
 
   it('aborts the composed signal when the caller signal aborts', () => {
     const controller = new AbortController()
-    const combined = composeAbortSignal(controller.signal, AI_GENERATION_TIMEOUT_MS)
+    const { signal } = composeAbortSignal(controller.signal, AI_GENERATION_TIMEOUT_MS)
 
-    expect(combined.aborted).toBe(false)
+    expect(signal.aborted).toBe(false)
     controller.abort()
-    expect(combined.aborted).toBe(true)
+    expect(signal.aborted).toBe(true)
   })
 
   // AbortSignal.timeout()'s countdown runs on the runtime's own native
@@ -105,19 +121,36 @@ describe('composeAbortSignal', () => {
   // AI_GENERATION_TIMEOUT_MS default.
 
   it('aborts the composed signal on its own once the internal timeout elapses', async () => {
-    const combined = composeAbortSignal(undefined, 10)
+    const { signal } = composeAbortSignal(undefined, 10)
 
-    expect(combined.aborted).toBe(false)
+    expect(signal.aborted).toBe(false)
     await new Promise((resolve) => setTimeout(resolve, 50))
-    expect(combined.aborted).toBe(true)
+    expect(signal.aborted).toBe(true)
   })
 
   it('aborts on its own timeout even when a caller signal is provided and never fires', async () => {
     const controller = new AbortController()
-    const combined = composeAbortSignal(controller.signal, 10)
+    const { signal } = composeAbortSignal(controller.signal, 10)
 
     await new Promise((resolve) => setTimeout(resolve, 50))
 
-    expect(combined.aborted).toBe(true)
+    expect(signal.aborted).toBe(true)
+  })
+
+  it('exposes the bare timeout signal separately, so a caller can tell a timeout apart from its own cancellation', async () => {
+    const { timeoutSignal } = composeAbortSignal(undefined, 10)
+
+    expect(timeoutSignal.aborted).toBe(false)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(timeoutSignal.aborted).toBe(true)
+  })
+
+  it('does not abort the timeout signal when only the caller cancels', () => {
+    const controller = new AbortController()
+    const { timeoutSignal } = composeAbortSignal(controller.signal, AI_GENERATION_TIMEOUT_MS)
+
+    controller.abort()
+
+    expect(timeoutSignal.aborted).toBe(false)
   })
 })
