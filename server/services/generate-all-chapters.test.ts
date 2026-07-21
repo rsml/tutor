@@ -14,6 +14,7 @@ const idleChapterStream: ChapterGenerationStream = {
   getStatus: () => ({ active: false }),
   subscribe: () => () => {},
   startGeneration: () => {},
+  seedInterrupted: () => {},
 }
 
 /** A stub GenerateNextChapter whose per-call behaviour is scripted per chapter number. */

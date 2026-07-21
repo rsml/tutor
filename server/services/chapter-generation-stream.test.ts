@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from 'vitest'
 import type { BookMeta } from '@shared/domain.js'
 import type { GenerateChapterEvent } from '@shared/events.js'
 import { createFakeBookRepository } from '../ports/book-repository.fake.js'
+import { createFakeJobJournal } from '../ports/job-journal.fake.js'
+import { createFakeClock } from '../ports/clock.fake.js'
+import { GENERATION_STREAM_CLEANUP_MS } from '../constants.js'
 import { createChapterGenerationStream } from './chapter-generation-stream.js'
 import type { GenerateNextChapterOptions } from './generate-next-chapter.js'
 
@@ -241,5 +244,109 @@ describe('createChapterGenerationStream', () => {
       { type: 'chapter', text: 'final content' },
       { type: 'done', chapterNum: 2 },
     ])
+  })
+
+  describe('seedInterrupted', () => {
+    it('makes getStatus report an active, errored generation carrying the given chapter number and message', () => {
+      const books = createFakeBookRepository()
+      const stream = createChapterGenerationStream({ books, generateNextChapter: makeStubGenerateNextChapter().fn })
+
+      stream.seedInterrupted(BOOK.id, 3, 'Interrupted by restart')
+
+      expect(stream.getStatus(BOOK.id)).toEqual({
+        active: true,
+        chapterNum: 3,
+        stage: 'error',
+        contentLength: 0,
+        error: 'Interrupted by restart',
+      })
+    })
+
+    it('leaves isGenerating false for a seeded state, same as any other errored generation', () => {
+      const books = createFakeBookRepository()
+      const stream = createChapterGenerationStream({ books, generateNextChapter: makeStubGenerateNextChapter().fn })
+
+      stream.seedInterrupted(BOOK.id, 3, 'Interrupted by restart')
+
+      expect(stream.isGenerating(BOOK.id)).toBe(false)
+    })
+
+    // The regression that matters: a state seeded at boot has no subscriber
+    // watching it yet, so unlike every other terminal state it must NOT be
+    // evicted on a timer. A user who does not open this book's reader for
+    // hours must still find the error waiting when they do.
+    it('survives well past GENERATION_STREAM_CLEANUP_MS, unlike a generation that reached a terminal state live', async () => {
+      vi.useFakeTimers()
+      try {
+        const books = createFakeBookRepository()
+        const stream = createChapterGenerationStream({ books, generateNextChapter: makeStubGenerateNextChapter().fn })
+
+        stream.seedInterrupted(BOOK.id, 3, 'Interrupted by restart')
+        await vi.advanceTimersByTimeAsync(GENERATION_STREAM_CLEANUP_MS * 10)
+
+        expect(stream.getStatus(BOOK.id)).toMatchObject({ active: true, stage: 'error' })
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+  })
+
+  describe('job journalling', () => {
+    it('records a generate-chapter job while generation is in flight, and clears it once the generation settles', async () => {
+      const books = createFakeBookRepository()
+      await books.saveBook(BOOK)
+      const stub = makeStubGenerateNextChapter()
+      const journal = createFakeJobJournal()
+      const clock = createFakeClock()
+      const stream = createChapterGenerationStream({ books, generateNextChapter: stub.fn, journal, clock })
+
+      stream.startGeneration(BOOK.id, { model: 'claude-sonnet-4-6', targetChapterNum: 2 })
+      await vi.waitFor(() => expect(stub.fn).toHaveBeenCalled())
+
+      const inFlight = await journal.listInterrupted()
+      expect(inFlight).toHaveLength(1)
+      expect(inFlight[0]).toMatchObject({
+        type: 'generate-chapter',
+        bookId: BOOK.id,
+        bookTitle: BOOK.title,
+        checkpoint: { kind: 'none' },
+        params: { model: 'claude-sonnet-4-6', targetChapterNum: 2 },
+      })
+
+      stub.resolve('the chapter text')
+      await vi.waitFor(async () => {
+        expect(await journal.listInterrupted()).toEqual([])
+      })
+    })
+
+    it('clears the journal record on an error settlement too, not only on success', async () => {
+      const books = createFakeBookRepository()
+      await books.saveBook(BOOK)
+      const stub = makeStubGenerateNextChapter()
+      const journal = createFakeJobJournal()
+      const clock = createFakeClock()
+      const stream = createChapterGenerationStream({ books, generateNextChapter: stub.fn, journal, clock })
+
+      stream.startGeneration(BOOK.id, { model: 'claude-sonnet-4-6' })
+      await vi.waitFor(() => expect(stub.fn).toHaveBeenCalled())
+      expect(await journal.listInterrupted()).toHaveLength(1)
+
+      stub.reject(new Error('model exploded'))
+      await vi.waitFor(async () => {
+        expect(await journal.listInterrupted()).toEqual([])
+      })
+    })
+
+    it('never writes to the journal when none was supplied, the same as every pre-existing test in this file', async () => {
+      const books = createFakeBookRepository()
+      await books.saveBook(BOOK)
+      const stub = makeStubGenerateNextChapter()
+      const stream = createChapterGenerationStream({ books, generateNextChapter: stub.fn })
+
+      expect(() => stream.startGeneration(BOOK.id, { model: 'claude-sonnet-4-6' })).not.toThrow()
+      await vi.waitFor(() => expect(stub.fn).toHaveBeenCalled())
+      stub.resolve('the chapter text')
+      await vi.waitFor(() => expect(stream.isGenerating(BOOK.id)).toBe(false))
+    })
   })
 })

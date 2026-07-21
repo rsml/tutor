@@ -1,6 +1,10 @@
 import type { GenerationStage, GenerationStatus } from '@shared/responses.js'
 import type { GenerateChapterEvent } from '@shared/events.js'
+import type { GenerationJobParams } from '@shared/domain.js'
+import type { ProviderId } from '@shared/provider.js'
 import type { BookRepository } from '../ports/book-repository.js'
+import type { JobJournal } from '../ports/job-journal.js'
+import type { Clock } from '../ports/clock.js'
 import { GENERATION_STREAM_CLEANUP_MS } from '../constants.js'
 import type { GenerateNextChapter, GenerateNextChapterOptions } from './generate-next-chapter.js'
 
@@ -44,11 +48,28 @@ export interface ChapterGenerationStream {
   /** Returns an unsubscribe function. sendBuffered replays already-streamed content as one buffered chapter event on join. */
   subscribe(bookId: string, callback: Subscriber, sendBuffered: boolean): () => void
   startGeneration(bookId: string, options: GenerationOptions): void
+  /**
+   * Seeds a terminal error state for a book at boot, for a generate-chapter
+   * job that was still running when the process died. See the
+   * implementation below for why this deliberately skips scheduleCleanup.
+   */
+  seedInterrupted(bookId: string, chapterNum: number, message: string): void
 }
 
 export function createChapterGenerationStream(deps: {
   books: BookRepository
   generateNextChapter: GenerateNextChapter
+  /**
+   * Both optional, and independently so, purely so the many existing tests
+   * that construct this hub with only {books, generateNextChapter} keep
+   * compiling unchanged. Journalling is additive observability the hub's
+   * own generation flow does not need to function: a caller (or test) that
+   * omits either simply gets a hub that never writes a generate-chapter
+   * record to the job journal, and therefore never has one for
+   * resume-interrupted-jobs.ts to find at the next boot.
+   */
+  journal?: JobJournal
+  clock?: Clock
 }): ChapterGenerationStream {
   const generationStates = new Map<string, GenerationState>()
 
@@ -66,10 +87,46 @@ export function createChapterGenerationStream(deps: {
   }
 
   async function runGeneration(bookId: string, state: GenerationState, options: GenerationOptions): Promise<void> {
+    // Journalled under a fresh id whenever a journal and clock were both
+    // supplied, so a generation still in flight when the process dies can
+    // be found by resume-interrupted-jobs.ts at the next boot. There is no
+    // way to resume a partially streamed chapter with any provider, only to
+    // surface that it was interrupted, which is exactly what that resume
+    // pass does via seedInterrupted below. bookTitle needs the book, which
+    // is not known synchronously in startGeneration, so the record is
+    // written here, right after the getBook call this function already has
+    // to make, rather than before runGeneration is even invoked. The record
+    // and its clearing both live in this one function, in a try/finally, so
+    // every exit path below (the "already generated" guard, a clean finish,
+    // or a caught failure) leaves nothing behind once this promise settles.
+    const jobId = deps.journal && deps.clock ? deps.clock.newId() : undefined
+
     try {
       const meta = await deps.books.getBook(bookId)
       const nextNum = options.targetChapterNum ?? meta.generatedUpTo + 1
       state.chapterNum = nextNum
+
+      if (jobId && deps.journal && deps.clock) {
+        const now = deps.clock.nowIso()
+        // Only these three. Never an API key, this journal is written to
+        // disk unencrypted and a key belongs in KeyVault alone.
+        const params: GenerationJobParams = {
+          ...(options.targetChapterNum !== undefined ? { targetChapterNum: options.targetChapterNum } : {}),
+          ...(options.provider !== undefined ? { provider: options.provider as ProviderId } : {}),
+          ...(options.model !== undefined ? { model: options.model } : {}),
+        }
+        deps.journal.record({
+          id: jobId,
+          type: 'generate-chapter',
+          bookId,
+          bookTitle: meta.title,
+          status: 'running',
+          checkpoint: { kind: 'none' },
+          params,
+          startedAt: now,
+          updatedAt: now,
+        })
+      }
 
       if (nextNum > meta.totalChapters) {
         state.stage = 'error'
@@ -93,6 +150,8 @@ export function createChapterGenerationStream(deps: {
       state.error = error instanceof Error ? error.message : 'Generation failed'
       emit(state, { type: 'error', message: state.error })
       scheduleCleanup(bookId, state)
+    } finally {
+      if (jobId && deps.journal) deps.journal.clear(jobId)
     }
   }
 
@@ -105,7 +164,13 @@ export function createChapterGenerationStream(deps: {
     getStatus(bookId) {
       const state = generationStates.get(bookId)
       if (!state) return { active: false }
-      return { active: true, chapterNum: state.chapterNum, stage: state.stage, contentLength: state.content.length }
+      return {
+        active: true,
+        chapterNum: state.chapterNum,
+        stage: state.stage,
+        contentLength: state.content.length,
+        ...(state.error !== undefined ? { error: state.error } : {}),
+      }
     },
 
     subscribe(bookId, callback, sendBuffered) {
@@ -157,6 +222,31 @@ export function createChapterGenerationStream(deps: {
 
       generationStates.set(bookId, state)
       state.promise = runGeneration(bookId, state, options)
+    },
+
+    seedInterrupted(bookId, chapterNum, message) {
+      // Deliberately does NOT call scheduleCleanup. Every other terminal
+      // state above is scheduled for eviction after
+      // GENERATION_STREAM_CLEANUP_MS (five minutes) because a live client is
+      // already watching it by the time that state is reached, so a short
+      // grace period after the last subscriber leaves is plenty. A state
+      // seeded here at boot has no watcher yet, and the user may not open
+      // this book's reader for hours, so an eviction timer would silently
+      // discard the only record that this chapter's generation failed,
+      // often before anyone ever saw it. Instead it is cleaned up the
+      // ordinary way: the moment a subscriber does join, subscribe()'s
+      // existing terminal-state branch above delivers the error event and
+      // schedules cleanup itself, exactly as it does for a generation that
+      // failed live.
+      const state: GenerationState = {
+        content: '',
+        stage: 'error',
+        chapterNum,
+        subscribers: new Set(),
+        promise: Promise.resolve(),
+        error: message,
+      }
+      generationStates.set(bookId, state)
     },
   }
 }

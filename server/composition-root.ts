@@ -157,6 +157,8 @@ export function createSharedServices(ports: Ports): SharedServices {
     chapterGenerationStream: createChapterGenerationStream({
       books: ports.bookRepository,
       generateNextChapter,
+      journal: ports.jobJournal,
+      clock: ports.clock,
     }),
   }
 }
