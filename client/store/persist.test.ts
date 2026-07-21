@@ -22,12 +22,12 @@ import type { ReadingProgressState } from './readingProgress'
 type Transform = { in: (s: unknown, k: string, full: unknown) => unknown; out: (s: unknown, k: string, full: unknown) => unknown }
 
 function towardsStorage<T>(key: string, subState: T, fullState: Record<string, unknown> = {}): T {
-  return (persistConfig.transforms as Transform[])
+  return (persistConfig.transforms as unknown as Transform[])
     .reduce<unknown>((state, transform) => transform.in(state, key, fullState), subState) as T
 }
 
 function fromStorage<T>(key: string, subState: unknown, fullState: Record<string, unknown> = {}): T {
-  return (persistConfig.transforms as Transform[])
+  return (persistConfig.transforms as unknown as Transform[])
     .reduceRight<unknown>((state, transform) => transform.out(state, key, fullState), subState) as T
 }
 

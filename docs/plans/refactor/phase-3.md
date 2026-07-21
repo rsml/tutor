@@ -12,7 +12,7 @@ Consolidation deltas that modify this plan: shared needs #1 and the raw entity s
 | 2 | `BookSummary` + `BookDetail` (adds `generation: { active, stage, chapterNum }`) | replaces **7** duplicate local `interface Book` (App 50, ReaderPage 37, SeriesStackCard 13, SeriesView 6, BookListView 6, SortableSeriesCard 7, BookListRow 5) |
 | 3 | `Toc`, `TocChapter` | ReaderPage, CreationView, BookOverviewModal, QuizReviewPage |
 | 4 | `QuizQuestion`, `QuizResult`, `ChapterFeedback` | ReaderPage, QuizPanel, store slices |
-| 5 | `GenerationEvent` (move the union out of `lib/parse-sse-stream.ts`; parser stays client-side) | all SSE consumers |
+| 5 | ~~`GenerationEvent`, moved out of `lib/parse-sse-stream.ts` by Phase 3~~ **Corrected during execution.** Phase 2 already landed this and went further, splitting the single loose client union into five per-stream unions in `shared/events.ts`, namely `CreateBookEvent`, `ReviseTocEvent`, `StartBookEvent`, `GenerateChapterEvent` and `TaskEvent`. Phase 3 therefore deletes the client union and consumes those, and the client-side parser becomes generic over the event type. | all SSE consumers |
 | 6 | `TaskType`, `Task`, `TaskEvent` union | useBackgroundTasks, GenerateAllModal, BackgroundTasksFooter, store |
 | 7 | `LearningProfile`, `Preferences`, `Skill` (learner Skill — glossary-disambiguated) | ProfileDialog, SkillsPanel, ProfileUpdatePage, AudiobookSettingsDialog |
 | 8 | `AudiobookManifest`, `BookAudiobookStatus`, `EngineStatus`, `VoiceInfo` | audiobook slice |
@@ -71,7 +71,13 @@ client/
 
 ## 3. Typed API client
 
-`api/http.ts` wraps the existing `tracedFetch` (trace id + one-shot retry + CORS bisection probe) — that logic is preserved verbatim, only relocated. Server already allows `X-Trace-Id` in preflight (`server/index.ts:67`). Add `request<T>(path, {method, body, signal, trace})`, `ApiError { status, message }` (replaces the `res.json().catch(() => ({error}))` block repeated ~20×), and `trace: false` for polling GETs so we don't add a preflight round-trip to the 1s library poll.
+`api/http.ts` wraps the existing `tracedFetch` (trace id + one-shot retry + CORS bisection probe) — that logic is preserved verbatim, only relocated, and the function is renamed `apiFetch` now that it is the only fetch primitive. Server already allows `X-Trace-Id` in preflight (`server/index.ts:67`). Add `request<T>(path, {method, body, signal, trace})`, `ApiError { status, message, body }` (replaces the `res.json().catch(() => ({error}))` block repeated ~20×), and `trace: false` for polling GETs so we don't add a preflight round-trip to the 1s library poll.
+
+**Corrected during execution, three findings that change what this task means.**
+
+1. `tracedFetch` had exactly **one** call site, `CoverGenerationModal:74`. The other 83 sites called bare `fetch(apiUrl(...))`. Routing everything through `request<T>` therefore does change the wire, since every request gains the trace header and the one-shot retry. POSTs already sent `Content-Type: application/json` and were already preflighted, so they cost nothing extra. GETs newly preflight, which is exactly risk 2 below, and the `trace: false` mitigation on the hot polls is what pays for it. The retry only fires when `fetch` itself threw, which on loopback means a refused connection rather than a dropped in-flight request, so it cannot duplicate a side effect the server already performed.
+2. Error messages change in error paths, and this is accepted. Every route answers `{ error }` and none answers `{ message }`, but roughly five call sites read `body?.message || 'Generation failed'` and so always discarded the server's real reason. `ApiError` reads `message`, then `error`, then a caller-supplied fallback, which means those five paths start showing the actual reason. Only ever visible after something has already failed.
+3. `client/lib/api.ts` also holds `SearchResult`, `SearchMatch` and `EpubPreview` type declarations, not just three functions. Those types are replaced by `shared/responses.ts` equivalents when the module is folded into `api/`.
 
 `api/sse.ts`: `streamGeneration(path, init, onEvent)` (fetch + `parseSSEStream`), `subscribeToTasks(handlers)` (EventSource + 3s reconnect), `streamText(path, init, onChunk)` (`/api/chat`), `streamNdjson(path, init, onLine)` (`/api/profile/interview`).
 `api/urls.ts`: `coverUrl(book)`, `audiobookFileUrl(bookId, generatedAt)`, `voicePreviewUrl(voiceId)` — the 6 non-fetch `apiUrl()` sites (App 2157/2179, SeriesView 97, SeriesStackCard 45, ChapterListenButton 87, AudiobookVoiceModal 144, AudiobookSettingsDialog 160).
@@ -162,6 +168,8 @@ Deliberately **not** in the machine, with a comment saying why: `pendingAudioboo
 ## 5. Constants + predicates
 
 `client/lib/constants.ts` (values verbatim from current code): `HEALTH_POLL_MS 10_000` (App:218), `GENERATING_POLL_MS 1_000` (App:421), `EXTERNAL_CHAPTER_POLL_MS 5_000` (ReaderPage:158), `AUDIOBOOK_POLL_MS 4_000` (useChapterAudio:52), `TASK_STREAM_RECONNECT_MS 3_000` (useBackgroundTasks:119), `TASK_ROW_DISMISS_MS 10_000` (BackgroundTasksFooter:57), `API_KEY_DEBOUNCE_MS 200` (SettingsMenu:172), `SKILL_SAVE_DEBOUNCE_MS` (SkillsPanel:37), `SEARCH_FOCUS_DELAY_MS 100` (LibraryToolbar:69,110), `GENERATE_ALL_CLOSE_MS 1_500/1_000` (GenerateAllModal:44,52), `CREATION_ADVANCE_MS 600` (CreationView:104), `COPY_RESET_MS 2_000` (CodeBlock:20), toast durations `12_000/10_000/8_000` (App:383,672,675; WizardModal:693), `DEFAULT_API_PORT 3147`, `HEALTH_PREWARM_ATTEMPTS 30`/`_INTERVAL_MS 50`/`RETRY_DELAY_MS 200`/`PROBE_TIMEOUT_MS 5_000` (api-base), reader scroll `PAGE_SCROLL_FRACTION 2/3`, `LINE_HEIGHT 1.625`, `SMOOTH_SCROLL_MS 320/420/240`, `AT_BOTTOM_EPSILON_PX 40`.
+
+Resolved while writing the module: `SKILL_SAVE_DEBOUNCE_MS` is 300, not the 200 its neighbour uses. The single `GENERATE_ALL_CLOSE_MS` became two constants, `GENERATE_ALL_DONE_CLOSE_MS 1_500` and `GENERATE_ALL_CANCELLED_CLOSE_MS 1_000`, since the two literals mark different outcomes. The three toast durations are named for their situations rather than their lengths, as `AUDIOBOOK_READY_TOAST_MS`, `CLIPBOARD_FALLBACK_TOAST_MS` and `MCP_COMMAND_TOAST_MS`. `LINE_SCROLL_LINES 5` was missing from the list and is included.
 
 ## 6. Ordered tasks
 
