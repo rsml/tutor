@@ -108,6 +108,21 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # The other two jobs set ELECTRON_SKIP_BINARY_DOWNLOAD, and all three
+      # share one pnpm store cache keyed on the lockfile, so whichever of them
+      # saves that cache first can hand this job an electron package whose
+      # postinstall was skipped and whose binary is therefore missing. The
+      # symptom is "Electron failed to install correctly" out of
+      # electron.launch, and because it depends on which parallel job wins the
+      # cache write, it appears as flake rather than as a broken job.
+      #
+      # install.js is the package's own postinstall. It checks the installed
+      # version first and downloads only what is missing, reusing the binary
+      # cache restored above, so running it here is idempotent and costs
+      # nothing when the store cache was clean.
+      - name: Repair the Electron binary if the shared store cache skipped it
+        run: node node_modules/electron/install.js
+
       - run: pnpm e2e --project=electron
 
       - uses: actions/upload-artifact@v4
