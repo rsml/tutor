@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
-import { apiUrl } from '@client/api/http'
+import { streamChat } from '@client/api'
+import type { ProviderId } from '@client/lib/providers'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -9,7 +10,7 @@ export interface ChatMessage {
 
 interface UseStreamingChatOptions {
   model: string
-  provider: string
+  provider: ProviderId
   chapterContent: string
   selectedText: string
   initialMessages?: ChatMessage[]
@@ -20,7 +21,7 @@ export function useStreamingChat({ model, provider, chapterContent, selectedText
   const [isStreaming, setIsStreaming] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
-  const streamChat = useCallback(async (userMessage: string, history: ChatMessage[], msgSelectedText?: string) => {
+  const streamReply = useCallback(async (userMessage: string, history: ChatMessage[], msgSelectedText?: string) => {
     const userMsg: ChatMessage = { role: 'user', content: userMessage }
     if (msgSelectedText) userMsg.selectedText = msgSelectedText
     setMessages([...history, userMsg, { role: 'assistant', content: '' }])
@@ -30,41 +31,27 @@ export function useStreamingChat({ model, provider, chapterContent, selectedText
     abortRef.current = controller
 
     try {
-      const res = await fetch(apiUrl('/api/chat'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      await streamChat(
+        {
           model,
           provider,
           chapterContent,
           selectedText,
           userMessage,
           history: history.map(m => ({ role: m.role, content: m.content })),
-        }),
-        signal: controller.signal,
-      })
-
-      if (!res.ok || !res.body) {
-        throw new Error(`Chat request failed: ${res.status}`)
-      }
-
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        const text = decoder.decode(value, { stream: true })
-        setMessages(prev => {
-          const updated = [...prev]
-          const last = updated[updated.length - 1]
-          if (last.role === 'assistant') {
-            updated[updated.length - 1] = { ...last, content: last.content + text }
-          }
-          return updated
-        })
-      }
+          signal: controller.signal,
+        },
+        text => {
+          setMessages(prev => {
+            const updated = [...prev]
+            const last = updated[updated.length - 1]
+            if (last.role === 'assistant') {
+              updated[updated.length - 1] = { ...last, content: last.content + text }
+            }
+            return updated
+          })
+        },
+      )
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
         setMessages(prev => {
@@ -86,13 +73,13 @@ export function useStreamingChat({ model, provider, chapterContent, selectedText
 
   const sendMessage = useCallback(async (userMessage: string, msgSelectedText?: string) => {
     if (isStreaming) return
-    streamChat(userMessage, [...messages], msgSelectedText)
-  }, [isStreaming, messages, streamChat])
+    streamReply(userMessage, [...messages], msgSelectedText)
+  }, [isStreaming, messages, streamReply])
 
   const restartChat = useCallback((userMessage: string, msgSelectedText?: string) => {
     abortRef.current?.abort()
-    streamChat(userMessage, [], msgSelectedText)
-  }, [streamChat])
+    streamReply(userMessage, [], msgSelectedText)
+  }, [streamReply])
 
   const clearMessages = useCallback(() => {
     abortRef.current?.abort()
