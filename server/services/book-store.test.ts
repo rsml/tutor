@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtemp, rm, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -6,17 +6,16 @@ import { writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { stringify as stringifyYaml } from 'yaml'
 import type { BookMeta, Feedback, LearningProfile, Quiz, Toc } from '@shared/domain.js'
-
-// Mock getDataDir at module level so book-store ALWAYS uses temp dir.
-// This prevents tests from ever writing to the production data directory.
-let testDir: string
-
-vi.mock('@shared/node/data-dir.js', () => ({
-  getDataDir: () => testDir,
-}))
-
-// Import AFTER mock is set up — vitest hoists vi.mock automatically
 import * as store from './book-store.js'
+
+// book-store.js is a thin shim: every call resolves getDataDir() fresh (see
+// its own doc comment) and builds the real fs adapters over the result, so
+// pointing TUTOR_DATA_DIR at a fresh temp directory per test is enough to
+// isolate every test from the production data directory and from each
+// other. No module mock is needed for that; the real env var the real
+// getDataDir() already reads does the job.
+let testDir: string
+const productionDataDir = process.env.TUTOR_DATA_DIR
 
 describe('book-store', () => {
   const testMeta: BookMeta = {
@@ -62,6 +61,7 @@ describe('book-store', () => {
 
   beforeEach(async () => {
     testDir = await mkdtemp(join(tmpdir(), 'tutor-test-'))
+    process.env.TUTOR_DATA_DIR = testDir
     await mkdir(join(testDir, 'books'), { recursive: true })
 
     // Write a learning profile so getProfile works
@@ -74,6 +74,11 @@ describe('book-store', () => {
 
   afterEach(async () => {
     await rm(testDir, { recursive: true })
+    if (productionDataDir === undefined) {
+      delete process.env.TUTOR_DATA_DIR
+    } else {
+      process.env.TUTOR_DATA_DIR = productionDataDir
+    }
   })
 
   describe('learning profile', () => {
