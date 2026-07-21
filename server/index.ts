@@ -12,13 +12,18 @@ import { modelsRoutes } from './routes/models.js'
 import { audiobookRoutes } from './routes/audiobook.js'
 import { recoverFromCrash } from './services/book-store.js'
 import { registerErrorHandler } from './http/error-handler.js'
-import { DIAGRAM_RENDER_TIMEOUT_MS } from './constants.js'
 import { STATUS_FORBIDDEN, STATUS_NO_CONTENT } from './http/status.js'
+import { createKrokiDiagramRenderer } from './adapters/kroki-diagram-renderer.js'
 
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://localhost:3147',
 ]
+
+// Default mermaid renderer — Electron overrides this decoration at startup
+// with a BrowserWindow-based adapter. This module-scope instance backs the
+// standalone/dev server mode fallback.
+const krokiDiagramRenderer = createKrokiDiagramRenderer()
 
 function isAllowedOrigin(origin: string): boolean {
   if (ALLOWED_ORIGINS.includes(origin)) return true
@@ -89,39 +94,9 @@ export async function buildServer(): Promise<FastifyInstance> {
   })
 
   // Mermaid renderer — Electron sets this to a BrowserWindow-based renderer.
-  // Falls back to kroki.io API for standalone/dev server mode.
+  // Falls back to the kroki.io-backed adapter for standalone/dev server mode.
   // Returns PNG as <img> tags with file:// URLs (epub-gen-memory doesn't support data: URLs).
-  fastify.decorate('mermaidRenderer', (async (charts: string[]) => {
-    const { writeFile: writeFileAsync } = await import('node:fs/promises')
-    const { randomUUID } = await import('node:crypto')
-    const { tmpdir } = await import('node:os')
-    const { join } = await import('node:path')
-    const { pathToFileURL } = await import('node:url')
-    const results: string[] = []
-    for (const chart of charts) {
-      try {
-        const res = await fetch('https://kroki.io/mermaid/png', {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: chart,
-          signal: AbortSignal.timeout(DIAGRAM_RENDER_TIMEOUT_MS),
-        })
-        if (res.ok) {
-          const buf = Buffer.from(await res.arrayBuffer())
-          const tmpFile = join(tmpdir(), `tutor-mermaid-${randomUUID()}.png`)
-          await writeFileAsync(tmpFile, buf)
-          results.push(`<img src="${pathToFileURL(tmpFile).href}" alt="diagram" style="max-width:100%"/>`)
-        } else {
-          console.warn(`[mermaid-renderer] kroki.io returned ${res.status}: ${await res.text().catch(() => '')}`)
-          results.push('')
-        }
-      } catch (err) {
-        console.warn('[mermaid-renderer] kroki.io fallback failed:', err)
-        results.push('')
-      }
-    }
-    return results
-  }) as (charts: string[]) => Promise<string[]>)
+  fastify.decorate('mermaidRenderer', krokiDiagramRenderer.render)
 
   // MUST come before the route plugins below. Fastify only propagates an error
   // handler to encapsulation contexts created after it is set, so registering
