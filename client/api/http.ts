@@ -107,21 +107,101 @@ function log(entry: DiagnosticEntry): void {
   void getElectronAPI()?.logDiagnostic?.(entry)
 }
 
-// Wraps fetch with a trace id, a one-shot transparent retry, and a self-bisecting
-// probe that runs at the moment of failure. The probe is the bisection tree from
-// our debugging flowchart: it answers (in order) "did the URL resolve absolute?",
-// "is the server reachable at all?", and "does CORS preflight succeed?". The
-// answers land in a JSONL file that triages the next reproduction in one look.
-export async function tracedFetch(path: string, init?: RequestInit): Promise<Response> {
+/**
+ * What a call site may vary about a request. Deliberately narrower than
+ * RequestInit, because everything this app sends is either a JSON document or
+ * nothing at all.
+ */
+export interface ApiRequestInit {
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+  /** Serialised as JSON unless it is already a string. */
+  body?: unknown
+  headers?: Record<string, string>
+  signal?: AbortSignal
+  /**
+   * Stamp the request with a trace id. On by default. Switch it off for hot
+   * polls, where the custom header would turn a CORS-simple GET into a
+   * preflighted one and double the request count.
+   */
+  trace?: boolean
+}
+
+export interface JsonRequestInit extends ApiRequestInit {
+  /** Message to raise when the server fails without saying why. */
+  fallbackMessage?: string
+}
+
+/**
+ * A non-2xx answer from the API, carrying the status and the parsed body so a
+ * caller can inspect the detail rather than re-parse a string.
+ */
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+    readonly body: unknown = null,
+  ) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
+/** Every route answers { error }. Fastify's own serialiser adds a more specific message. */
+function reasonFrom(body: unknown): string | null {
+  if (!body || typeof body !== 'object') return null
+  const record = body as Record<string, unknown>
+  for (const key of ['message', 'error']) {
+    const value = record[key]
+    if (typeof value === 'string' && value.length > 0) return value
+  }
+  return null
+}
+
+function buildRequestInit(init: ApiRequestInit | undefined, traceId: string | null): RequestInit {
+  const headers = new Headers(init?.headers)
+  if (traceId) headers.set('X-Trace-Id', traceId)
+
+  const request: RequestInit = { headers }
+  if (init?.method) request.method = init.method
+  if (init?.signal) request.signal = init.signal
+  if (init?.body !== undefined) {
+    if (typeof init.body === 'string') {
+      request.body = init.body
+    } else {
+      request.body = JSON.stringify(init.body)
+      if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+    }
+  }
+  return request
+}
+
+/**
+ * The single fetch primitive for the whole client. Adds a trace id, a one-shot
+ * transparent retry, and a self-bisecting probe that runs at the moment of
+ * failure. The probe is the bisection tree from our debugging flowchart,
+ * answering in order whether the URL resolved absolute, whether the server is
+ * reachable at all, and whether CORS preflight succeeds. The answers land in a
+ * JSONL file that triages the next reproduction in one look.
+ *
+ * The retry fires only when fetch itself threw, meaning no response arrived.
+ * Every request here goes to loopback, where that outcome is a refused
+ * connection rather than a dropped mid-flight request, so replaying it cannot
+ * duplicate a side effect the server already performed.
+ *
+ * A non-2xx response is a normal return value. Use request() to turn one into
+ * an ApiError.
+ */
+export async function apiFetch(path: string, init?: ApiRequestInit): Promise<Response> {
   await initApiBase()
+  // The id is minted even when it is not sent, so a local diagnostic entry can
+  // still be correlated with the console line that reported it.
   const traceId = crypto.randomUUID().slice(0, 8)
   const url = apiUrl(path)
-  const headers = new Headers(init?.headers)
-  headers.set('X-Trace-Id', traceId)
+  const request = buildRequestInit(init, init?.trace === false ? null : traceId)
   const t0 = performance.now()
 
   try {
-    return await fetch(url, { ...init, headers })
+    return await fetch(url, request)
   } catch (err) {
     const probe = await diagnose(url)
     const entry: DiagnosticEntry = {
@@ -138,7 +218,7 @@ export async function tracedFetch(path: string, init?: RequestInit): Promise<Res
 
     await new Promise(r => setTimeout(r, 200))
     try {
-      const res = await fetch(url, { ...init, headers })
+      const res = await fetch(url, request)
       log({ ...entry, stage: 'recovered', recovered: true, status: res.status })
       return res
     } catch (retryErr) {
@@ -146,4 +226,28 @@ export async function tracedFetch(path: string, init?: RequestInit): Promise<Res
       throw retryErr
     }
   }
+}
+
+/**
+ * Turn a non-2xx response into an ApiError, reading whatever reason the body
+ * offers. Returns the response untouched when it is fine, so it can sit inline
+ * in a call chain. Streaming callers use this directly, since they consume the
+ * body themselves rather than parsing it as JSON.
+ */
+export async function expectOk(response: Response, fallbackMessage?: string): Promise<Response> {
+  if (response.ok) return response
+  const body = await response.json().catch(() => null)
+  const reason = reasonFrom(body) ?? fallbackMessage ?? `Request failed with status ${response.status}`
+  throw new ApiError(response.status, reason, body)
+}
+
+/**
+ * Send a request and return its parsed JSON body, raising an ApiError for any
+ * non-2xx answer. This is the shape almost every endpoint module wants.
+ */
+export async function request<T>(path: string, init?: JsonRequestInit): Promise<T> {
+  const response = await expectOk(await apiFetch(path, init), init?.fallbackMessage)
+  // Several mutating routes answer 204, and json() rejects on an empty body.
+  const text = await response.text()
+  return (text ? JSON.parse(text) : undefined) as T
 }
