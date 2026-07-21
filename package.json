@@ -16,13 +16,14 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
-    "lint": "eslint --max-warnings 0 client/ server/ electron/ shared/ e2e/ playwright.config.ts scripts/build-e2e-epub-fixture.ts",
-    "lint:fix": "eslint --fix --max-warnings 0 client/ server/ electron/ shared/ e2e/ playwright.config.ts scripts/build-e2e-epub-fixture.ts",
+    "lint": "eslint --max-warnings 0 client/ server/ electron/ shared/ e2e/ playwright.config.ts scripts/build-e2e-epub-fixture.ts scripts/generate-routes-doc.ts",
+    "lint:fix": "eslint --fix --max-warnings 0 client/ server/ electron/ shared/ e2e/ playwright.config.ts scripts/build-e2e-epub-fixture.ts scripts/generate-routes-doc.ts",
     "typecheck": "tsc --noEmit",
     "release": "scripts/release.sh",
     "mcp:dev": "tsx server/mcp-server.ts",
     "diagnose:quiz": "tsx scripts/diagnose-quiz.ts",
-    "e2e:fixture:epub": "tsx scripts/build-e2e-epub-fixture.ts"
+    "e2e:fixture:epub": "tsx scripts/build-e2e-epub-fixture.ts",
+    "docs:routes": "tsx scripts/generate-routes-doc.ts"
   },
   "license": "GPL-3.0",
   "packageManager": "pnpm@10.30.1",
