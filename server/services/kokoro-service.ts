@@ -1,293 +1,54 @@
-import { join } from 'node:path'
 import os from 'node:os'
-import { existsSync } from 'node:fs'
-import { readFile, mkdir, rename } from 'node:fs/promises'
-import { KokoroTTS, TextSplitterStream } from 'kokoro-js'
-import { getDataDir } from '@shared/node/data-dir.js'
-import {
-  isInstalled as installerIsInstalled,
-  getModelsDir,
-  MODEL_ID,
-} from './audiobook-installer.js'
+import type { KokoroTTS } from 'kokoro-js'
+import type { VoiceInfo } from '@shared/responses.js'
+import { createKokoroSpeechSynthesis } from '../adapters/kokoro-speech-synthesis.js'
 
-export interface VoiceInfo {
-  id: string
-  name: string
-  language: 'American English' | 'British English'
-  gender: 'Male' | 'Female'
-  grade: string
-}
+/**
+ * THIS FILE IS A TEMPORARY SHIM.
+ *
+ * The real Kokoro speech synthesis logic used to live directly in this
+ * module; it now lives in server/adapters/kokoro-speech-synthesis.ts as
+ * createKokoroSpeechSynthesis, a factory implementing the SpeechSynthesis
+ * port. This shim exists only because server/routes/books.ts and
+ * server/routes/audiobook.ts import listVoices, synthesizePreview, and
+ * friends at module scope today, so the singleton-to-factory conversion
+ * had to land as one atomic step rather than half-converted — a
+ * half-converted state would leave some call sites on the old module
+ * singleton and others on the new adapter instance, silently disagreeing
+ * about worker pool and model state.
+ *
+ * Callers move onto the SpeechSynthesis port directly in a later refactor
+ * stage, at which point this file and its callers both go away. Until
+ * then, every export below just forwards to the one shared adapter
+ * instance created here.
+ */
 
-// Hardcoded voice catalogue mirrors @kokoro-js voices (see
-// node_modules/kokoro-js/dist/kokoro.js, the $ frozen object). We hardcode
-// to avoid loading the model just to enumerate. Order is intentional:
-// male American first (am_michael per user preference), then male British,
-// female American, female British. Within each group, alphabetical except
-// am_michael is forced to the front.
-const VOICE_GRADES: Record<string, string> = {
-  am_michael: 'C+',
-  am_adam: 'F+',
-  am_echo: 'D',
-  am_eric: 'D',
-  am_fenrir: 'C+',
-  am_liam: 'D',
-  am_onyx: 'D',
-  am_puck: 'C+',
-  am_santa: 'D-',
-  bm_george: 'C',
-  bm_lewis: 'D+',
-  bm_daniel: 'D',
-  bm_fable: 'C',
-  af_heart: 'A',
-  af_alloy: 'C',
-  af_aoede: 'C+',
-  af_bella: 'A-',
-  af_jessica: 'D',
-  af_kore: 'C+',
-  af_nicole: 'B-',
-  af_nova: 'C',
-  af_river: 'D',
-  af_sarah: 'C+',
-  af_sky: 'C-',
-  bf_emma: 'B-',
-  bf_isabella: 'C',
-  bf_alice: 'D',
-  bf_lily: 'D',
-}
+export type { VoiceInfo }
 
-const VOICE_NAMES: Record<string, string> = {
-  am_michael: 'Michael',
-  am_adam: 'Adam',
-  am_echo: 'Echo',
-  am_eric: 'Eric',
-  am_fenrir: 'Fenrir',
-  am_liam: 'Liam',
-  am_onyx: 'Onyx',
-  am_puck: 'Puck',
-  am_santa: 'Santa',
-  bm_george: 'George',
-  bm_lewis: 'Lewis',
-  bm_daniel: 'Daniel',
-  bm_fable: 'Fable',
-  af_heart: 'Heart',
-  af_alloy: 'Alloy',
-  af_aoede: 'Aoede',
-  af_bella: 'Bella',
-  af_jessica: 'Jessica',
-  af_kore: 'Kore',
-  af_nicole: 'Nicole',
-  af_nova: 'Nova',
-  af_river: 'River',
-  af_sarah: 'Sarah',
-  af_sky: 'Sky',
-  bf_emma: 'Emma',
-  bf_isabella: 'Isabella',
-  bf_alice: 'Alice',
-  bf_lily: 'Lily',
-}
-
-// Order is significant — drives the picker UI.
-const VOICE_ORDER: string[] = [
-  // Male American (am_michael first by user preference)
-  'am_michael',
-  'am_adam',
-  'am_echo',
-  'am_eric',
-  'am_fenrir',
-  'am_liam',
-  'am_onyx',
-  'am_puck',
-  'am_santa',
-  // Male British
-  'bm_george',
-  'bm_lewis',
-  'bm_daniel',
-  'bm_fable',
-  // Female American
-  'af_heart',
-  'af_alloy',
-  'af_aoede',
-  'af_bella',
-  'af_jessica',
-  'af_kore',
-  'af_nicole',
-  'af_nova',
-  'af_river',
-  'af_sarah',
-  'af_sky',
-  // Female British
-  'bf_emma',
-  'bf_isabella',
-  'bf_alice',
-  'bf_lily',
-]
-
-function voiceLanguage(id: string): 'American English' | 'British English' {
-  return id.startsWith('a') ? 'American English' : 'British English'
-}
-
-function voiceGender(id: string): 'Male' | 'Female' {
-  return id[1] === 'm' ? 'Male' : 'Female'
-}
+const adapter = createKokoroSpeechSynthesis()
 
 export function listVoices(): VoiceInfo[] {
-  return VOICE_ORDER.map((id) => ({
-    id,
-    name: VOICE_NAMES[id]!,
-    language: voiceLanguage(id),
-    gender: voiceGender(id),
-    grade: VOICE_GRADES[id]!,
-  }))
+  return adapter.listVoices()
 }
 
 export function isModelInstalled(): boolean {
-  return installerIsInstalled()
+  return adapter.isInstalled()
 }
 
 // Worker-count heuristic: RAM budget = 25% of total RAM / 600MB per worker.
 // Capped by CPU count, hard ceiling of 16, with an optional user override.
+// Not part of the SpeechSynthesis port (see speech-synthesis.ts's JSDoc for
+// why) — it's a pure sizing policy over the host machine rather than a
+// synthesis capability, so it stays a free function here instead of moving
+// into the adapter.
 export function getRecommendedWorkerCount(override?: number): number {
   const ramBudget = Math.floor((os.totalmem() * 0.25) / (600 * 1024 * 1024))
   const cpuCount = os.cpus().length
   return Math.max(1, Math.min(override ?? Infinity, ramBudget, cpuCount, 16))
 }
 
-// --- In-process synthesis pool (concurrency-limited; see DONE_WITH_CONCERNS) ---
-//
-// v1 runs synthesis on the main event loop with a concurrency cap. The Kokoro
-// instance internally serializes inference per model anyway, so concurrent
-// generate() calls on the same instance yield no parallelism. The "pool"
-// is a soft promise queue; future work can replace with node:worker_threads
-// each owning their own KokoroTTS instance for true parallel inference.
-
-let concurrencyLimit = 1
-let inFlight = 0
-const queue: Array<() => void> = []
-
-async function acquireSlot(): Promise<void> {
-  if (inFlight < concurrencyLimit) {
-    inFlight++
-    return
-  }
-  await new Promise<void>((resolve) => queue.push(resolve))
-  inFlight++
-}
-
-function releaseSlot(): void {
-  inFlight--
-  const next = queue.shift()
-  if (next) next()
-}
-
-let ttsInstance: KokoroTTS | null = null
-let ttsLoadingPromise: Promise<KokoroTTS> | null = null
-
-async function getTts(): Promise<KokoroTTS> {
-  if (ttsInstance) return ttsInstance
-  if (ttsLoadingPromise) return ttsLoadingPromise
-  // Touch the models dir getter so transformers.js env is configured.
-  getModelsDir()
-  ttsLoadingPromise = KokoroTTS.from_pretrained(MODEL_ID, { dtype: 'q8' }).then((tts) => {
-    ttsInstance = tts
-    ttsLoadingPromise = null
-    return tts
-  })
-  return ttsLoadingPromise
-}
-
-export async function startWorkerPool(workerCount: number): Promise<void> {
-  concurrencyLimit = Math.max(1, workerCount)
-  // Eagerly warm the model so the first chapter doesn't pay full load cost.
-  await getTts()
-}
-
-export async function stopWorkerPool(): Promise<void> {
-  // Drain pending. We don't tear down the KokoroTTS instance — onnxruntime
-  // doesn't have a public "unload" and reloading is expensive. Subsequent
-  // startWorkerPool calls reuse it.
-  concurrencyLimit = 1
-}
-
-// Kokoro's tokenizer truncates to ~510 tokens silently. tts.generate() is
-// limited to a single chunk and clips long chapters to ~150 words of audio.
-// Use tts.stream() instead — it splits on sentence boundaries and yields
-// one RawAudio per sentence. We collect, concatenate, and wrap into a
-// single RawAudio for the WAV write.
-interface RawAudioLike {
-  audio: Float32Array
-  sampling_rate: number
-  save: (path: string) => Promise<void>
-}
-
-async function synthesizeFullText(
-  text: string,
-  voiceId: string,
-  speed: number,
-  signal?: AbortSignal,
-  onSentence?: (sentenceIdx: number, sentenceText: string) => void,
-): Promise<RawAudioLike> {
-  await acquireSlot()
-  try {
-    const tts = await getTts()
-    const chunks: RawAudioLike[] = []
-    let totalSamples = 0
-    let samplingRate = 24000
-    // kokoro-js types voice as keyof typeof VOICES but accepts any string at
-    // runtime via _validate_voice; we already validated against VOICE_NAMES.
-    // tts.stream(text) has a bug: it pushes text into an internal
-    // TextSplitterStream but never calls close(), so the async iterator
-    // waits forever once the splitter exhausts its initial buffer. Build
-    // and close the splitter ourselves to terminate cleanly.
-    const splitter = new TextSplitterStream()
-    splitter.push(text)
-    splitter.close()
-    let i = 0
-    for await (const chunk of tts.stream(splitter, { voice: voiceId as never, speed })) {
-      if (signal?.aborted) throw new Error('Synthesis aborted')
-      const audio = chunk.audio as unknown as RawAudioLike
-      chunks.push(audio)
-      totalSamples += audio.audio.length
-      samplingRate = audio.sampling_rate
-      onSentence?.(i, (chunk as unknown as { text: string }).text)
-      i++
-    }
-    if (chunks.length === 0) {
-      throw new Error('Kokoro produced no audio for input text')
-    }
-    const merged = new Float32Array(totalSamples)
-    let offset = 0
-    for (const chunk of chunks) {
-      merged.set(chunk.audio, offset)
-      offset += chunk.audio.length
-    }
-    // RawAudio isn't exported from kokoro-js; pull the constructor off the
-    // first chunk and re-construct with the merged buffer so we can reuse
-    // its .save() method (handles WAV header writing).
-    const RawAudioCtor = (chunks[0] as unknown as { constructor: new (audio: Float32Array, sampling_rate: number) => RawAudioLike }).constructor
-    return new RawAudioCtor(merged, samplingRate)
-  } finally {
-    releaseSlot()
-  }
-}
-
 export async function synthesizePreview(voiceId: string): Promise<Buffer> {
-  if (!VOICE_NAMES[voiceId]) {
-    throw new Error(`Unknown voice: ${voiceId}`)
-  }
-  const cacheDir = join(getDataDir(), 'cache', 'voice-previews')
-  const cachePath = join(cacheDir, `${voiceId}.wav`)
-
-  if (existsSync(cachePath)) {
-    return readFile(cachePath)
-  }
-
-  await mkdir(cacheDir, { recursive: true })
-  const sampleText = `Hello! This is the ${VOICE_NAMES[voiceId]} voice for your audiobooks.`
-  const result = await synthesizeFullText(sampleText, voiceId, 1.0)
-  const tmp = cachePath + '.tmp'
-  await result.save(tmp)
-  await rename(tmp, cachePath)
-  return readFile(cachePath)
+  return adapter.synthesizePreview(voiceId)
 }
 
 export async function synthesizeChapter(
@@ -298,34 +59,22 @@ export async function synthesizeChapter(
   signal?: AbortSignal,
   onSentence?: (sentenceIdx: number, sentenceText: string) => void,
 ): Promise<void> {
-  if (signal?.aborted) throw new Error('Synthesis aborted')
-  if (!VOICE_NAMES[voiceId]) {
-    throw new Error(`Unknown voice: ${voiceId}`)
-  }
-  if (speed < 0.5 || speed > 2.0) {
-    throw new Error(`Invalid speed: ${speed} (must be 0.5-2.0)`)
-  }
-
-  const result = await synthesizeFullText(text, voiceId, speed, signal, onSentence)
-
-  if (signal?.aborted) throw new Error('Synthesis aborted')
-
-  const tmp = outPath + '.tmp'
-  await result.save(tmp)
-  await rename(tmp, outPath)
+  return adapter.synthesizeChapter({ text, voiceId, speed, outPath, signal, onSentence })
 }
 
-// Test seam — lets tests reset the lazy-loaded TTS singleton and queue state
-// between cases without re-requiring the module.
+export async function startWorkerPool(workerCount: number): Promise<void> {
+  return adapter.startWorkerPool(workerCount)
+}
+
+export async function stopWorkerPool(): Promise<void> {
+  return adapter.stopWorkerPool()
+}
+
+// Test seam — lets tests reset the lazily-loaded TTS singleton and worker
+// queue state between cases without re-requiring the module. Forwards to
+// the adapter's own __testing hooks (see kokoro-speech-synthesis.ts); not
+// part of the SpeechSynthesis port contract.
 export const __testing = {
-  reset: (): void => {
-    concurrencyLimit = 1
-    inFlight = 0
-    queue.length = 0
-    ttsInstance = null
-    ttsLoadingPromise = null
-  },
-  setTtsInstance: (instance: KokoroTTS | null): void => {
-    ttsInstance = instance
-  },
+  reset: (): void => adapter.__testing.reset(),
+  setTtsInstance: (instance: KokoroTTS | null): void => adapter.__testing.setTtsInstance(instance),
 }
