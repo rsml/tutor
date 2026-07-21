@@ -73,12 +73,22 @@ export interface ScriptedTextGeneration extends FakeTextGeneration {
   onToolConversation(rule: ToolRule): void
 }
 
+/**
+ * The part of a request every matcher below reads. Deliberately one shape
+ * rather than one per method, so `allOf` can combine a system matcher with a
+ * prompt matcher without either being widened at the call site.
+ */
+export interface MatchableRequest {
+  system?: string
+  prompt?: string
+}
+
 /** True when the request's user prompt contains `needle`. */
-export const promptIncludes = (needle: string) => (req: { prompt?: string }): boolean =>
+export const promptIncludes = (needle: string) => (req: MatchableRequest): boolean =>
   (req.prompt ?? '').includes(needle)
 
 /** True when the request's system prompt contains `needle`. */
-export const systemIncludes = (needle: string) => (req: { system?: string }): boolean =>
+export const systemIncludes = (needle: string) => (req: MatchableRequest): boolean =>
   (req.system ?? '').includes(needle)
 
 /** True when the request carries this `schemaName`. Only one real call site sets it, so prefer prompt matching. */
