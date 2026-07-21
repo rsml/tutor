@@ -28,6 +28,10 @@ interface UseChapterOneStreamOptions {
  * Auto-advance is driven by a phase-driven effect rather than by the stream's
  * own 'done' handler, so it still fires correctly on Vite HMR if this
  * component remounts while phase is already 'done'.
+ *
+ * startFirstChapterStream takes no AbortSignal, so once called it runs to
+ * completion or failure on its own. Nothing here can cancel it early, only
+ * ignore the events it keeps delivering to a stale closure.
  */
 export function useChapterOneStream(options: UseChapterOneStreamOptions) {
   const {

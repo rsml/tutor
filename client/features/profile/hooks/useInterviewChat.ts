@@ -3,6 +3,18 @@ import { streamInterview, type InterviewValue, type ProfileResponse } from '@cli
 import type { ProviderId } from '@client/lib/providers'
 import type { ChatMessage } from '@client/features/chat/hooks/useStreamingChat'
 
+/**
+ * Streams one turn of the profile interview at a time, keyed off an
+ * AbortController this hook owns rather than the caller.
+ *
+ * clearMessages() is the only way a turn is stopped early, by calling
+ * abort() on the controller from the in-flight call. Nothing here aborts on
+ * unmount, so a component that unmounts mid-turn leaves the request running
+ * until the server ends it. On a genuine failure, meaning the caught error's
+ * name is not 'AbortError', the placeholder assistant message is only
+ * overwritten with a generic failure string if no content had arrived yet.
+ * Text already streamed in before the error is left in place.
+ */
 export function useInterviewChat({ model, provider }: { model: string; provider: ProviderId }) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)

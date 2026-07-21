@@ -44,6 +44,11 @@ export interface UseChapterGenerationReturn {
  * (`bufferBoundaryRef`, `userHasScrolledRef`) that useGenerationResume seeds
  * on reconnect, so a fresh, non-buffered stream always autoscrolls from the
  * top.
+ *
+ * Neither streamNextChapter nor streamChapterRegeneration takes an
+ * AbortSignal, so once either is called it runs to completion or failure on
+ * the server's own schedule. There is no way to cancel one from here,
+ * including on unmount, only to stop reading its events.
  */
 export function useChapterGeneration({
   bookId,

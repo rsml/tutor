@@ -1,5 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+/**
+ * Tracks a text selection inside one scrollable container, and keeps it
+ * visible through a custom CSS highlight even after native selection is
+ * cleared, which happens the instant focus moves into the inline chat panel.
+ *
+ * Native selection and the custom highlight are deliberately decoupled. The
+ * mouseup handler establishes the highlight and then clears native selection
+ * right away, so the browser never has to render both at once. Selection
+ * state itself is cleared on Escape, on a click outside both the selection
+ * tooltip and the chat panel, and on a scroll past a small threshold, but
+ * never merely by focus moving into the tooltip or the chat panel, which is
+ * what a plain selectionchange listener would otherwise do.
+ */
 const HIGHLIGHT_NAME = 'selection-highlight'
 
 interface TextSelection {

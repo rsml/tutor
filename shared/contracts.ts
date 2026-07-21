@@ -14,6 +14,13 @@ export { ProviderSchema }
 
 const ModelSchema = z.string().min(1).max(100).regex(MODEL_REGEX)
 
+/**
+ * The {model, provider} pair every AI-backed request carries. Most schemas
+ * below extend this rather than repeating the two fields, which is also why
+ * model here goes through ModelSchema's regex rather than a bare string.
+ * StartBookBodySchema and ReviseTocBodySchema are the exceptions, see the
+ * note on ReviseTocBodySchema below for why they do not extend this.
+ */
 export const AiRequestSchema = z.object({
   model: ModelSchema,
   provider: ProviderSchema.optional(),
@@ -60,6 +67,15 @@ export const GenerateNextBodySchema = AiRequestSchema.extend({
   quizLength: z.number().int().min(1).max(10).optional(),
 })
 
+/**
+ * ReviseTocBodySchema and StartBookBodySchema below both take model and
+ * provider as bare strings instead of extending AiRequestSchema, so neither
+ * validates model against MODEL_REGEX or provider against the ProviderSchema
+ * enum the way every other AI-backed body in this file does. Worth
+ * confirming that gap is intentional before relying on either body having
+ * already rejected a malformed model or an unknown provider by the time a
+ * handler sees it.
+ */
 export const ReviseTocBodySchema = z.object({
   feedback: z.string().min(1).max(4000),
   model: z.string().min(1),
@@ -76,6 +92,14 @@ export const StartBookBodySchema = z.object({
 
 export const FinalQuizBodySchema = AiRequestSchema
 
+/**
+ * Every field here is tri-state, not just optional. Omitting a field leaves
+ * that part of the book untouched, matching ordinary PATCH semantics. series,
+ * seriesOrder, and sortOrder additionally accept an explicit null, which
+ * means clear the value, so a caller has to be able to tell "leave series
+ * alone" apart from "remove series" and only one of the two spellings
+ * expresses each.
+ */
 export const PatchBookBodySchema = z.object({
   title: z.string().min(1).max(100).optional(),
   subtitle: z.string().max(150).optional(),
@@ -107,6 +131,12 @@ export const ImportEpubConfirmBodySchema = z.object({
   seriesOrder: z.number().int().min(1).optional(),
 })
 
+/**
+ * finalQuizScore and finalQuizTotal are capped at 100 here. domain.ts's
+ * BookMetaSchema persists the same two fields with no upper bound at all, so
+ * that cap only ever applies on the way in through this request, not to a
+ * book read back off disk.
+ */
 export const RatingBodySchema = z.object({
   rating: z.number().min(0).max(5).multipleOf(0.5),
   finalQuizScore: z.number().int().min(0).max(100).optional(),

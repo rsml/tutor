@@ -16,6 +16,19 @@ interface UseStreamingChatOptions {
   initialMessages?: ChatMessage[]
 }
 
+/**
+ * Streams one chat reply at a time into the message list, keyed off an
+ * AbortController this hook owns rather than the caller.
+ *
+ * restartChat() and clearMessages() are the only two ways a stream is
+ * stopped early, and both do it by calling abort() on the controller from
+ * the previous call. Nothing here aborts on unmount, so a component that
+ * unmounts mid-reply leaves the request running until the server ends it.
+ * On a genuine failure, meaning the caught error's name is not 'AbortError',
+ * the placeholder assistant message is only overwritten with a generic
+ * failure string if no content had arrived yet. Any text already streamed in
+ * before the error is left in place rather than discarded.
+ */
 export function useStreamingChat({ model, provider, chapterContent, selectedText, initialMessages }: UseStreamingChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages ?? [])
   const [isStreaming, setIsStreaming] = useState(false)

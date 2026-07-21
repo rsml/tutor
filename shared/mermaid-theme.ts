@@ -1,5 +1,17 @@
 import { formatHex, parse } from 'culori'
 
+/**
+ * The one dark-mode diagram palette and mermaid init config shared by both
+ * the in-app renderer and the Electron main process's offscreen renderer
+ * used during EPUB export, so an exported diagram looks the same as the one
+ * the reader saw on screen.
+ *
+ * The palette is authored in OKLCH for perceptually uniform contrast across
+ * hues, then converted to hex once below, since mermaid's own theming
+ * understands hex and named CSS colors but not oklch(). themeCSS layers
+ * !important overrides on top of themeVariables for the handful of selectors
+ * mermaid's built-in theme otherwise keeps winning on.
+ */
 function oklchToHex(color: string): string {
   return formatHex(parse(color))!
 }
@@ -35,6 +47,7 @@ const H = {
   cScale: P.cScale.map(oklchToHex),
 } as { [K in keyof typeof P]: K extends 'cScale' ? string[] : string }
 
+/** Raw CSS injected alongside mermaid's own styles, overriding the selectors themeVariables alone can't reach. */
 export const themeCSS = `
 /* Node shapes */
 .node rect, .node polygon, .node circle, .node ellipse,
@@ -111,6 +124,7 @@ line[class^="messageLine"], .messageLine0, .messageLine1 {
 }
 `
 
+/** The theme variable map, in the shape mermaid.initialize's themeVariables option expects. */
 export const themeVariables = {
   // Base
   background: 'transparent',
@@ -174,6 +188,7 @@ export const themeVariables = {
   pie6: H.cScale[9],
 } as const
 
+/** mermaid.initialize's config for this app, the base theme plus the palette above. startOnLoad is disabled since this app renders diagrams itself rather than letting mermaid scan the DOM for them. */
 export const mermaidInitConfig = {
   startOnLoad: false,
   theme: 'base' as const,

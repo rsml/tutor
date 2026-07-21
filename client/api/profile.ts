@@ -85,7 +85,17 @@ export type InterviewValue =
   | { type: 'text'; content: string }
   | { type: 'profile_complete'; profile: ProfileResponse }
 
-/** Stream one turn of the learning profile interview, forwarding assistant text and the finished profile as they arrive. */
+/**
+ * Stream one turn of the learning profile interview, forwarding assistant
+ * text and the finished profile as they arrive.
+ *
+ * The signal is optional here, unlike streamChat's. A caller that omits it
+ * has no way to abort a turn already in flight. When it is passed and fires,
+ * or the connection drops mid-turn, the returned promise rejects. Values
+ * already handed to onValue stay delivered, but see streamNdjson in sse.ts
+ * for why a value still sitting unterminated in the buffer at that moment is
+ * lost rather than flushed.
+ */
 export async function streamInterview(
   body: InterviewChatBody,
   onValue: (value: InterviewValue) => void,
