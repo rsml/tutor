@@ -19,6 +19,10 @@ import { modelsRoutes } from './routes/models.js'
 import { audiobookRoutes } from './routes/audiobook.js'
 import { getDataDir } from '@shared/node/data-dir.js'
 import { createRecoverFromCrash } from './services/recover-from-crash.js'
+import { createResumeInterruptedJobs } from './services/resume-interrupted-jobs.js'
+import { createGenerateNextChapter } from './services/generate-next-chapter.js'
+import { createGenerateAllChapters } from './services/generate-all-chapters.js'
+import { createGenerateAudiobook } from './services/generate-audiobook.js'
 import { registerErrorHandler } from './http/error-handler.js'
 import { STATUS_FORBIDDEN, STATUS_NO_CONTENT } from './http/status.js'
 import { createPorts, createSharedServices, type Ports, type SharedServices } from './composition-root.js'
@@ -177,19 +181,28 @@ function countMigrationOutcomes(report: MigrationReport): { migrated: number; fa
 
 /**
  * The startup sequence startServer runs before it binds a port, pulled out
- * on its own so a test can drive it directly, with a fake libraryMigrator
- * and a fake bookRepository, without binding a real port or standing up a
- * full listening server.
+ * on its own so a test can drive it directly, with fakes, without binding
+ * a real port or standing up a full listening server.
  *
- * Order is load bearing. Migration has to run before crash recovery,
- * because crash recovery reads and writes BookMeta through the CURRENT Zod
- * schema, via BookRepository, so a book still at an old schema version
- * would be silently skipped by listBooks's own try/catch, per
- * fs-book-repository.ts, and would never be reached by recovery at all.
- * Running the migrator first is what guarantees every book crash recovery
- * sees is one BookRepository can actually read.
+ * Order is load bearing in both directions. Migration has to run before
+ * crash recovery, because crash recovery reads and writes BookMeta through
+ * the CURRENT Zod schema, via BookRepository, so a book still at an old
+ * schema version would be silently skipped by listBooks's own try/catch,
+ * per fs-book-repository.ts, and would never be reached by recovery at
+ * all. Running the migrator first is what guarantees every book crash
+ * recovery sees is one BookRepository can actually read.
+ *
+ * Resume has to run after crash recovery, for the same kind of reason in
+ * the other direction. Resume's own decisions read the exact BookMeta and
+ * audio state recovery just finished reconciling, most concretely: audio
+ * resume in resume-interrupted-jobs.ts restarts narration from the
+ * beginning specifically because, by the time resume runs, recovery has
+ * already deleted any partial audio and cleared audioGeneratedChapters
+ * (see that module's own header for the full chain). Running resume before
+ * recovery finished would race the same BookMeta file and could let resume
+ * act on audio state recovery was about to wipe out from under it.
  */
-export async function runStartupTasks(ports: Ports, log: FastifyBaseLogger): Promise<void> {
+export async function runStartupTasks(ports: Ports, services: SharedServices, log: FastifyBaseLogger): Promise<void> {
   const migration = await ports.libraryMigrator.migrate()
   const outcomes = countMigrationOutcomes(migration)
   if (outcomes.migrated > 0 || outcomes.failed > 0) {
@@ -208,6 +221,50 @@ export async function runStartupTasks(ports: Ports, log: FastifyBaseLogger): Pro
       'Crash recovery completed',
     )
   }
+
+  // Built here, once per boot, rather than reused from a route module,
+  // because resume needs its own generateAllChapters and generateAudiobook
+  // wired to the job journal (so a job it restarts gets checkpointed) and
+  // the routes' own instances, in routes/generation.ts and
+  // routes/audiobook-generation.ts, are not. Both are the same stateless
+  // factory pattern every other service in this file already uses; a
+  // second instance built from the same ports and shared services behaves
+  // identically to the routes' own.
+  const generateNextChapter = createGenerateNextChapter({ ai: ports.textGeneration, books: ports.bookRepository, clock: ports.clock })
+  const generateAllChapters = createGenerateAllChapters({
+    backgroundTasks: ports.backgroundTasks,
+    chapterStream: services.chapterGenerationStream,
+    generateNextChapter,
+    journal: ports.jobJournal,
+  })
+  const generateAudiobook = createGenerateAudiobook({
+    bookRepository: ports.bookRepository,
+    artifactStore: ports.artifactStore,
+    speechSynthesis: ports.speechSynthesis,
+    audioAssembly: ports.audioAssembly,
+    backgroundTasks: ports.backgroundTasks,
+    journal: ports.jobJournal,
+  })
+  const resumeInterruptedJobs = createResumeInterruptedJobs({
+    journal: ports.jobJournal,
+    books: ports.bookRepository,
+    backgroundTasks: ports.backgroundTasks,
+    chapterStream: services.chapterGenerationStream,
+    generateAllChapters,
+    generateAudiobook,
+    // A debugging escape hatch, exactly '1' rather than any truthy string,
+    // so an accidental TUTOR_NO_AUTO_RESUME=0 or a typo does not silently
+    // disable resume.
+    autoResume: process.env.TUTOR_NO_AUTO_RESUME !== '1',
+    log: (msg, ctx) => log.info(ctx ?? {}, msg),
+  })
+  const resume = await resumeInterruptedJobs()
+  if (resume.resumed.length > 0 || resume.markedErrored.length > 0 || resume.skipped.length > 0) {
+    log.info(
+      { resumed: resume.resumed.length, markedErrored: resume.markedErrored.length, skipped: resume.skipped.length },
+      'Interrupted job resume completed',
+    )
+  }
 }
 
 /**
@@ -220,13 +277,15 @@ export async function runStartupTasks(ports: Ports, log: FastifyBaseLogger): Pro
 export async function startServer(port = 3147, host = '127.0.0.1', overrides: Partial<Ports> = {}) {
   const fastify = await buildServer(overrides)
 
-  // The ports the routes were actually registered with, read back off the
-  // instance rather than built a second time. This used to be its own
-  // createPorts(overrides) call, which was fine while startup only ran
-  // migration and crash recovery, since both talk to stateless bridges over
-  // the same data directory. It stops being fine the moment startup touches
-  // in-memory state. See the decoration in buildServer for the full reason.
-  await runStartupTasks(fastify.ports, fastify.log)
+  // The ports and shared services the routes were actually registered
+  // with, read back off the instance rather than built a second time. This
+  // used to be its own createPorts(overrides) call, which was fine while
+  // startup only ran migration and crash recovery, since both talk to
+  // stateless bridges over the same data directory. It stops being fine
+  // the moment startup touches in-memory state, which resume does through
+  // services.chapterGenerationStream. See the decoration in buildServer
+  // for the full reason.
+  await runStartupTasks(fastify.ports, fastify.services, fastify.log)
 
   await fastify.listen({ port, host })
   return fastify

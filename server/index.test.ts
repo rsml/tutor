@@ -4,10 +4,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import Fastify from 'fastify'
 import { buildServer, runStartupTasks } from './index.js'
-import { createPorts } from './composition-root.js'
+import { createPorts, createSharedServices } from './composition-root.js'
 import { createFakeLibraryMigrator } from './ports/library-migrator.fake.js'
 import { createFakeBookRepository } from './ports/book-repository.fake.js'
 import { createFakeArtifactStore } from './ports/artifact-store.fake.js'
+import { createFakeJobJournal } from './ports/job-journal.fake.js'
 
 describe('buildServer decorations', () => {
   // The decoration exists so a caller acting on the server after it is
@@ -87,7 +88,17 @@ describe('runStartupTasks', () => {
   // binds a real port and therefore is awkward to drive directly from a
   // test. Extracted so this can call it straight, with fakes, and assert
   // on ordering without listening on anything.
-  it('runs migration before the first bookRepository read that crash recovery performs', async () => {
+  //
+  // Migration before crash recovery: crash recovery reads and writes
+  // BookMeta through the CURRENT Zod schema, so a book at an old schema
+  // version would be silently skipped by listBooks's own try/catch if
+  // migration had not already run.
+  //
+  // Crash recovery before resume: resume's own decisions (most concretely
+  // audiobook resume, which restarts narration from the beginning) depend
+  // on recovery having already reconciled BookMeta and wiped any partial
+  // audio. Running resume first would race recovery over the same file.
+  it('runs migration, then crash recovery, then interrupted-job resume, in that order', async () => {
     const callOrder: string[] = []
 
     const realMigrator = createFakeLibraryMigrator()
@@ -107,16 +118,38 @@ describe('runStartupTasks', () => {
       },
     }
 
-    const ports = createPorts({ libraryMigrator, bookRepository, artifactStore: createFakeArtifactStore() })
+    const realJournal = createFakeJobJournal()
+    const jobJournal = {
+      ...realJournal,
+      async listInterrupted() {
+        callOrder.push('jobJournal.listInterrupted')
+        return realJournal.listInterrupted()
+      },
+    }
+
+    const ports = createPorts({ libraryMigrator, bookRepository, artifactStore: createFakeArtifactStore(), jobJournal })
+    const services = createSharedServices(ports)
 
     // A bare, non-listening Fastify instance exists here only to borrow a
     // real FastifyBaseLogger, so runStartupTasks gets the exact type it
     // asks for without a full buildServer() and without hand-stubbing
     // pino's logger interface.
     const silent = Fastify({ logger: false })
-    await runStartupTasks(ports, silent.log)
-    await silent.close()
 
-    expect(callOrder).toEqual(['libraryMigrator.migrate', 'bookRepository.listBooks'])
+    // Resume's autoResume flag reads this var directly from the process
+    // environment, so it is saved and restored here rather than trusted to
+    // whatever the shell running this suite happens to have set, exactly
+    // like the TUTOR_DATA_DIR guard in the mutation test below.
+    const previousFlag = process.env.TUTOR_NO_AUTO_RESUME
+    delete process.env.TUTOR_NO_AUTO_RESUME
+    try {
+      await runStartupTasks(ports, services, silent.log)
+    } finally {
+      if (previousFlag === undefined) delete process.env.TUTOR_NO_AUTO_RESUME
+      else process.env.TUTOR_NO_AUTO_RESUME = previousFlag
+      await silent.close()
+    }
+
+    expect(callOrder).toEqual(['libraryMigrator.migrate', 'bookRepository.listBooks', 'jobJournal.listInterrupted'])
   })
 })
