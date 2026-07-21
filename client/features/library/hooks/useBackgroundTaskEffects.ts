@@ -242,3 +242,11 @@ export function useBackgroundTaskEffects({ books, fetchBooks }: UseBackgroundTas
     handleConfirmRegenerateAudiobook,
   }
 }
+
+/** The audiobook install/generate flow. Owned by App.tsx because a narrator
+ * install can finish minutes after it starts, often while the library page has
+ * been unmounted in favor of the reader — see the hook's own doc comment for
+ * why that forces the subscription (and this state) to live above that page.
+ * Exported from here rather than redeclared at each call site, since
+ * LibraryPage and the dialogs it hands this bundle down to both need it. */
+export type AudiobookEffects = ReturnType<typeof useBackgroundTaskEffects>

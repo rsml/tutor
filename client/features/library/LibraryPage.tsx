@@ -1,37 +1,23 @@
 import { useEffect, useCallback, useMemo, useReducer, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { toast } from '@client/lib/toast'
-import { Plus, BookOpen, X, FileDown, Pencil, Star, Tags, Library, ClipboardCheck, Eye, Image, Zap, Download, Trash2, RotateCcw, Headphones, FolderOpen } from 'lucide-react'
+import { Plus, BookOpen, X, FileDown } from 'lucide-react'
 import { DndContext, DragOverlay, closestCenter, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Button } from '@client/components/ui/button'
 import { Badge } from '@client/components/ui/badge'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@client/components/ui/dialog'
 import { BookCard } from '@client/features/library/components/BookCard'
 import { SortableBookCard } from '@client/features/library/components/SortableBookCard'
 import { SortableSeriesCard } from '@client/features/library/components/SortableSeriesCard'
 import { LibraryToolbar } from '@client/features/library/components/LibraryToolbar'
-import { StarRating } from '@client/features/reader/components/StarRating'
 import { NoiseOverlay } from '@client/components/NoiseOverlay'
 import { SettingsMenu } from '@client/features/settings/components/SettingsMenu'
 import { WizardModal } from '@client/features/creation/components/WizardModal'
-import { BookOverviewModal } from '@client/features/library/dialogs/BookOverviewModal'
-import { CoverGenerationModal } from '@client/features/library/dialogs/CoverGenerationModal'
-import { GenerateAllModal } from '@client/features/library/dialogs/GenerateAllModal'
 import { BackgroundTasksFooter } from '@client/features/library/components/BackgroundTasksFooter'
-import { EditTagsDialog } from '@client/features/library/dialogs/EditTagsDialog'
 import { ImportPreviewDialog } from '@client/features/library/dialogs/ImportPreviewDialog'
-import { SetSeriesDialog } from '@client/features/library/dialogs/SetSeriesDialog'
+import { BookContextMenu } from '@client/features/library/dialogs/BookContextMenu'
+import { SeriesContextMenu } from '@client/features/library/dialogs/SeriesContextMenu'
+import { LibraryDialogs } from '@client/features/library/dialogs/LibraryDialogs'
 import { dialogReducer, emptyDialogState, isOpen, payloadOf } from '@client/features/library/dialogs/dialog-machine'
-import { AudiobookDownloadModal } from '@client/features/audiobook/components/AudiobookDownloadModal'
-import { AudiobookVoiceModal } from '@client/features/audiobook/components/AudiobookVoiceModal'
-import { AudiobookRegenerateConfirmModal } from '@client/features/audiobook/components/AudiobookRegenerateConfirmModal'
 import { SeriesStackCard } from '@client/features/library/components/SeriesStackCard'
 import { BookListView } from '@client/features/library/components/BookListView'
 import { BookListRow } from '@client/features/library/components/BookListRow'
@@ -63,7 +49,7 @@ import {
 } from '@client/api'
 import { isComplete } from '@shared/book-status'
 import type { LibraryBook } from '@shared/responses'
-import type { useBackgroundTaskEffects } from '@client/features/library/hooks/useBackgroundTaskEffects'
+import type { AudiobookEffects } from '@client/features/library/hooks/useBackgroundTaskEffects'
 import type { DialogState, LibraryDialog } from '@client/features/library/dialogs/dialog-machine'
 
 /**
@@ -72,16 +58,11 @@ import type { DialogState, LibraryDialog } from '@client/features/library/dialog
  * dialog and context menu a book or series can open. This is deliberately
  * the one file in this feature allowed past the usual 500-line ceiling. The
  * sixteen dialogs and two context menus used to be twenty-plus independent
- * pieces of component state; they are a single reducer now, in
- * `dialogs/dialog-machine.ts` (moving their markup out of this file follows
- * in a separate commit).
+ * pieces of component state; they are a single reducer now
+ * (`dialogs/dialog-machine.ts`), and their markup lives in `dialogs/` rather
+ * than inline here, but the grid, list, drag-and-drop and filter/sort
+ * orchestration are still this page's job.
  */
-
-/** The audiobook install/generate flow. Owned by App.tsx because a narrator
- * install can finish minutes after it starts, often while this page has been
- * unmounted in favor of the reader — see useBackgroundTaskEffects for why
- * that forces the subscription (and this state) to live above this page. */
-type AudiobookEffects = ReturnType<typeof useBackgroundTaskEffects>
 
 /**
  * Reads a dialog's payload only while it is genuinely open, never while it is
@@ -725,444 +706,6 @@ export function LibraryPage({
     return chips
   }, [libraryFilters, dispatch])
 
-  // --- Shared render helpers for context menu & dialogs ---
-  const renderContextMenu = () => dialogState.menu?.kind === 'book' && (() => {
-    const menu = dialogState.menu as Extract<typeof dialogState.menu, { kind: 'book' }>
-    const { book } = menu
-    return (
-    <div
-      ref={(el) => {
-        if (!el) return
-        const rect = el.getBoundingClientRect()
-        const vw = window.innerWidth
-        const vh = window.innerHeight
-        let x = menu.x
-        let y = menu.y
-        if (x + rect.width > vw - 8) x = menu.x - rect.width
-        if (y + rect.height > vh - 8) y = menu.y - rect.height
-        if (x < 8) x = 8
-        if (y < 8) y = 8
-        el.style.left = `${x}px`
-        el.style.top = `${y}px`
-      }}
-      className="fixed z-50 w-fit rounded-lg border border-border-default/50 bg-surface-base/95 backdrop-blur-md py-1 shadow-lg"
-      style={{ left: -9999, top: -9999 }}
-      onClick={e => e.stopPropagation()}
-    >
-      {/* Edit group */}
-      <button
-        onClick={() => dispatchDialog({ type: 'open', dialog: { kind: 'rename', book, title: book.title, subtitle: book.subtitle ?? '' } })}
-        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
-      >
-        <Pencil className="size-3.5 text-content-muted shrink-0" />
-        Rename
-      </button>
-      <button
-        onClick={() => dispatchDialog({ type: 'open', dialog: { kind: 'rate', book, rating: book.rating ?? 0 } })}
-        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
-      >
-        <Star className="size-3.5 text-content-muted shrink-0" />
-        Rate
-      </button>
-      <button
-        onClick={() => dispatchDialog({ type: 'open', dialog: { kind: 'editTags', book } })}
-        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
-      >
-        <Tags className="size-3.5 text-content-muted shrink-0" />
-        Edit Tags
-      </button>
-      <button
-        onClick={() => dispatchDialog({ type: 'open', dialog: { kind: 'setSeries', book } })}
-        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
-      >
-        <Library className="size-3.5 text-content-muted shrink-0" />
-        Set Series
-      </button>
-      <div className="my-1 h-px bg-border-default/50" />
-      {/* View group */}
-      <button
-        onClick={() => dispatchDialog({ type: 'open', dialog: { kind: 'overview', book } })}
-        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
-      >
-        <Eye className="size-3.5 text-content-muted shrink-0" />
-        Book Overview
-      </button>
-      <button
-        onClick={() => { onQuizReview(book); dispatchDialog({ type: 'closeMenu' }) }}
-        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
-      >
-        <ClipboardCheck className="size-3.5 text-content-muted shrink-0" />
-        Quiz Review
-      </button>
-      <div className="my-1 h-px bg-border-default/50" />
-      {/* Actions group */}
-      <button
-        onClick={() => dispatchDialog({ type: 'open', dialog: { kind: 'cover', book } })}
-        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
-      >
-        <Image className="size-3.5 text-content-muted shrink-0" />
-        Edit Cover
-      </button>
-      <button
-        onClick={() => { handleGenerateAll(book); dispatchDialog({ type: 'closeMenu' }) }}
-        disabled={book.generatedUpTo >= book.totalChapters}
-        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-      >
-        <Zap className="size-3.5 text-content-muted shrink-0" />
-        Generate All Chapters
-      </button>
-      <button
-        onClick={() => { handleExportEpub(book); dispatchDialog({ type: 'closeMenu' }) }}
-        disabled={book.generatedUpTo < book.totalChapters}
-        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-      >
-        <Download className="size-3.5 text-content-muted shrink-0" />
-        Export EPUB
-      </button>
-      {book.generatedUpTo < book.totalChapters ? (
-        <button
-          disabled
-          className="flex flex-col items-start gap-0 w-full px-3 py-1.5 text-left text-sm text-content-primary disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-        >
-          <div className="flex items-center gap-2">
-            <Headphones className="size-3.5 text-content-muted shrink-0" />
-            Generate audiobook
-          </div>
-          <span className="ml-5 pl-0.5 text-xs text-content-muted">Finish generating chapters first</span>
-        </button>
-      ) : (audiobook.audiobookExists.get(book.id) === true || book.hasAudiobook === true) ? (
-        <>
-          <button
-            onClick={() => { audiobook.handleShowAudiobook(book); dispatchDialog({ type: 'closeMenu' }) }}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
-          >
-            <FolderOpen className="size-3.5 text-content-muted shrink-0" />
-            Show audiobook
-          </button>
-          <button
-            onClick={() => { audiobook.setRegenerateAudiobookConfirm({ book }); dispatchDialog({ type: 'closeMenu' }) }}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
-          >
-            <Headphones className="size-3.5 text-content-muted shrink-0" />
-            Generate new audiobook…
-          </button>
-        </>
-      ) : (
-        <button
-          onClick={() => { audiobook.handleGenerateAudiobook(book); dispatchDialog({ type: 'closeMenu' }) }}
-          className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
-        >
-          <Headphones className="size-3.5 text-content-muted shrink-0" />
-          Generate audiobook
-        </button>
-      )}
-      <div className="my-1 h-px bg-border-default/50" />
-      {/* Danger group */}
-      <button
-        onClick={() => dispatchDialog({ type: 'open', dialog: { kind: 'reset', book, input: '' } })}
-        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-status-error hover:bg-surface-muted transition-colors whitespace-nowrap"
-      >
-        <RotateCcw className="size-3.5 shrink-0" />
-        Reset
-      </button>
-      <button
-        onClick={() => dispatchDialog({ type: 'open', dialog: { kind: 'delete', book, input: '' } })}
-        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-status-error hover:bg-surface-muted transition-colors whitespace-nowrap"
-      >
-        <Trash2 className="size-3.5 shrink-0" />
-        Delete
-      </button>
-    </div>
-    )
-  })()
-
-  const renderSeriesContextMenu = () => dialogState.menu?.kind === 'series' && (() => {
-    const menu = dialogState.menu as Extract<typeof dialogState.menu, { kind: 'series' }>
-    return (
-    <div
-      ref={(el) => {
-        if (!el) return
-        const rect = el.getBoundingClientRect()
-        const vw = window.innerWidth
-        const vh = window.innerHeight
-        let x = menu.x
-        let y = menu.y
-        if (x + rect.width > vw - 8) x = menu.x - rect.width
-        if (y + rect.height > vh - 8) y = menu.y - rect.height
-        if (x < 8) x = 8
-        if (y < 8) y = 8
-        el.style.left = `${x}px`
-        el.style.top = `${y}px`
-      }}
-      className="fixed z-50 w-fit rounded-lg border border-border-default/50 bg-surface-base/95 backdrop-blur-md py-1 shadow-lg"
-      style={{ left: -9999, top: -9999 }}
-      onClick={e => e.stopPropagation()}
-    >
-      <button
-        onClick={() => dispatchDialog({
-          type: 'open',
-          dialog: { kind: 'renameSeries', seriesName: menu.seriesName, books: menu.books, newName: menu.seriesName },
-        })}
-        className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
-      >
-        <Pencil className="size-3.5 text-content-muted shrink-0" />
-        Rename Series
-      </button>
-    </div>
-    )
-  })()
-
-  const renderDialogs = () => {
-    const editTagsPayload = isOpen(dialogState, 'editTags') ? payloadOf(dialogState, 'editTags') : null
-    const setSeriesPayload = isOpen(dialogState, 'setSeries') ? payloadOf(dialogState, 'setSeries') : null
-    const coverPayload = isOpen(dialogState, 'cover') ? payloadOf(dialogState, 'cover') : null
-    const generateAllPayload = isOpen(dialogState, 'generateAll') ? payloadOf(dialogState, 'generateAll') : null
-    const overviewPayload = payloadOf(dialogState, 'overview')
-    const renamePayload = payloadOf(dialogState, 'rename')
-    const renameSeriesPayload = payloadOf(dialogState, 'renameSeries')
-    const deletePayload = payloadOf(dialogState, 'delete')
-    const resetPayload = payloadOf(dialogState, 'reset')
-    const ratePayload = payloadOf(dialogState, 'rate')
-
-    return (
-    <>
-      {/* Rename dialog */}
-      <Dialog open={isOpen(dialogState, 'rename')} onOpenChange={open => { if (!open) dispatchDialog({ type: 'close' }) }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Rename Book</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs font-medium text-content-muted mb-1 block">Title</label>
-              <input
-                value={renamePayload?.title ?? ''}
-                onChange={e => dispatchDialog({ type: 'edit', patch: { title: e.target.value } })}
-                onKeyDown={e => e.key === 'Enter' && handleRename()}
-                className="h-9 w-full rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-content-muted mb-1 block">Subtitle</label>
-              <input
-                value={renamePayload?.subtitle ?? ''}
-                onChange={e => dispatchDialog({ type: 'edit', patch: { subtitle: e.target.value } })}
-                onKeyDown={e => e.key === 'Enter' && handleRename()}
-                placeholder="Optional subtitle"
-                className="h-9 w-full rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => dispatchDialog({ type: 'close' })}>Cancel</Button>
-            <Button onClick={handleRename} disabled={!renamePayload?.title.trim() || mutating}>OK</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Rename Series dialog */}
-      <Dialog open={isOpen(dialogState, 'renameSeries')} onOpenChange={open => { if (!open) dispatchDialog({ type: 'close' }) }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Rename Series</DialogTitle>
-            <DialogDescription>
-              This will update the series name on {renameSeriesPayload?.books.length ?? 0} {(renameSeriesPayload?.books.length ?? 0) === 1 ? 'book' : 'books'}.
-            </DialogDescription>
-          </DialogHeader>
-          <div>
-            <label className="text-xs font-medium text-content-muted mb-1 block">Series Name</label>
-            <input
-              value={renameSeriesPayload?.newName ?? ''}
-              onChange={e => dispatchDialog({ type: 'edit', patch: { newName: e.target.value } })}
-              onKeyDown={e => e.key === 'Enter' && handleRenameSeries()}
-              className="h-9 w-full rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
-              autoFocus
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => dispatchDialog({ type: 'close' })}>Cancel</Button>
-            <Button onClick={handleRenameSeries} disabled={!renameSeriesPayload?.newName.trim() || mutating}>OK</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete confirmation dialog */}
-      <Dialog open={isOpen(dialogState, 'delete')} onOpenChange={open => { if (!open) dispatchDialog({ type: 'close' }) }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Delete Book</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete &ldquo;{deletePayload?.book.title}&rdquo;? Type <strong>delete</strong> to confirm.
-            </DialogDescription>
-          </DialogHeader>
-          <input
-            value={deletePayload?.input ?? ''}
-            onChange={e => dispatchDialog({ type: 'edit', patch: { input: e.target.value } })}
-            onKeyDown={e => e.key === 'Enter' && deletePayload?.input.toLowerCase() === 'delete' && handleDelete()}
-            placeholder="delete"
-            className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
-            autoFocus
-            autoCapitalize="off"
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => dispatchDialog({ type: 'close' })}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deletePayload?.input.toLowerCase() !== 'delete' || mutating}>OK</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isOpen(dialogState, 'reset')} onOpenChange={open => { if (!open) dispatchDialog({ type: 'close' }) }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Reset Book</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to reset &ldquo;{resetPayload?.book.title}&rdquo;? This permanently clears your reading progress, rating, feedback, and quiz answers. The chapters and table of contents will remain. Type <strong>reset</strong> to confirm.
-            </DialogDescription>
-          </DialogHeader>
-          <input
-            value={resetPayload?.input ?? ''}
-            onChange={e => dispatchDialog({ type: 'edit', patch: { input: e.target.value } })}
-            onKeyDown={e => e.key === 'Enter' && resetPayload?.input.toLowerCase() === 'reset' && handleReset()}
-            placeholder="reset"
-            className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
-            autoFocus
-            autoCapitalize="off"
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => dispatchDialog({ type: 'close' })}>Cancel</Button>
-            <Button variant="destructive" onClick={handleReset} disabled={resetPayload?.input.toLowerCase() !== 'reset' || mutating}>OK</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Rate dialog */}
-      <Dialog open={isOpen(dialogState, 'rate')} onOpenChange={open => { if (!open) dispatchDialog({ type: 'close' }) }}>
-        <DialogContent className="sm:max-w-xs">
-          <DialogHeader>
-            <DialogTitle>Rate Book</DialogTitle>
-            <DialogDescription>{ratePayload?.book.title}</DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col items-center gap-2 py-4">
-            <StarRating
-              value={ratePayload?.rating ?? 0}
-              onChange={val => dispatchDialog({ type: 'edit', patch: { rating: val } })}
-              size="lg"
-            />
-            {ratePayload && ratePayload.book.rating != null && ratePayload.book.rating > 0 && (
-              <button
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                onClick={handleClearRating}
-                disabled={mutating}
-              >
-                Clear rating
-              </button>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => dispatchDialog({ type: 'close' })}>Cancel</Button>
-            <Button onClick={handleRate} disabled={!ratePayload?.rating || mutating}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Tags dialog */}
-      {editTagsPayload && (
-        <EditTagsDialog
-          open={true}
-          onOpenChange={(open) => { if (!open) dispatchDialog({ type: 'close' }) }}
-          bookId={editTagsPayload.book.id}
-          currentTags={editTagsPayload.book.tags}
-          allTags={allTags}
-          onSave={handleSaveTags}
-        />
-      )}
-
-      {/* Set Series dialog */}
-      {setSeriesPayload && (
-        <SetSeriesDialog
-          open={true}
-          onOpenChange={(open) => { if (!open) dispatchDialog({ type: 'close' }) }}
-          bookId={setSeriesPayload.book.id}
-          currentSeries={setSeriesPayload.book.series}
-          currentSeriesOrder={setSeriesPayload.book.seriesOrder}
-          allSeriesNames={allSeriesNames}
-          onSave={handleSaveSeries}
-        />
-      )}
-
-      {/* Book overview modal */}
-      <BookOverviewModal
-        open={isOpen(dialogState, 'overview')}
-        onOpenChange={(open) => { if (!open) dispatchDialog({ type: 'close' }) }}
-        book={overviewPayload?.book ?? { id: '', title: '', totalChapters: 0 }}
-      />
-
-      {/* Cover generation modal */}
-      {coverPayload && (
-        <CoverGenerationModal
-          open={true}
-          onOpenChange={(open) => { if (!open) dispatchDialog({ type: 'close' }) }}
-          bookId={coverPayload.book.id}
-          bookTitle={coverPayload.book.title}
-          bookTopic={coverPayload.book.prompt ?? coverPayload.book.title}
-          hasCover={coverPayload.book.hasCover}
-          showTitleOnCover={coverPayload.book.showTitleOnCover}
-          onCoverChanged={fetchBooks}
-        />
-      )}
-
-      {/* Generate all modal */}
-      {generateAllPayload && (
-        <GenerateAllModal
-          open={true}
-          onOpenChange={(open) => {
-            if (!open) {
-              dispatchDialog({ type: 'close' })
-              fetchBooks()
-            }
-          }}
-          taskId={generateAllPayload.taskId}
-          bookTitle={generateAllPayload.book.title}
-          totalChapters={generateAllPayload.book.totalChapters}
-        />
-      )}
-
-      {/* Audiobook download modal */}
-      {audiobook.audiobookDownloadModal && (
-        <AudiobookDownloadModal
-          open
-          onOpenChange={(open) => { if (!open) { audiobook.setAudiobookDownloadModal(null); audiobook.setPendingAudiobookForBookId(null) } }}
-          missing={audiobook.audiobookDownloadModal.missing}
-          missingBytes={audiobook.audiobookDownloadModal.missingBytes}
-          onConfirm={audiobook.handleConfirmDownload}
-        />
-      )}
-
-      {/* Audiobook voice modal */}
-      {audiobook.audiobookVoiceModal && (
-        <AudiobookVoiceModal
-          open
-          onOpenChange={(open) => { if (!open) audiobook.setAudiobookVoiceModal(null) }}
-          bookId={audiobook.audiobookVoiceModal.book.id}
-          bookTitle={audiobook.audiobookVoiceModal.book.title}
-          mode={audiobook.audiobookVoiceModal.mode}
-        />
-      )}
-
-      {/* Audiobook regenerate confirm modal */}
-      {audiobook.regenerateAudiobookConfirm && (
-        <AudiobookRegenerateConfirmModal
-          open
-          onOpenChange={(open) => { if (!open) audiobook.setRegenerateAudiobookConfirm(null) }}
-          bookTitle={audiobook.regenerateAudiobookConfirm.book.title}
-          onConfirm={audiobook.handleConfirmRegenerateAudiobook}
-        />
-      )}
-    </>
-    )
-  }
-
   if (activeSeriesName) {
     const seriesBooks = books.filter(b => b.series === activeSeriesName)
     return (
@@ -1181,8 +724,33 @@ export function LibraryPage({
             }
           }}
         />
-        {renderContextMenu()}
-        {renderDialogs()}
+        {dialogState.menu?.kind === 'book' && (
+          <BookContextMenu
+            menu={dialogState.menu}
+            dispatch={dispatchDialog}
+            onQuizReview={onQuizReview}
+            onGenerateAll={handleGenerateAll}
+            onExportEpub={handleExportEpub}
+            audiobook={audiobook}
+          />
+        )}
+        <LibraryDialogs
+          dialogState={dialogState}
+          dispatchDialog={dispatchDialog}
+          mutating={mutating}
+          allTags={allTags}
+          allSeriesNames={allSeriesNames}
+          fetchBooks={fetchBooks}
+          audiobook={audiobook}
+          onRename={handleRename}
+          onRenameSeries={handleRenameSeries}
+          onDelete={handleDelete}
+          onReset={handleReset}
+          onRate={handleRate}
+          onClearRating={handleClearRating}
+          onSaveTags={handleSaveTags}
+          onSaveSeries={handleSaveSeries}
+        />
       </>
     )
   }
@@ -1572,9 +1140,36 @@ export function LibraryPage({
         </div>
       </main>
 
-      {renderContextMenu()}
-      {renderSeriesContextMenu()}
-      {renderDialogs()}
+      {dialogState.menu?.kind === 'book' && (
+        <BookContextMenu
+          menu={dialogState.menu}
+          dispatch={dispatchDialog}
+          onQuizReview={onQuizReview}
+          onGenerateAll={handleGenerateAll}
+          onExportEpub={handleExportEpub}
+          audiobook={audiobook}
+        />
+      )}
+      {dialogState.menu?.kind === 'series' && (
+        <SeriesContextMenu menu={dialogState.menu} dispatch={dispatchDialog} />
+      )}
+      <LibraryDialogs
+        dialogState={dialogState}
+        dispatchDialog={dispatchDialog}
+        mutating={mutating}
+        allTags={allTags}
+        allSeriesNames={allSeriesNames}
+        fetchBooks={fetchBooks}
+        audiobook={audiobook}
+        onRename={handleRename}
+        onRenameSeries={handleRenameSeries}
+        onDelete={handleDelete}
+        onReset={handleReset}
+        onRate={handleRate}
+        onClearRating={handleClearRating}
+        onSaveTags={handleSaveTags}
+        onSaveSeries={handleSaveSeries}
+      />
 
       {/* Import EPUB dialog */}
       <ImportPreviewDialog
