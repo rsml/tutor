@@ -8,6 +8,18 @@ pre-commit:
       run: pnpm exec eslint --max-warnings 0 {staged_files}
     typecheck:
       run: pnpm typecheck
+    # Runs on every commit rather than only in CI because it takes under a
+    # second and because the failure it catches, a route change committed
+    # without regenerating docs/api-routes.md, is cheapest to fix in the
+    # commit that caused it.
+    docs-routes:
+      glob: "server/**/*.ts"
+      run: |
+        pnpm docs:routes
+        git diff --exit-code docs/api-routes.md || {
+          echo "docs/api-routes.md is stale. It has been regenerated for you. Run 'git add docs/api-routes.md' and commit again."
+          exit 1
+        }
 
 pre-push:
   commands:

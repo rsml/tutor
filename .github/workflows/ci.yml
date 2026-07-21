@@ -41,6 +41,19 @@ jobs:
 
       - run: pnpm test
 
+      # docs/api-routes.md is generated from the Fastify route registry, so it
+      # can only be wrong if someone changed a route and did not regenerate it.
+      # This step is what makes that impossible to merge. It runs last because
+      # it boots the server, and a failure here is a stale file rather than
+      # broken code.
+      - name: Check the generated API routes doc is current
+        run: |
+          pnpm docs:routes
+          git diff --exit-code docs/api-routes.md || {
+            echo "::error file=docs/api-routes.md::docs/api-routes.md is stale. Run 'pnpm docs:routes' and commit the result."
+            exit 1
+          }
+
   # The end-to-end journey suite, in its own job so it runs alongside verify
   # rather than behind it. `pnpm test` stays the fast one and never waits on a
   # browser. See e2e/README.md for what the journeys cover and why the server
