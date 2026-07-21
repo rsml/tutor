@@ -10,8 +10,10 @@ import type { ProviderId } from '@shared/provider.js'
  * SDK from five route/service modules: 9 `generateObject` call sites and 6
  * `streamText` call sites (one of which drives tool calling and is really a
  * `runToolConversation` call in disguise). This port exists so those call
- * sites can depend on a shape instead of the SDK, so `services/model-client.ts`
- * and the SDK itself become adapter-only concerns.
+ * sites can depend on a shape instead of the SDK. Provider and model
+ * resolution used to sit in its own service that every caller imported
+ * directly, and it now lives in the adapter, so the SDK is an adapter-only
+ * concern.
  *
  * `signal` on every method means CANCELLATION ONLY, e.g. a "generate all
  * chapters" background task being cancelled. It is never a timeout. The
