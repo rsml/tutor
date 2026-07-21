@@ -76,7 +76,13 @@ The fidelity guarantee is `support/scripted-text-generation.test.ts`, which runs
 
 ## Why no test ids
 
-There is not one `data-testid` in the client, and adding one would be the easy way out of every hard locator in this suite. The rule holds because addressing the UI by role and by name means the suite doubles as an accessibility net. Two real gaps were found by writing these journeys and reported rather than papered over, a book card that is a `div` with an `onClick` and therefore carries no role and no accessible name, and a context menu built from plain buttons with no menu semantics.
+There is not one `data-testid` in the client, and adding one would be the easy way out of every hard locator in this suite. The rule holds because addressing the UI by role and by name means the suite doubles as an accessibility net. Writing these journeys found five real gaps, all reported as an issue rather than papered over with a test id.
+
+1. A book card is a `div` with an `onClick`, so it has no role, no accessible name, and no focus. A keyboard user cannot open a book at all. This is the serious one.
+2. The book context menu is a plain `div` of buttons with no `menu` or `menuitem` semantics.
+3. The Rename dialog's Title and Subtitle labels are not wired to their inputs.
+4. The Delete dialog's confirmation input has no label.
+5. The library toolbar's icon-only search and view toggles carry a `title` attribute but no `aria-label`.
 
 The one sanctioned exception is a hidden `<input type="file">`, which has no role and no accessible name by construction. It is commented where it appears.
 
