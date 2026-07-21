@@ -11,34 +11,11 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@client/components/ui/dialog'
-import { apiUrl } from '@client/api/http'
+import { getProfile, saveProfile, voicePreviewUrl, type Skill } from '@client/api'
+import { useAudiobookEngine } from '@client/features/audiobook/hooks/useAudiobookEngine'
 import { type Preferences, DEFAULT_PREFS } from '@client/lib/profile-constants'
-
-interface VoiceInfo {
-  id: string
-  name: string
-  language: 'American English' | 'British English'
-  gender: 'Male' | 'Female'
-  grade: string
-}
-
-interface AudiobookPrefs {
-  defaultVoiceId: string
-  defaultSpeed: number
-  workerOverride?: number
-}
-
-interface ProfileResponse {
-  aboutMe: string
-  preferences: Preferences & { audiobook?: AudiobookPrefs }
-  skills: unknown[]
-}
-
-interface AudiobookStatus {
-  installed: boolean
-  missing: { model: boolean; ffmpeg: boolean }
-  downloadSize: number
-}
+import type { AudiobookPreferences } from '@shared/domain'
+import type { VoiceInfo } from '@shared/responses'
 
 interface AudiobookSettingsDialogProps {
   open: boolean
@@ -63,16 +40,14 @@ function sortVoicesByGender(voices: VoiceInfo[]): VoiceInfo[] {
 export function AudiobookSettingsDialog({ open, onOpenChange }: AudiobookSettingsDialogProps) {
   const [loaded, setLoaded] = useState(false)
   const [aboutMe, setAboutMe] = useState('')
-  const [skills, setSkills] = useState<unknown[]>([])
+  const [skills, setSkills] = useState<Skill[]>([])
   const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFS)
-  const [status, setStatus] = useState<AudiobookStatus | null>(null)
-  const [voices, setVoices] = useState<VoiceInfo[]>([])
+  const { status, voices, installing, loadStatus, loadVoices, install } = useAudiobookEngine()
   const [selectedVoice, setSelectedVoice] = useState<string>(DEFAULT_VOICE)
   const [speed, setSpeed] = useState<number>(DEFAULT_SPEED)
   const [workerOverride, setWorkerOverride] = useState<string>('')
   const [previewing, setPreviewing] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [installing, setInstalling] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   useEffect(() => {
@@ -83,18 +58,11 @@ export function AudiobookSettingsDialog({ open, onOpenChange }: AudiobookSetting
     let cancelled = false
     ;(async () => {
       try {
-        const [profileRes, statusRes, voicesRes] = await Promise.all([
-          fetch(apiUrl('/api/profile')),
-          fetch(apiUrl('/api/audiobook/status')),
-          fetch(apiUrl('/api/audiobook/voices')),
+        const [profile, , voicesData] = await Promise.all([
+          getProfile(),
+          loadStatus(),
+          loadVoices(),
         ])
-        if (!profileRes.ok) throw new Error(`Profile fetch failed: ${profileRes.status}`)
-        if (!statusRes.ok) throw new Error(`Status fetch failed: ${statusRes.status}`)
-        if (!voicesRes.ok) throw new Error(`Voices fetch failed: ${voicesRes.status}`)
-
-        const profile = (await profileRes.json()) as ProfileResponse
-        const statusData = (await statusRes.json()) as AudiobookStatus
-        const voicesData = (await voicesRes.json()) as { voices: VoiceInfo[] }
 
         if (cancelled) return
 
@@ -102,13 +70,11 @@ export function AudiobookSettingsDialog({ open, onOpenChange }: AudiobookSetting
         setSkills(profile.skills ?? [])
         const prefs = { ...DEFAULT_PREFS, ...profile.preferences }
         setPreferences(prefs)
-        setStatus(statusData)
-        setVoices(voicesData.voices)
 
         const audiobook = profile.preferences?.audiobook
         const desiredVoice = audiobook?.defaultVoiceId ?? DEFAULT_VOICE
-        const voiceExists = voicesData.voices.some(v => v.id === desiredVoice)
-        setSelectedVoice(voiceExists ? desiredVoice : voicesData.voices[0]?.id ?? DEFAULT_VOICE)
+        const voiceExists = voicesData.some(v => v.id === desiredVoice)
+        setSelectedVoice(voiceExists ? desiredVoice : voicesData[0]?.id ?? DEFAULT_VOICE)
         setSpeed(audiobook?.defaultSpeed ?? DEFAULT_SPEED)
         setWorkerOverride(audiobook?.workerOverride != null ? String(audiobook.workerOverride) : '')
         setLoaded(true)
@@ -123,7 +89,7 @@ export function AudiobookSettingsDialog({ open, onOpenChange }: AudiobookSetting
     return () => {
       cancelled = true
     }
-  }, [open])
+  }, [open, loadStatus, loadVoices])
 
   useEffect(() => {
     if (open) return
@@ -157,7 +123,7 @@ export function AudiobookSettingsDialog({ open, onOpenChange }: AudiobookSetting
     setPreviewing(true)
     audioRef.current?.pause()
     try {
-      const audio = new Audio(apiUrl(`/api/audiobook/voices/${selectedVoice}/preview`))
+      const audio = new Audio(voicePreviewUrl(selectedVoice))
       audioRef.current = audio
       audio.addEventListener('ended', () => setPreviewing(false), { once: true })
       audio.addEventListener(
@@ -177,20 +143,11 @@ export function AudiobookSettingsDialog({ open, onOpenChange }: AudiobookSetting
 
   const handleInstall = async (isReinstall: boolean) => {
     if (installing) return
-    setInstalling(true)
     try {
       // v1 limitation: there is no separate "force/redownload" endpoint. The
       // install task only fetches components reported as missing, so a true
       // wipe-and-redownload would need a new server endpoint.
-      const res = await fetch(apiUrl('/api/audiobook/install'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      })
-      if (!res.ok && res.status !== 409) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || `Install failed: ${res.status}`)
-      }
+      await install()
       toast.success(
         isReinstall
           ? "Checking narrator components — we'll redownload anything missing."
@@ -200,12 +157,10 @@ export function AudiobookSettingsDialog({ open, onOpenChange }: AudiobookSetting
       toast.error(
         'Failed to start install: ' + (err instanceof Error ? err.message : 'Unknown error'),
       )
-    } finally {
-      setInstalling(false)
     }
   }
 
-  const validate = (): AudiobookPrefs | null => {
+  const validate = (): AudiobookPreferences | null => {
     if (!voices.some(v => v.id === selectedVoice)) {
       toast.error('Pick a valid voice')
       return null
@@ -238,15 +193,7 @@ export function AudiobookSettingsDialog({ open, onOpenChange }: AudiobookSetting
     setSaving(true)
     try {
       const nextPreferences = { ...preferences, audiobook }
-      const res = await fetch(apiUrl('/api/profile'), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ aboutMe, preferences: nextPreferences, skills }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || `Save failed: ${res.status}`)
-      }
+      await saveProfile({ aboutMe, preferences: nextPreferences, skills })
       toast.success('Audiobook settings saved.')
       onOpenChange(false)
     } catch (err) {

@@ -11,15 +11,9 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@client/components/ui/dialog'
-import { apiUrl } from '@client/api/http'
-
-interface VoiceInfo {
-  id: string
-  name: string
-  language: 'American English' | 'British English'
-  gender: 'Male' | 'Female'
-  grade: string
-}
+import { generateAudiobook, voicePreviewUrl } from '@client/api'
+import { useAudiobookEngine } from '@client/features/audiobook/hooks/useAudiobookEngine'
+import type { VoiceInfo } from '@shared/responses'
 
 interface AudiobookVoiceModalProps {
   open: boolean
@@ -79,7 +73,7 @@ export function AudiobookVoiceModal({
   rememberAsDefaultByDefault = true,
   mode,
 }: AudiobookVoiceModalProps) {
-  const [voices, setVoices] = useState<VoiceInfo[]>([])
+  const { voices, loadVoices } = useAudiobookEngine()
   const [selectedVoice, setSelectedVoice] = useState<string>(DEFAULT_VOICE)
   const [speed, setSpeed] = useState<number>(1.0)
   const [rememberAsDefault, setRememberAsDefault] = useState<boolean>(rememberAsDefaultByDefault)
@@ -93,14 +87,11 @@ export function AudiobookVoiceModal({
     let cancelled = false
     ;(async () => {
       try {
-        const res = await fetch(apiUrl('/api/audiobook/voices'))
-        if (!res.ok) throw new Error(`Failed: ${res.status}`)
-        const data = (await res.json()) as { voices: VoiceInfo[] }
+        const list = await loadVoices()
         if (cancelled) return
-        setVoices(data.voices)
         // Keep DEFAULT_VOICE if available, otherwise pick first.
-        if (!data.voices.some(v => v.id === DEFAULT_VOICE) && data.voices[0]) {
-          setSelectedVoice(data.voices[0].id)
+        if (!list.some(v => v.id === DEFAULT_VOICE) && list[0]) {
+          setSelectedVoice(list[0].id)
         }
       } catch (err) {
         if (cancelled) return
@@ -110,7 +101,7 @@ export function AudiobookVoiceModal({
     return () => {
       cancelled = true
     }
-  }, [open])
+  }, [open, loadVoices])
 
   // Stop any preview audio when the modal closes or unmounts.
   useEffect(() => {
@@ -141,7 +132,7 @@ export function AudiobookVoiceModal({
     setPreviewing(true)
     audioRef.current?.pause()
     try {
-      const audio = new Audio(apiUrl(`/api/audiobook/voices/${selectedVoice}/preview`))
+      const audio = new Audio(voicePreviewUrl(selectedVoice))
       audioRef.current = audio
       audio.addEventListener('ended', () => setPreviewing(false), { once: true })
       audio.addEventListener('error', () => {
@@ -159,20 +150,12 @@ export function AudiobookVoiceModal({
     if (submitting) return
     setSubmitting(true)
     try {
-      const res = await fetch(apiUrl(`/api/books/${bookId}/audiobook`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          voiceId: selectedVoice,
-          speed,
-          rememberAsDefault,
-          confirmReplace: mode === 'regenerate',
-        }),
+      await generateAudiobook(bookId, {
+        voiceId: selectedVoice,
+        speed,
+        rememberAsDefault,
+        confirmReplace: mode === 'regenerate',
       })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || `Request failed: ${res.status}`)
-      }
       toast.success('Audiobook generation started — check background tasks')
       onOpenChange(false)
     } catch (err) {

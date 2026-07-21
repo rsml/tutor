@@ -1,24 +1,14 @@
 import { useEffect, useState, useCallback } from 'react'
-import { apiUrl } from '@client/api/http'
+import { getBookAudiobook, type BookAudiobookStatus } from '@client/api'
+import { AUDIOBOOK_POLL_MS } from '@client/lib/constants'
 import { useAppSelector, selectRunningTasks } from '@client/store'
-
-interface AudiobookStatus {
-  exists: boolean
-  generatedChapters: number[]
-  manifest: {
-    voice: string
-    speed: number
-    generatedAt: string
-    chapters: Array<{ num: number; title: string; startSec: number; durationSec: number }>
-  } | null
-}
 
 // Shared lookup so every chapter button doesn't fire its own HTTP call.
 // Re-polls every few seconds while an audiobook task is running for this
 // book so per-chapter Listen buttons light up progressively as the WAV->MP3
 // conversion completes for each chapter.
 export function useChapterAudio(bookId: string) {
-  const [status, setStatus] = useState<AudiobookStatus | null>(null)
+  const [status, setStatus] = useState<BookAudiobookStatus | null>(null)
   const runningTasks = useAppSelector(selectRunningTasks)
   const audiobookRunning = runningTasks.some(
     t => t.bookId === bookId && t.type === 'generate-audiobook',
@@ -26,14 +16,8 @@ export function useChapterAudio(bookId: string) {
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch(apiUrl(`/api/books/${bookId}/audiobook`))
-      if (!res.ok) { setStatus(null); return }
-      const data = await res.json()
-      setStatus({
-        exists: !!data.exists,
-        generatedChapters: data.generatedChapters ?? [],
-        manifest: data.manifest ?? null,
-      })
+      const data = await getBookAudiobook(bookId)
+      setStatus(data)
     } catch {
       setStatus(null)
     }
@@ -49,7 +33,7 @@ export function useChapterAudio(bookId: string) {
       void refresh()
       return
     }
-    const interval = setInterval(() => { void refresh() }, 4000)
+    const interval = setInterval(() => { void refresh() }, AUDIOBOOK_POLL_MS)
     return () => clearInterval(interval)
   }, [audiobookRunning, refresh])
 
