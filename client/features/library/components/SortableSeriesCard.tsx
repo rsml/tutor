@@ -3,19 +3,12 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical } from 'lucide-react'
 import { SeriesStackCard } from '@client/features/library/components/SeriesStackCard'
-
-interface Book {
-  id: string
-  title: string
-  hasCover?: boolean
-  coverUpdatedAt?: string | null
-  showTitleOnCover?: boolean
-}
+import type { LibraryBook } from '@shared/responses'
 
 interface SortableSeriesCardProps {
   id: string
   seriesName: string
-  books: Book[]
+  books: LibraryBook[]
   chaptersRead: number
   totalChapters: number
   onClick: () => void

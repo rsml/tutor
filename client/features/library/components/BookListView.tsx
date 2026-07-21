@@ -2,41 +2,19 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical } from 'lucide-react'
 import { BookListRow } from '@client/features/library/components/BookListRow'
-
-interface Book {
-  id: string
-  title: string
-  subtitle?: string
-  prompt?: string
-  chaptersRead: number
-  totalChapters: number
-  generatedUpTo: number
-  status?: string
-  rating?: number
-  finalQuizScore?: number
-  finalQuizTotal?: number
-  hasCover?: boolean
-  showTitleOnCover?: boolean
-  coverUpdatedAt?: string | null
-  createdAt: string
-  tags: string[]
-  series?: string
-  seriesOrder?: number
-  sortOrder?: number
-  imported?: boolean
-}
+import type { LibraryBook } from '@shared/responses'
 
 type ListItem =
-  | { type: 'book'; book: Book; chaptersRead: number }
-  | { type: 'series'; seriesName: string; bookCount: number; books: Array<{ book: Book; chaptersRead: number }> }
+  | { type: 'book'; book: LibraryBook; chaptersRead: number }
+  | { type: 'series'; seriesName: string; bookCount: number; books: Array<{ book: LibraryBook; chaptersRead: number }> }
 
 interface BookListViewProps {
   items: ListItem[]
   isManual?: boolean
-  onBookClick: (book: Book) => void
+  onBookClick: (book: LibraryBook) => void
   onSeriesClick: (seriesName: string) => void
-  onContextMenu: (book: Book, e: React.MouseEvent) => void
-  onSeriesContextMenu?: (seriesName: string, books: Book[], e: React.MouseEvent) => void
+  onContextMenu: (book: LibraryBook, e: React.MouseEvent) => void
+  onSeriesContextMenu?: (seriesName: string, books: LibraryBook[], e: React.MouseEvent) => void
 }
 
 function SortableListRow({ id, children }: { id: string; children: React.ReactNode }) {
