@@ -7,6 +7,7 @@ import { libraryRoutes } from './routes/library.js'
 import { readingRoutes } from './routes/reading.js'
 import { assessmentRoutes } from './routes/assessment.js'
 import { suggestionRoutes } from './routes/suggestions.js'
+import { epubRoutes } from './routes/epub.js'
 import { settingsRoutes } from './routes/settings.js'
 import { profileRoutes } from './routes/profile.js'
 import { taskRoutes } from './routes/tasks.js'
@@ -127,6 +128,7 @@ export async function buildServer(overrides: Partial<Ports> = {}): Promise<Fasti
   await fastify.register(readingRoutes, { ports })
   await fastify.register(assessmentRoutes, { ports })
   await fastify.register(suggestionRoutes, { ports })
+  await fastify.register(epubRoutes, { ports })
   await fastify.register(settingsRoutes, { ports })
   await fastify.register(profileRoutes, { ports })
   await fastify.register(taskRoutes, { ports })
