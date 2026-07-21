@@ -1,0 +1,5 @@
+id: truncated-book
+title: "A Book Whose Write Was Interrupted
+prompt: The unterminated quote on the line above is the corruption. Do not fix it.
+status: reading
+totalChapters: [

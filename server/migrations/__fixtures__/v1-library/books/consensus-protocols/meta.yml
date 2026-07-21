@@ -1,0 +1,12 @@
+id: consensus-protocols
+title: Consensus Protocols
+subtitle: From Two Generals to Raft
+prompt: Teach me how distributed consensus actually works, building up from first principles.
+status: complete
+totalChapters: 2
+generatedUpTo: 2
+createdAt: "2025-11-02T09:14:03.221Z"
+updatedAt: "2025-11-02T10:41:55.807Z"
+rating: 4.5
+finalQuizScore: 8
+finalQuizTotal: 10
