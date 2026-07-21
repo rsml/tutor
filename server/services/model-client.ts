@@ -1,36 +1,7 @@
-import { createAnthropic } from '@ai-sdk/anthropic'
-import { createOpenAI } from '@ai-sdk/openai'
-import { createGoogleGenerativeAI } from '@ai-sdk/google'
+import { resolveModelClient } from '../adapters/ai-sdk-text-generation.js'
 import { getKey } from './key-store.js'
-import { isProviderId, MODEL_REGEX } from '@shared/provider.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createModelClient(provider: string, model: string): any {
-  if (!isProviderId(provider)) {
-    throw new Error(`Invalid provider: ${provider}`)
-  }
-  if (!MODEL_REGEX.test(model)) {
-    throw new Error(`Invalid model identifier: ${model}`)
-  }
-
-  const apiKey = getKey(provider)
-  if (!apiKey) {
-    throw new Error(`No API key configured for provider: ${provider}`)
-  }
-
-  switch (provider) {
-    case 'openai': {
-      const openai = createOpenAI({ apiKey })
-      return openai(model)
-    }
-    case 'google': {
-      const google = createGoogleGenerativeAI({ apiKey })
-      return google(model)
-    }
-    case 'anthropic':
-    default: {
-      const anthropic = createAnthropic({ apiKey })
-      return anthropic(model)
-    }
-  }
+  return resolveModelClient({ get: getKey }, provider, model)
 }
