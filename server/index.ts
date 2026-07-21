@@ -12,6 +12,8 @@ import { modelsRoutes } from './routes/models.js'
 import { audiobookRoutes } from './routes/audiobook.js'
 import { recoverFromCrash } from './services/book-store.js'
 import { registerErrorHandler } from './http/error-handler.js'
+import { DIAGRAM_RENDER_TIMEOUT_MS } from './constants.js'
+import { STATUS_FORBIDDEN, STATUS_NO_CONTENT } from './http/status.js'
 
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
@@ -67,7 +69,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   fastify.addHook('onRequest', async (request, reply) => {
     const origin = request.headers.origin
     if (origin && !isAllowedOrigin(origin)) {
-      reply.status(403).send({ error: 'Not allowed by CORS' })
+      reply.status(STATUS_FORBIDDEN).send({ error: 'Not allowed by CORS' })
       return
     }
     if (origin) {
@@ -81,7 +83,7 @@ export async function buildServer(): Promise<FastifyInstance> {
     if (request.method === 'OPTIONS') {
       reply.raw.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
       reply.raw.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Trace-Id')
-      reply.status(204).send()
+      reply.status(STATUS_NO_CONTENT).send()
       return
     }
   })
@@ -102,7 +104,7 @@ export async function buildServer(): Promise<FastifyInstance> {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain' },
           body: chart,
-          signal: AbortSignal.timeout(30_000),
+          signal: AbortSignal.timeout(DIAGRAM_RENDER_TIMEOUT_MS),
         })
         if (res.ok) {
           const buf = Buffer.from(await res.arrayBuffer())

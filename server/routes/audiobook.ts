@@ -6,6 +6,7 @@ import {
   installAll,
 } from '../services/audiobook-installer.js'
 import { listVoices, synthesizePreview } from '../services/kokoro-service.js'
+import { VOICE_PREVIEW_CACHE_MAX_AGE_S } from '../constants.js'
 
 // Top-level audiobook engine routes (not scoped to a specific book).
 //
@@ -98,7 +99,7 @@ export async function audiobookRoutes(fastify: FastifyInstance) {
 
       const buffer = await synthesizePreview(voiceId)
       reply.header('Content-Type', 'audio/wav')
-      reply.header('Cache-Control', 'public, max-age=2592000')
+      reply.header('Cache-Control', `public, max-age=${VOICE_PREVIEW_CACHE_MAX_AGE_S}`)
       return reply.send(buffer)
     },
   )

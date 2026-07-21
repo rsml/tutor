@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { TASK_CLEANUP_DELAY_MS } from '../constants.js'
 
 export type TaskType =
   | 'generate-all'
@@ -50,8 +51,6 @@ type GlobalSubscriber = (event: TaskEvent) => void
 const tasks = new Map<string, BackgroundTask>()
 const globalSubscribers = new Set<GlobalSubscriber>()
 
-const CLEANUP_DELAY_MS = 60_000
-
 function toClientTask(task: BackgroundTask): ClientTask {
   return {
     id: task.id,
@@ -74,7 +73,7 @@ function emitGlobal(event: TaskEvent): void {
 function scheduleCleanup(taskId: string): void {
   setTimeout(() => {
     tasks.delete(taskId)
-  }, CLEANUP_DELAY_MS)
+  }, TASK_CLEANUP_DELAY_MS)
 }
 
 export function createTask(type: TaskType, bookId: string, bookTitle: string, total: number): BackgroundTask {

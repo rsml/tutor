@@ -1,5 +1,8 @@
 import type { FastifyInstance } from 'fastify'
 import { getKey } from '../services/key-store.js'
+import { MODEL_LIST_TIMEOUT_MS } from '../constants.js'
+import { providerParamSchema } from '../http/route-params.js'
+import { STATUS_BAD_REQUEST, STATUS_BAD_GATEWAY } from '../http/status.js'
 
 interface ModelOption {
   value: string
@@ -14,12 +17,6 @@ interface ProviderModels {
 interface AnthropicModel { id: string; display_name?: string }
 interface OpenAIModel { id: string }
 interface GoogleModel { name: string; displayName?: string; supportedGenerationMethods?: string[] }
-
-const paramsSchema = {
-  type: 'object' as const,
-  properties: { provider: { type: 'string' as const, pattern: '^(anthropic|openai|google)$' } },
-  required: ['provider'] as const,
-}
 
 // Friendly labels for well-known model IDs. Unmatched IDs fall back to upstream
 // display_name or the raw ID. Add entries as new headline models ship.
@@ -113,24 +110,24 @@ async function fetchGoogleModels(apiKey: string, signal: AbortSignal): Promise<P
 export async function modelsRoutes(fastify: FastifyInstance) {
   fastify.get<{ Params: { provider: string } }>(
     '/api/providers/:provider/models',
-    { schema: { params: paramsSchema } },
+    { schema: { params: providerParamSchema } },
     async (request, reply) => {
       const provider = request.params.provider
       const apiKey = getKey(provider)
-      if (!apiKey) return reply.status(400).send({ error: 'No API key configured for ' + provider })
+      if (!apiKey) return reply.status(STATUS_BAD_REQUEST).send({ error: 'No API key configured for ' + provider })
 
-      const signal = AbortSignal.timeout(10_000)
+      const signal = AbortSignal.timeout(MODEL_LIST_TIMEOUT_MS)
       try {
         let models: ProviderModels
         switch (provider) {
           case 'anthropic': models = await fetchAnthropicModels(apiKey, signal); break
           case 'openai': models = await fetchOpenAIModels(apiKey, signal); break
           case 'google': models = await fetchGoogleModels(apiKey, signal); break
-          default: return reply.status(400).send({ error: 'Invalid provider' })
+          default: return reply.status(STATUS_BAD_REQUEST).send({ error: 'Invalid provider' })
         }
         return models
       } catch (err) {
-        return reply.status(502).send({ error: err instanceof Error ? err.message : 'Failed to fetch models' })
+        return reply.status(STATUS_BAD_GATEWAY).send({ error: err instanceof Error ? err.message : 'Failed to fetch models' })
       }
     },
   )

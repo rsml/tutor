@@ -8,8 +8,7 @@ import { generateObject } from 'ai'
 import { UpdateProfileBodySchema, InterviewChatBodySchema, CompleteProfileSchema, SuggestSkillsBodySchema } from '@shared/contracts.js'
 import { DEFAULT_PROVIDER } from '@shared/provider.js'
 import { MARKDOWN_FORMATTING_RULES } from '../prompts/formatting-rules.js'
-
-const AI_TIMEOUT_MS = 5 * 60 * 1000
+import { AI_GENERATION_TIMEOUT_MS } from '../constants.js'
 
 const INTERVIEW_SYSTEM_PROMPT = `You are conducting a learning profile interview to understand this reader so that an AI-generated book can be perfectly tailored to them. You combine three expert perspectives:
 
@@ -87,7 +86,7 @@ export async function profileRoutes(fastify: FastifyInstance) {
     const modelClient = createModelClient(provider ?? DEFAULT_PROVIDER, model)
 
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
+    const timer = setTimeout(() => controller.abort(), AI_GENERATION_TIMEOUT_MS)
 
     try {
       const result = await generateObject({
@@ -132,7 +131,7 @@ Suggest skills that are relevant to their background and learning goals. Rate th
     const modelClient = createModelClient(provider ?? DEFAULT_PROVIDER, model)
 
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
+    const timer = setTimeout(() => controller.abort(), AI_GENERATION_TIMEOUT_MS)
 
     reply.raw.writeHead(200, {
       'Content-Type': 'application/x-ndjson',

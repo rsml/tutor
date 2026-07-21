@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyReply } from 'fastify'
+import type { FastifyInstance } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { streamText, generateObject } from 'ai'
 import { z } from 'zod'
@@ -30,12 +30,22 @@ import { isInstalled as isAudiobookEngineInstalled } from '../services/audiobook
 import { generateAudiobook } from '../services/audiobook-generator.js'
 import { listVoices } from '../services/kokoro-service.js'
 import { MARKDOWN_FORMATTING_RULES } from '../prompts/formatting-rules.js'
-
-const AI_TIMEOUT_MS = 5 * 60 * 1000
+import {
+  AI_GENERATION_TIMEOUT_MS,
+  DEFAULT_CHAPTER_COUNT,
+  DEFAULT_MODEL,
+  DEFAULT_QUIZ_LENGTH,
+  MAX_CHAPTERS,
+  PROFILE_EXCERPT_CHARS,
+  SEARCH_SNIPPET_RADIUS,
+  TOC_ERROR_SNIPPET_CHARS,
+} from '../constants.js'
+import { sendMediaWithRange } from '../http/send-media-range.js'
+import { bookIdSchema, bookChapterSchema } from '../http/route-params.js'
 
 function createTimeout(): { signal: AbortSignal; clear: () => void } {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
+  const timer = setTimeout(() => controller.abort(), AI_GENERATION_TIMEOUT_MS)
   return { signal: controller.signal, clear: () => clearTimeout(timer) }
 }
 
@@ -127,7 +137,7 @@ async function generateQuiz(
   provider: string,
   model: string,
   chapterContent: string,
-  quizLength: number = 3,
+  quizLength: number = DEFAULT_QUIZ_LENGTH,
 ): Promise<{ questions: Array<{ question: string; options: string[]; correctIndex: number }> }> {
   const timeout = createTimeout()
   try {
@@ -154,21 +164,6 @@ ${chapterContent}`,
   }
 }
 
-const bookIdSchema = {
-  type: 'object' as const,
-  properties: { id: { type: 'string' as const, pattern: '^[a-z0-9-]{1,50}$' } },
-  required: ['id'] as const,
-}
-
-const bookChapterSchema = {
-  type: 'object' as const,
-  properties: {
-    id: { type: 'string' as const, pattern: '^[a-z0-9-]{1,50}$' },
-    num: { type: 'string' as const, pattern: '^[1-9][0-9]{0,2}$' },
-  },
-  required: ['id', 'num'] as const,
-}
-
 async function validateChapterNum(bookId: string, num: number): Promise<void> {
   const meta = await store.getBook(bookId)
   if (num < 1 || num > meta.totalChapters) {
@@ -179,71 +174,6 @@ async function validateChapterNum(bookId: string, num: number): Promise<void> {
 }
 
 const sanitizeFeedback = (s: string) => s.replace(/<\/?[^>]+>/g, '')
-
-// Serve a media file with HTTP Range support. Writes via reply.raw so
-// Fastify doesn't re-derive Content-Length from a stream (it ends up
-// at 0 for streams, breaking <audio> playback). Sets CORS expose
-// headers so cross-origin <audio> elements can read media metadata.
-async function sendMediaWithRange(
-  reply: FastifyReply,
-  rangeHeader: string | undefined,
-  filePath: string,
-  contentType: string,
-  opts: { disposition?: string } = {},
-): Promise<void> {
-  const { existsSync, createReadStream } = await import('node:fs')
-  const { stat: fsStat } = await import('node:fs/promises')
-
-  if (!existsSync(filePath)) {
-    reply.status(404).send({ error: 'File not found' })
-    return
-  }
-  const fileStat = await fsStat(filePath)
-  const etag = `"${fileStat.size.toString(16)}-${fileStat.mtimeMs.toString(36)}"`
-
-  let start = 0
-  let end = fileStat.size - 1
-  let status = 200
-  if (rangeHeader) {
-    const match = /^bytes=(\d+)-(\d+)?$/.exec(rangeHeader)
-    if (!match) {
-      reply.status(416).send({ error: 'Invalid Range header' })
-      return
-    }
-    start = parseInt(match[1], 10)
-    end = match[2] ? parseInt(match[2], 10) : fileStat.size - 1
-    if (start >= fileStat.size || end >= fileStat.size || start > end) {
-      reply.raw.setHeader('Content-Range', `bytes */${fileStat.size}`)
-      reply.status(416).send({ error: 'Range not satisfiable' })
-      return
-    }
-    status = 206
-  }
-
-  const length = end - start + 1
-  const headers: Record<string, string> = {
-    'Content-Type': contentType,
-    'Content-Length': String(length),
-    'Accept-Ranges': 'bytes',
-    'Cache-Control': 'no-cache',
-    ETag: etag,
-    'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges, ETag',
-  }
-  if (status === 206) {
-    headers['Content-Range'] = `bytes ${start}-${end}/${fileStat.size}`
-  }
-  if (opts.disposition) {
-    headers['Content-Disposition'] = opts.disposition
-  }
-
-  // reply.hijack() prevents Fastify from touching the response further;
-  // we own writeHead + pipe ourselves so the body actually flows.
-  reply.hijack()
-  reply.raw.writeHead(status, headers)
-  const stream = createReadStream(filePath, { start, end })
-  stream.on('error', () => { reply.raw.destroy() })
-  stream.pipe(reply.raw)
-}
 
 export async function bookRoutes(fastify: FastifyInstance) {
   async function generateFirstChapterAndQuiz(
@@ -464,8 +394,8 @@ Write this chapter now.`,
                 const idx = lowerContent.indexOf(query)
                 if (idx !== -1) {
                   // Extract a snippet around the match
-                  const start = Math.max(0, idx - 60)
-                  const end = Math.min(content.length, idx + query.length + 60)
+                  const start = Math.max(0, idx - SEARCH_SNIPPET_RADIUS)
+                  const end = Math.min(content.length, idx + query.length + SEARCH_SNIPPET_RADIUS)
                   let snippet = content.slice(start, end).replace(/\n/g, ' ')
                   if (start > 0) snippet = '...' + snippet
                   if (end < content.length) snippet = snippet + '...'
@@ -527,9 +457,9 @@ Write this chapter now.`,
 
       // On-demand quiz generation
       const chapterContent = await store.getChapter(bookId, chapterNum)
-      const model = request.query.model || 'claude-sonnet-4-6'
+      const model = request.query.model || DEFAULT_MODEL
       const provider = request.query.provider || 'anthropic'
-      const quizLen = request.query.quizLength ? parseInt(request.query.quizLength) : 3
+      const quizLen = request.query.quizLength ? parseInt(request.query.quizLength) : DEFAULT_QUIZ_LENGTH
 
       const quiz = await genManager.generateQuiz(provider, model, chapterContent, quizLen)
       await store.saveQuiz(bookId, chapterNum, quiz)
@@ -934,7 +864,7 @@ IMPORTANT: ONLY ask about concepts, facts, and ideas explicitly discussed in the
     for (let i = 1; i <= meta.generatedUpTo; i++) {
       try {
         const content = await store.getChapter(bookId, i)
-        chapterSummaries.push(`Chapter ${i} "${toc.chapters[i - 1]?.title}": ${content.slice(0, 300)}...`)
+        chapterSummaries.push(`Chapter ${i} "${toc.chapters[i - 1]?.title}": ${content.slice(0, PROFILE_EXCERPT_CHARS)}...`)
       } catch { /* skip */ }
     }
 
@@ -1066,14 +996,14 @@ Suggest profile updates based on this completed book. Return the complete update
         title: topic,
         prompt: `${topic}${details ? `\n\n${details}` : ''}`,
         status: 'generating_toc',
-        totalChapters: chapterCount ?? 12,
+        totalChapters: chapterCount ?? DEFAULT_CHAPTER_COUNT,
         generatedUpTo: 0,
         createdAt: now,
         updatedAt: now,
         tags: [],
         audioGeneratedChapters: [],
       })
-      send({ type: 'book_created', bookId, title: topic, totalChapters: chapterCount ?? 12 })
+      send({ type: 'book_created', bookId, title: topic, totalChapters: chapterCount ?? DEFAULT_CHAPTER_COUNT })
 
       // Phase 1: Generate TOC
       const profileContext = await buildProfileContext()
@@ -1084,7 +1014,7 @@ Suggest profile updates based on this completed book. Return the complete update
         abortSignal: tocTimeout.signal,
         system: `You are creating a table of contents for a personalized learning book.
 
-Generate a well-structured table of contents with exactly ${chapterCount ?? 12} chapters.
+Generate a well-structured table of contents with exactly ${chapterCount ?? DEFAULT_CHAPTER_COUNT} chapters.
 
 Start with a # heading for the book title. Think like an O'Reilly or Pragmatic Bookshelf editor:
 - Title: 2-5 words, memorable and specific. No filler like "Comprehensive Guide to" or "Introduction to".
@@ -1117,11 +1047,11 @@ ${MARKDOWN_FORMATTING_RULES}`,
       tocTimeout.clear()
 
       const { title, subtitle, chapters: parsedChapters } = parseTocFromMarkdown(tocText)
-      const targetCount = chapterCount ?? 12
+      const targetCount = chapterCount ?? DEFAULT_CHAPTER_COUNT
       const chapters = truncateChapters(parsedChapters, targetCount)
 
       if (chapters.length === 0) {
-        const snippet = tocText.trim().slice(0, 300)
+        const snippet = tocText.trim().slice(0, TOC_ERROR_SNIPPET_CHARS)
         console.error(`[POST /api/books] TOC parse failed for "${bookId}". Raw model output:\n---\n${tocText}\n---`)
         send({
           type: 'error',
@@ -1255,7 +1185,6 @@ ${feedback}`,
         // count in the prompt; if they explicitly asked for more chapters, the
         // new count flows through. If the AI overshot the absolute ceiling
         // (500), truncate.
-        const MAX_CHAPTERS = 500
         const chaptersFinal = truncateChapters(parsed.chapters, MAX_CHAPTERS)
 
         // Persist — chapters only, no skills (deferred to /start)
@@ -1349,7 +1278,7 @@ ${feedback}`,
           model: body.model,
           quizProvider: body.quizProvider ?? body.provider ?? DEFAULT_PROVIDER,
           quizModel: body.quizModel ?? body.model,
-          quizLength: body.quizLength ?? 3,
+          quizLength: body.quizLength ?? DEFAULT_QUIZ_LENGTH,
           profileContext,
           topic,
           details,
@@ -2184,7 +2113,7 @@ ${profileContext || 'No profile available.'}
   const bookRefSchema = {
     type: 'object' as const,
     properties: {
-      id: { type: 'string' as const, pattern: '^[a-z0-9-]{1,50}$' },
+      id: bookIdSchema.properties.id,
       name: { type: 'string' as const, pattern: '^[a-zA-Z0-9-]{1,100}$' },
     },
     required: ['id', 'name'] as const,
