@@ -28,7 +28,15 @@ export async function taskRoutes(fastify: FastifyInstance, opts: { ports: Ports;
         reply.raw.write(`data: ${JSON.stringify(event)}\n\n`)
       })
 
-      request.raw.on('close', () => {
+      // Listen on the RESPONSE, never on the request, for the reason issue
+      // #50 documents at length in server/routes/generation.ts. This route
+      // is a GET whose body Fastify never reads, so its request stream is
+      // not finished early and the old listener happened not to misfire,
+      // which is why the task tray worked while chapter generation did not.
+      // That is a coincidence of the verb, not a property worth relying on,
+      // and this is the stream resumed jobs are reported through, so it gets
+      // the same correct listener rather than the same latent trap.
+      reply.raw.on('close', () => {
         unsubscribe()
         if (!ended) { ended = true; reply.raw.end() }
       })
