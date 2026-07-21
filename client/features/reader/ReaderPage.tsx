@@ -14,6 +14,7 @@ import { useReaderScroll } from '@client/features/reader/hooks/useReaderScroll'
 import { useStreamingContent } from '@client/hooks/useStreamingContent'
 import { store, useAppDispatch, useAppSelector, setChapterFeedback, setChapterQuizResult, recordQuizAttempt, selectFontSize, selectReadingWidth, selectQuizLength, selectFunctionModel } from '@client/store'
 import { ApiError, generateFinalQuiz, getChapterQuiz, submitChapterFeedback, saveChapterProgress, rateBook } from '@client/api'
+import type { LibraryBook } from '@shared/responses'
 import { PAGE_SCROLL_FRACTION, READER_LINE_HEIGHT, LINE_SCROLL_LINES, PAGE_SCROLL_MS, LINE_SCROLL_MS } from '@client/lib/constants'
 import { cn } from '@client/lib/utils'
 import { stripStreamingUnclosedMermaid } from '@client/features/markdown/strip-streaming-mermaid'
@@ -38,18 +39,10 @@ function voiceNameFromId(id: string): string {
   return VOICE_DISPLAY_NAMES[id] ?? id.replace(/^[ab][fm]_/, '').replace(/^./, c => c.toUpperCase())
 }
 
-interface Book {
-  id: string
-  title: string
-  subtitle?: string
-  chaptersRead: number
-  totalChapters: number
-}
-
 export type Phase = 'reading' | 'quiz' | 'feedback' | 'generating' | 'generation-error' | 'final-quiz' | 'rating' | 'complete'
 
 export function ReaderPage({ book, onBack, onQuizReview, onUpdateProfile }: {
-  book: Book
+  book: LibraryBook
   onBack: () => void
   onQuizReview?: () => void
   onUpdateProfile?: () => void
