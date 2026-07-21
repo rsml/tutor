@@ -107,7 +107,7 @@ describe('suggestSkills', () => {
     fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ skills: suggested }), { status: 200 }))
     const body = {
       model: 'claude-sonnet-4-5',
-      provider: 'anthropic',
+      provider: 'anthropic' as const,
       aboutMe: 'A backend engineer.',
       existingSkills: [{ name: 'TypeScript', level: 8 }],
     }
@@ -131,7 +131,7 @@ describe('getProfileSuggestions', () => {
       aboutMe: 'A backend engineer who now understands audio synthesis.',
     }
     fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify(suggestions), { status: 200 }))
-    const body = { model: 'claude-sonnet-4-5', provider: 'anthropic' }
+    const body = { model: 'claude-sonnet-4-5', provider: 'anthropic' as const }
 
     const result = await getProfileSuggestions('ada', body)
 
@@ -160,7 +160,7 @@ describe('streamInterview', () => {
     fetchSpy.mockResolvedValueOnce(chunkedResponse(['{"type":"text","content":"Tell me more."}\n']))
     const body = {
       model: 'claude-sonnet-4-5',
-      provider: 'anthropic',
+      provider: 'anthropic' as const,
       userMessage: 'I am a backend engineer.',
       history: [],
     }
