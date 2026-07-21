@@ -80,20 +80,12 @@ describe('createPorts', () => {
 })
 
 describe('buildServer overrides', () => {
-  it('routes the mermaid renderer decoration through the overridden port', async () => {
-    const diagramRenderer = createFakeDiagramRenderer()
-    const fastify = await buildServer({ diagramRenderer })
-
-    const render = (fastify as unknown as {
-      mermaidRenderer: (charts: string[]) => Promise<string[]>
-    }).mermaidRenderer
-
-    const results = await render(['graph TD; A-->B'])
-
-    expect(diagramRenderer.calls).toEqual([['graph TD; A-->B']])
-    expect(results).toHaveLength(1)
-    await fastify.close()
-  })
+  // Proof that an override reaches a route rather than just createPorts'
+  // own return value lives in the 'leaves every other port real when one is
+  // overridden' case above, which already uses diagramRenderer as its
+  // example. buildServer registers every route plugin with the exact same
+  // ports object createPorts returned, so there is no separate wiring step
+  // here left to pin.
 
   it('still builds a fully registered server when no override is given', async () => {
     const fastify = await buildServer()

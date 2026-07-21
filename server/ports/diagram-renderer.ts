@@ -1,13 +1,14 @@
 /**
  * Renders mermaid diagram source into embeddable markup for EPUB export.
- * Today this happens two different ways behind the same
- * fastify.mermaidRenderer decoration. server/index.ts sets a default that
- * calls the kroki.io HTTP API and writes each returned PNG to a temp file.
- * electron/main.ts overrides that decoration at startup, when running
- * inside Electron, with an offscreen BrowserWindow that renders with the
- * real mermaid.js and captures a PNG from the page. Neither file is
- * touched by this port, it is written from reading both so that a future
- * kroki adapter and a future Electron adapter can both satisfy it as is.
+ * Today this happens two different ways behind this one port. The default
+ * adapter calls the kroki.io HTTP API and writes each returned PNG to a temp
+ * file (server/adapters/kroki-diagram-renderer.ts). electron/main.ts passes
+ * a `diagramRenderer` override into startServer at startup, when running
+ * inside Electron, backed by an offscreen BrowserWindow that renders with
+ * the real mermaid.js and captures a PNG from the page
+ * (server/adapters/electron-diagram-renderer.ts). Neither file is touched by
+ * this port, it is written from reading both so that a future kroki adapter
+ * and a future Electron adapter can both satisfy it as is.
  *
  * A chart that fails to render yields readable fallback markup rather than
  * an empty string. Both real implementations already treat a single

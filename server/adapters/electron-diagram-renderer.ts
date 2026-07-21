@@ -44,10 +44,10 @@ export interface ElectronDiagramRendererDeps {
 
 /**
  * Factory for the DiagramRenderer port, backed by an offscreen Electron
- * BrowserWindow running the real mermaid.js. Lifted from the
- * server.mermaidRenderer override in electron/main.ts, which Electron
- * installs at startup in place of the kroki.io fallback because it is
- * faster and works offline.
+ * BrowserWindow running the real mermaid.js. electron/main.ts passes an
+ * instance of this as a `diagramRenderer` override into startServer at
+ * startup, in place of the kroki.io default, because it is faster and works
+ * offline.
  */
 export function createElectronDiagramRenderer(deps: ElectronDiagramRendererDeps): DiagramRenderer {
   const { BrowserWindow, dataDir, resolveMermaidPath } = deps

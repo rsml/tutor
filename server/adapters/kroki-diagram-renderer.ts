@@ -8,10 +8,10 @@ import { diagramSourceFallback, type DiagramRenderer } from '../ports/diagram-re
 
 /**
  * Renders mermaid charts via the kroki.io HTTP API, writing each returned
- * PNG to a temp file (epub-gen-memory doesn't support data: URLs). Lifted
- * from the default fastify.mermaidRenderer decoration in server/index.ts,
- * which stands in for the Electron BrowserWindow renderer when running
- * outside Electron (standalone server, or dev web mode).
+ * PNG to a temp file (epub-gen-memory doesn't support data: URLs). This is
+ * the default DiagramRenderer adapter, used by standalone and dev server
+ * mode; Electron overrides it at startup with an offscreen BrowserWindow
+ * renderer instead (see electron-diagram-renderer.ts).
  *
  * Behavior change from the original inline version: a chart that fails to
  * render (a non-ok response, or a thrown error such as a timeout) now

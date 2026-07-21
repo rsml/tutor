@@ -38,8 +38,8 @@ function isAllowedOrigin(origin: string): boolean {
 
 /**
  * Builds a fully wired Fastify instance: logger config, the CORS onRequest
- * hook, the mermaidRenderer decoration, rate-limit registration, every route
- * registration, and the global error handler plus health route.
+ * hook, rate-limit registration, every route registration, and the global
+ * error handler plus health route.
  *
  * Does NOT call recoverFromCrash() and does NOT listen — the returned
  * instance has not bound a port and has not run crash recovery. Callers
@@ -103,14 +103,6 @@ export async function buildServer(overrides: Partial<Ports> = {}): Promise<Fasti
       return
     }
   })
-
-  // Mermaid renderer — the DiagramRenderer port, exposed as a decoration
-  // until the EPUB export service takes it as an ordinary dependency.
-  // Electron overrides the port with a BrowserWindow-backed adapter; the
-  // default is the kroki.io one, which is what standalone and dev server
-  // mode get. Returns PNG as <img> tags with file:// URLs (epub-gen-memory
-  // doesn't support data: URLs).
-  fastify.decorate('mermaidRenderer', (charts: string[]) => ports.diagramRenderer.render(charts))
 
   // MUST come before the route plugins below. Fastify only propagates an error
   // handler to encapsulation contexts created after it is set, so registering
