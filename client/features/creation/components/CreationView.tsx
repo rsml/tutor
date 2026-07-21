@@ -3,15 +3,13 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 import { Button } from '@client/components/ui/button'
 import { SafeMarkdown } from '@client/features/markdown/SafeMarkdown'
 import { ReviseTocPanel } from '@client/features/creation/components/ReviseTocPanel'
+import { useTocStream } from '@client/features/creation/hooks/useTocStream'
+import { useChapterOneStream } from '@client/features/creation/hooks/useChapterOneStream'
 import { useAppSelector, selectHasApiKeyForFunction, selectFunctionModel, selectFontSize, selectQuizLength } from '@client/store'
-import { useStreamingContent } from '@client/hooks/useStreamingContent'
-import { parseSSEStream } from '@client/lib/parse-sse-stream'
-import type { CreateBookEvent, ReviseTocEvent, StartBookEvent } from '@shared/events'
-import { apiUrl } from '@client/api/http'
+import { getBook, getToc } from '@client/api'
 import { formatTocAsMarkdown } from '@client/lib/format-toc'
-import { toast } from '@client/lib/toast'
 
-type Phase = 'toc' | 'awaiting_approval' | 'revising' | 'starting' | 'done' | 'error'
+export type Phase = 'toc' | 'awaiting_approval' | 'revising' | 'starting' | 'done' | 'error'
 
 export type CreationViewProps =
   | {
@@ -51,172 +49,25 @@ export function CreationView(props: CreationViewProps) {
   const [error, setError] = useState<string | null>(null)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
 
-  const tocScrollRef = useRef<HTMLDivElement>(null)
-  const chapterScrollRef = useRef<HTMLDivElement>(null)
   const startedRef = useRef(false)
 
-  const toc = useStreamingContent()
-  const chapter = useStreamingContent()
+  const { toc, tocScrollRef, startGeneration, handleRevise } = useTocStream({
+    hasApiKey, topic, details, chapterCount,
+    model, provider, quizModel, quizProvider, quizLength,
+    onBookCreated, setPhase, setError, setBookId, setActiveTab,
+  })
 
-  const handleGenerateChapter1 = useCallback(async (id: string) => {
-    setPhase('starting')
-    setActiveTab('chapter')
-    try {
-      const res = await fetch(apiUrl(`/api/books/${id}/start`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, provider, quizModel, quizProvider, quizLength }),
-      })
-      if (!res.ok || !res.body) {
-        const body = await res.json().catch(() => null)
-        throw new Error(body?.message || `Start failed: ${res.status}`)
-      }
-      await parseSSEStream<StartBookEvent>(res, {
-        onEvent: (event) => {
-          switch (event.type) {
-            case 'chapter':
-              chapter.appendChunk(event.text)
-              requestAnimationFrame(() => {
-                chapterScrollRef.current?.scrollTo({ top: chapterScrollRef.current!.scrollHeight })
-              })
-              break
-            case 'done':
-              chapter.flushNow()
-              setPhase('done')
-              break
-            case 'error':
-              setError('Generation failed: ' + event.message)
-              setPhase('error')
-              break
-          }
-        },
-      })
-    } catch (err) {
-      setError('Generation failed: ' + (err instanceof Error ? err.message : 'Unknown error'))
-      setPhase('error')
-    }
-  }, [model, provider, quizModel, quizProvider, quizLength, chapter])
-
-  // Auto-advance into the reader once chapter 1 has finished streaming.
-  // Uses a phase-driven effect (not the SSE handler) so this also fires
-  // correctly on Vite HMR if the component remounts while phase is already 'done'.
-  useEffect(() => {
-    if (phase !== 'done' || !bookId) return
-    const t = setTimeout(() => onComplete(bookId), 600)
-    return () => clearTimeout(t)
-  }, [phase, bookId, onComplete])
-
-  const handleRevise = useCallback(async (id: string, feedback: string) => {
-    setPhase('revising')
-    setActiveTab('toc')
-    // Clear the existing TOC content to make room for the streamed replacement
-    toc.flushNow()
-    toc.reset()
-    try {
-      const res = await fetch(apiUrl(`/api/books/${id}/toc/revise`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ feedback, model, provider }),
-      })
-      if (!res.ok || !res.body) {
-        const body = await res.json().catch(() => null)
-        throw new Error(body?.message || `Revise failed: ${res.status}`)
-      }
-      await parseSSEStream<ReviseTocEvent>(res, {
-        onEvent: (event) => {
-          switch (event.type) {
-            case 'toc':
-              toc.appendChunk(event.text)
-              requestAnimationFrame(() => {
-                tocScrollRef.current?.scrollTo({ top: tocScrollRef.current!.scrollHeight })
-              })
-              break
-            case 'toc_revised':
-              toc.flushNow()
-              setPhase('awaiting_approval')
-              break
-            case 'error':
-              toast.error('Revise failed: ' + event.message)
-              setPhase('awaiting_approval')
-              break
-          }
-        },
-      })
-    } catch (err) {
-      toast.error('Revise failed: ' + (err instanceof Error ? err.message : 'Unknown error'))
-      setPhase('awaiting_approval')
-    }
-  }, [model, provider, toc])
-
-  const startGeneration = useCallback(async () => {
-    if (!hasApiKey) {
-      setError('Please set your API key in Settings first.')
-      setPhase('error')
-      return
-    }
-
-    try {
-      const res = await fetch(apiUrl('/api/books'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, details, model, provider, quizModel, quizProvider, quizLength, chapterCount }),
-      })
-
-      if (!res.ok || !res.body) {
-        const body = await res.json().catch(() => null)
-        throw new Error(body?.message || `Request failed: ${res.status}`)
-      }
-
-      await parseSSEStream<CreateBookEvent>(res, {
-        onEvent: (event) => {
-          switch (event.type) {
-            case 'book_created':
-              setBookId(event.bookId)
-              onBookCreated?.(event.bookId, event.title, event.totalChapters)
-              break
-
-            case 'toc':
-              toc.appendChunk(event.text)
-              // Auto-scroll TOC
-              requestAnimationFrame(() => {
-                tocScrollRef.current?.scrollTo({ top: tocScrollRef.current!.scrollHeight })
-              })
-              break
-
-            case 'toc_done': {
-              toc.flushNow()
-              setBookId(event.bookId)
-              setPhase('awaiting_approval')
-              // No automatic startChapterGeneration anymore.
-              break
-            }
-
-            case 'done':
-              // POST /api/books now ends after toc_done; this just closes the stream
-              break
-
-            case 'error':
-              setError('Generation failed: ' + event.message)
-              setPhase('error')
-              break
-          }
-        },
-      })
-    } catch (err) {
-      setError('Generation failed: ' + (err instanceof Error ? err.message : 'Unknown error'))
-      setPhase('error')
-    }
-  }, [hasApiKey, model, provider, quizModel, quizProvider, quizLength, chapterCount, topic, details, toc, onBookCreated])
+  const { chapter, chapterScrollRef, handleGenerateChapter1 } = useChapterOneStream({
+    bookId, model, provider, quizModel, quizProvider, quizLength,
+    onComplete, phase, setPhase, setError, setActiveTab,
+  })
 
   const resumeFromExisting = useCallback(async (id: string) => {
     try {
-      const [bookRes, tocRes] = await Promise.all([
-        fetch(apiUrl(`/api/books/${id}`)),
-        fetch(apiUrl(`/api/books/${id}/toc`)),
+      const [book, tocData] = await Promise.all([
+        getBook(id),
+        getToc(id),
       ])
-      if (!bookRes.ok || !tocRes.ok) throw new Error('Failed to load book')
-      const book = await bookRes.json()
-      const tocData = await tocRes.json()
 
       setBookId(id)
       // Reconstruct the TOC markdown and put it into the streaming buffer
