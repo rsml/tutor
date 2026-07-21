@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useCallback, useMemo, useReducer, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { toast } from '@client/lib/toast'
 import { Plus, BookOpen, X, FileDown, Pencil, Star, Tags, Library, ClipboardCheck, Eye, Image, Zap, Download, Trash2, RotateCcw, Headphones, FolderOpen } from 'lucide-react'
 import { DndContext, DragOverlay, closestCenter, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
@@ -28,6 +28,7 @@ import { BackgroundTasksFooter } from '@client/features/library/components/Backg
 import { EditTagsDialog } from '@client/features/library/dialogs/EditTagsDialog'
 import { ImportPreviewDialog } from '@client/features/library/dialogs/ImportPreviewDialog'
 import { SetSeriesDialog } from '@client/features/library/dialogs/SetSeriesDialog'
+import { dialogReducer, emptyDialogState, isOpen, payloadOf } from '@client/features/library/dialogs/dialog-machine'
 import { AudiobookDownloadModal } from '@client/features/audiobook/components/AudiobookDownloadModal'
 import { AudiobookVoiceModal } from '@client/features/audiobook/components/AudiobookVoiceModal'
 import { AudiobookRegenerateConfirmModal } from '@client/features/audiobook/components/AudiobookRegenerateConfirmModal'
@@ -61,16 +62,19 @@ import {
   updateBook,
 } from '@client/api'
 import { isComplete } from '@shared/book-status'
-import type { LibraryBook, EpubPreview } from '@shared/responses'
+import type { LibraryBook } from '@shared/responses'
 import type { useBackgroundTaskEffects } from '@client/features/library/hooks/useBackgroundTaskEffects'
+import type { DialogState, LibraryDialog } from '@client/features/library/dialogs/dialog-machine'
 
 /**
  * Everything the library screen owns: the grid, the list, the series
  * drill-in, drag-and-drop manual reordering, search and filtering, and every
  * dialog and context menu a book or series can open. This is deliberately
- * the one file in this feature allowed past the usual 500-line ceiling —
- * splitting it further is a later task's job (a dialog-state reducer),
- * not this one's.
+ * the one file in this feature allowed past the usual 500-line ceiling. The
+ * sixteen dialogs and two context menus used to be twenty-plus independent
+ * pieces of component state; they are a single reducer now, in
+ * `dialogs/dialog-machine.ts` (moving their markup out of this file follows
+ * in a separate commit).
  */
 
 /** The audiobook install/generate flow. Owned by App.tsx because a narrator
@@ -78,6 +82,20 @@ import type { useBackgroundTaskEffects } from '@client/features/library/hooks/us
  * unmounted in favor of the reader — see useBackgroundTaskEffects for why
  * that forces the subscription (and this state) to live above this page. */
 type AudiobookEffects = ReturnType<typeof useBackgroundTaskEffects>
+
+/**
+ * Reads a dialog's payload only while it is genuinely open, never while it is
+ * merely fading out. The confirm handlers below use this instead of
+ * payloadOf so a click or keypress landing during the exit animation cannot
+ * act on a dialog that has already been dismissed, mirroring the reducer's
+ * own refusal to apply an edit in that same window.
+ */
+function activeDialog<TKind extends LibraryDialog['kind']>(
+  state: DialogState,
+  kind: TKind,
+): Extract<LibraryDialog, { kind: TKind }> | null {
+  return state.dialog?.kind === kind ? (state.dialog as Extract<LibraryDialog, { kind: TKind }>) : null
+}
 
 export interface LibraryPageProps {
   books: LibraryBook[]
@@ -104,25 +122,12 @@ export function LibraryPage({
   onReviewProgress,
   audiobook,
 }: LibraryPageProps) {
-  const [wizardOpen, setWizardOpen] = useState(false)
-  const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false)
-  const [contextMenu, setContextMenu] = useState<{ book: LibraryBook; x: number; y: number } | null>(null)
-  const [renameDialog, setRenameDialog] = useState<{ book: LibraryBook; title: string; subtitle: string } | null>(null)
-  const [deleteDialog, setDeleteDialog] = useState<{ book: LibraryBook; input: string } | null>(null)
-  const [resetDialog, setResetDialog] = useState<{ book: LibraryBook; input: string } | null>(null)
-  const [rateDialog, setRateDialog] = useState<{ book: LibraryBook; rating: number } | null>(null)
-  const [overviewBook, setOverviewBook] = useState<LibraryBook | null>(null)
-  const [coverModal, setCoverModal] = useState<{ book: LibraryBook } | null>(null)
-  const [generateAllModal, setGenerateAllModal] = useState<{ taskId: string; book: LibraryBook } | null>(null)
-  const [editTagsDialog, setEditTagsDialog] = useState<{ book: LibraryBook } | null>(null)
-  const [setSeriesDialog, setSetSeriesDialog] = useState<{ book: LibraryBook } | null>(null)
-  const [seriesContextMenu, setSeriesContextMenu] = useState<{ seriesName: string; books: LibraryBook[]; x: number; y: number } | null>(null)
-  const [renameSeriesDialog, setRenameSeriesDialog] = useState<{ seriesName: string; books: LibraryBook[]; newName: string } | null>(null)
+  const [dialogState, dispatchDialog] = useReducer(dialogReducer, emptyDialogState)
+  // Shared by rename, delete, reset and rate rather than owned by any one of
+  // them, so it stays an ordinary flag instead of a field on the dialog
+  // union. Folding it in would mean every dialog kind carried a mutating
+  // flag it mostly does not use.
   const [mutating, setMutating] = useState(false)
-  const [importPreview, setImportPreview] = useState<EpubPreview | null>(null)
-  const [importFileBase64, setImportFileBase64] = useState('')
-  const [importFilename, setImportFilename] = useState('')
-  const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
   // Which series the grid has drilled into, or null for the main grid/list.
   // Scoped to this page rather than the app-wide view — App.tsx never needs
@@ -143,8 +148,8 @@ export function LibraryPage({
 
   // Close context menu on any click or Escape
   useEffect(() => {
-    if (!contextMenu && !seriesContextMenu) return
-    const close = () => { setContextMenu(null); setSeriesContextMenu(null) }
+    if (!dialogState.menu) return
+    const close = () => dispatchDialog({ type: 'closeMenu' })
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
     window.addEventListener('click', close)
     window.addEventListener('keydown', handleKey)
@@ -152,20 +157,20 @@ export function LibraryPage({
       window.removeEventListener('click', close)
       window.removeEventListener('keydown', handleKey)
     }
-  }, [contextMenu, seriesContextMenu])
+  }, [dialogState.menu])
 
   const handleNewBook = () => {
     if (!hasApiKey) {
-      setApiKeyDialogOpen(true)
+      dispatchDialog({ type: 'open', dialog: { kind: 'apiKey' } })
     } else {
-      setWizardOpen(true)
+      dispatchDialog({ type: 'open', dialog: { kind: 'wizard' } })
     }
   }
 
   const handleGenerateAll = async (book: LibraryBook) => {
     try {
       const { taskId } = await generateAllChapters(book.id, { model: genModel, provider: genProvider, quizModel, quizProvider })
-      setGenerateAllModal({ taskId, book })
+      dispatchDialog({ type: 'open', dialog: { kind: 'generateAll', book, taskId } })
     } catch (err) {
       toast.error('Failed to start generation: ' + (err instanceof Error ? err.message : 'Unknown error'))
     }
@@ -187,29 +192,31 @@ export function LibraryPage({
   }
 
   const handleRename = async () => {
-    if (!renameDialog) return
-    const trimmed = renameDialog.title.trim()
+    const payload = activeDialog(dialogState, 'rename')
+    if (!payload) return
+    const trimmed = payload.title.trim()
     if (!trimmed) return
     setMutating(true)
     try {
-      await updateBook(renameDialog.book.id, { title: trimmed, subtitle: renameDialog.subtitle.trim() || undefined })
+      await updateBook(payload.book.id, { title: trimmed, subtitle: payload.subtitle.trim() || undefined })
       await fetchBooks()
     } catch {
       toast.error('Failed to rename book — server unreachable')
     } finally {
       setMutating(false)
     }
-    setRenameDialog(null)
+    dispatchDialog({ type: 'close' })
   }
 
   const handleRenameSeries = async () => {
-    if (!renameSeriesDialog) return
-    const trimmed = renameSeriesDialog.newName.trim()
+    const payload = activeDialog(dialogState, 'renameSeries')
+    if (!payload) return
+    const trimmed = payload.newName.trim()
     if (!trimmed) return
     setMutating(true)
     try {
       await Promise.all(
-        renameSeriesDialog.books.map(book => updateBook(book.id, { series: trimmed }))
+        payload.books.map(book => updateBook(book.id, { series: trimmed }))
       )
       await fetchBooks()
     } catch {
@@ -217,35 +224,67 @@ export function LibraryPage({
     } finally {
       setMutating(false)
     }
-    setRenameSeriesDialog(null)
+    dispatchDialog({ type: 'close' })
   }
 
   const handleDelete = async () => {
-    if (!deleteDialog || deleteDialog.input.toLowerCase() !== 'delete') return
+    const payload = activeDialog(dialogState, 'delete')
+    if (!payload || payload.input.toLowerCase() !== 'delete') return
     setMutating(true)
     try {
-      await deleteBook(deleteDialog.book.id)
+      await deleteBook(payload.book.id)
       await fetchBooks()
     } catch {
       toast.error('Failed to delete book — server unreachable')
     } finally {
       setMutating(false)
     }
-    setDeleteDialog(null)
+    dispatchDialog({ type: 'close' })
   }
 
   const handleReset = async () => {
-    if (!resetDialog || resetDialog.input.toLowerCase() !== 'reset') return
+    const payload = activeDialog(dialogState, 'reset')
+    if (!payload || payload.input.toLowerCase() !== 'reset') return
     setMutating(true)
     try {
-      await resetBook(resetDialog.book.id)
+      await resetBook(payload.book.id)
       await fetchBooks()
     } catch {
       toast.error('Failed to reset book — server unreachable')
     } finally {
       setMutating(false)
     }
-    setResetDialog(null)
+    dispatchDialog({ type: 'close' })
+  }
+
+  const handleRate = async () => {
+    const payload = activeDialog(dialogState, 'rate')
+    if (!payload) return
+    setMutating(true)
+    try {
+      await rateBook(payload.book.id, { rating: payload.rating })
+      await fetchBooks()
+    } catch {
+      toast.error('Failed to save rating — server unreachable')
+    } finally {
+      setMutating(false)
+    }
+    dispatchDialog({ type: 'close' })
+  }
+
+  const handleClearRating = async () => {
+    const payload = activeDialog(dialogState, 'rate')
+    if (!payload) return
+    setMutating(true)
+    try {
+      await rateBook(payload.book.id, { rating: 0 })
+      await fetchBooks()
+    } catch {
+      toast.error('Failed to clear rating — server unreachable')
+    } finally {
+      setMutating(false)
+    }
+    dispatchDialog({ type: 'close' })
   }
 
   const handleSaveTags = async (bookId: string, tags: string[]) => {
@@ -255,7 +294,7 @@ export function LibraryPage({
     } catch {
       toast.error('Failed to save tags -- server unreachable')
     }
-    setEditTagsDialog(null)
+    dispatchDialog({ type: 'close' })
   }
 
   const handleSaveSeries = async (bookId: string, series: string | null, seriesOrder: number | null) => {
@@ -265,7 +304,7 @@ export function LibraryPage({
     } catch {
       toast.error('Failed to save series -- server unreachable')
     }
-    setSetSeriesDialog(null)
+    dispatchDialog({ type: 'close' })
   }
 
   // --- EPUB Import ---
@@ -291,30 +330,25 @@ export function LibraryPage({
     }
     try {
       const base64 = await readFileAsBase64(file)
-      setImportFileBase64(base64)
-      setImportFilename(file.name)
-
       const preview = await previewEpubImport({ base64, filename: file.name })
-      setImportPreview(preview)
-      setImportDialogOpen(true)
+      dispatchDialog({ type: 'open', dialog: { kind: 'import', preview, fileBase64: base64, filename: file.name } })
     } catch (err) {
       toast.error('Failed to preview EPUB: ' + (err instanceof Error ? err.message : 'Unknown error'))
     }
   }
 
   const handleImportConfirm = async (tags: string[], series: string | null, seriesOrder: number | null) => {
+    const payload = activeDialog(dialogState, 'import')
+    if (!payload) return
     try {
       await confirmEpubImport({
-        base64: importFileBase64,
-        filename: importFilename,
+        base64: payload.fileBase64,
+        filename: payload.filename,
         tags: tags.length > 0 ? tags : undefined,
         series: series ?? undefined,
         seriesOrder: seriesOrder ?? undefined,
       })
-      setImportDialogOpen(false)
-      setImportPreview(null)
-      setImportFileBase64('')
-      setImportFilename('')
+      dispatchDialog({ type: 'close' })
       toast.success('Book imported successfully')
       await fetchBooks()
     } catch (err) {
@@ -692,17 +726,20 @@ export function LibraryPage({
   }, [libraryFilters, dispatch])
 
   // --- Shared render helpers for context menu & dialogs ---
-  const renderContextMenu = () => contextMenu && (
+  const renderContextMenu = () => dialogState.menu?.kind === 'book' && (() => {
+    const menu = dialogState.menu as Extract<typeof dialogState.menu, { kind: 'book' }>
+    const { book } = menu
+    return (
     <div
       ref={(el) => {
         if (!el) return
         const rect = el.getBoundingClientRect()
         const vw = window.innerWidth
         const vh = window.innerHeight
-        let x = contextMenu.x
-        let y = contextMenu.y
-        if (x + rect.width > vw - 8) x = contextMenu.x - rect.width
-        if (y + rect.height > vh - 8) y = contextMenu.y - rect.height
+        let x = menu.x
+        let y = menu.y
+        if (x + rect.width > vw - 8) x = menu.x - rect.width
+        if (y + rect.height > vh - 8) y = menu.y - rect.height
         if (x < 8) x = 8
         if (y < 8) y = 8
         el.style.left = `${x}px`
@@ -714,40 +751,28 @@ export function LibraryPage({
     >
       {/* Edit group */}
       <button
-        onClick={() => {
-          setRenameDialog({ book: contextMenu.book, title: contextMenu.book.title, subtitle: contextMenu.book.subtitle ?? '' })
-          setContextMenu(null)
-        }}
+        onClick={() => dispatchDialog({ type: 'open', dialog: { kind: 'rename', book, title: book.title, subtitle: book.subtitle ?? '' } })}
         className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
       >
         <Pencil className="size-3.5 text-content-muted shrink-0" />
         Rename
       </button>
       <button
-        onClick={() => {
-          setRateDialog({ book: contextMenu.book, rating: contextMenu.book.rating ?? 0 })
-          setContextMenu(null)
-        }}
+        onClick={() => dispatchDialog({ type: 'open', dialog: { kind: 'rate', book, rating: book.rating ?? 0 } })}
         className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
       >
         <Star className="size-3.5 text-content-muted shrink-0" />
         Rate
       </button>
       <button
-        onClick={() => {
-          setEditTagsDialog({ book: contextMenu.book })
-          setContextMenu(null)
-        }}
+        onClick={() => dispatchDialog({ type: 'open', dialog: { kind: 'editTags', book } })}
         className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
       >
         <Tags className="size-3.5 text-content-muted shrink-0" />
         Edit Tags
       </button>
       <button
-        onClick={() => {
-          setSetSeriesDialog({ book: contextMenu.book })
-          setContextMenu(null)
-        }}
+        onClick={() => dispatchDialog({ type: 'open', dialog: { kind: 'setSeries', book } })}
         className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
       >
         <Library className="size-3.5 text-content-muted shrink-0" />
@@ -756,20 +781,14 @@ export function LibraryPage({
       <div className="my-1 h-px bg-border-default/50" />
       {/* View group */}
       <button
-        onClick={() => {
-          setOverviewBook(contextMenu.book)
-          setContextMenu(null)
-        }}
+        onClick={() => dispatchDialog({ type: 'open', dialog: { kind: 'overview', book } })}
         className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
       >
         <Eye className="size-3.5 text-content-muted shrink-0" />
         Book Overview
       </button>
       <button
-        onClick={() => {
-          onQuizReview(contextMenu.book)
-          setContextMenu(null)
-        }}
+        onClick={() => { onQuizReview(book); dispatchDialog({ type: 'closeMenu' }) }}
         className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
       >
         <ClipboardCheck className="size-3.5 text-content-muted shrink-0" />
@@ -778,38 +797,29 @@ export function LibraryPage({
       <div className="my-1 h-px bg-border-default/50" />
       {/* Actions group */}
       <button
-        onClick={() => {
-          setCoverModal({ book: contextMenu.book })
-          setContextMenu(null)
-        }}
+        onClick={() => dispatchDialog({ type: 'open', dialog: { kind: 'cover', book } })}
         className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
       >
         <Image className="size-3.5 text-content-muted shrink-0" />
         Edit Cover
       </button>
       <button
-        onClick={() => {
-          handleGenerateAll(contextMenu.book)
-          setContextMenu(null)
-        }}
-        disabled={contextMenu.book.generatedUpTo >= contextMenu.book.totalChapters}
+        onClick={() => { handleGenerateAll(book); dispatchDialog({ type: 'closeMenu' }) }}
+        disabled={book.generatedUpTo >= book.totalChapters}
         className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
       >
         <Zap className="size-3.5 text-content-muted shrink-0" />
         Generate All Chapters
       </button>
       <button
-        onClick={() => {
-          handleExportEpub(contextMenu.book)
-          setContextMenu(null)
-        }}
-        disabled={contextMenu.book.generatedUpTo < contextMenu.book.totalChapters}
+        onClick={() => { handleExportEpub(book); dispatchDialog({ type: 'closeMenu' }) }}
+        disabled={book.generatedUpTo < book.totalChapters}
         className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
       >
         <Download className="size-3.5 text-content-muted shrink-0" />
         Export EPUB
       </button>
-      {contextMenu.book.generatedUpTo < contextMenu.book.totalChapters ? (
+      {book.generatedUpTo < book.totalChapters ? (
         <button
           disabled
           className="flex flex-col items-start gap-0 w-full px-3 py-1.5 text-left text-sm text-content-primary disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
@@ -820,17 +830,17 @@ export function LibraryPage({
           </div>
           <span className="ml-5 pl-0.5 text-xs text-content-muted">Finish generating chapters first</span>
         </button>
-      ) : (audiobook.audiobookExists.get(contextMenu.book.id) === true || contextMenu.book.hasAudiobook === true) ? (
+      ) : (audiobook.audiobookExists.get(book.id) === true || book.hasAudiobook === true) ? (
         <>
           <button
-            onClick={() => { audiobook.handleShowAudiobook(contextMenu.book); setContextMenu(null) }}
+            onClick={() => { audiobook.handleShowAudiobook(book); dispatchDialog({ type: 'closeMenu' }) }}
             className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
           >
             <FolderOpen className="size-3.5 text-content-muted shrink-0" />
             Show audiobook
           </button>
           <button
-            onClick={() => { audiobook.setRegenerateAudiobookConfirm({ book: contextMenu.book }); setContextMenu(null) }}
+            onClick={() => { audiobook.setRegenerateAudiobookConfirm({ book }); dispatchDialog({ type: 'closeMenu' }) }}
             className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
           >
             <Headphones className="size-3.5 text-content-muted shrink-0" />
@@ -839,7 +849,7 @@ export function LibraryPage({
         </>
       ) : (
         <button
-          onClick={() => { audiobook.handleGenerateAudiobook(contextMenu.book); setContextMenu(null) }}
+          onClick={() => { audiobook.handleGenerateAudiobook(book); dispatchDialog({ type: 'closeMenu' }) }}
           className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
         >
           <Headphones className="size-3.5 text-content-muted shrink-0" />
@@ -849,39 +859,36 @@ export function LibraryPage({
       <div className="my-1 h-px bg-border-default/50" />
       {/* Danger group */}
       <button
-        onClick={() => {
-          setResetDialog({ book: contextMenu.book, input: '' })
-          setContextMenu(null)
-        }}
+        onClick={() => dispatchDialog({ type: 'open', dialog: { kind: 'reset', book, input: '' } })}
         className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-status-error hover:bg-surface-muted transition-colors whitespace-nowrap"
       >
         <RotateCcw className="size-3.5 shrink-0" />
         Reset
       </button>
       <button
-        onClick={() => {
-          setDeleteDialog({ book: contextMenu.book, input: '' })
-          setContextMenu(null)
-        }}
+        onClick={() => dispatchDialog({ type: 'open', dialog: { kind: 'delete', book, input: '' } })}
         className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-status-error hover:bg-surface-muted transition-colors whitespace-nowrap"
       >
         <Trash2 className="size-3.5 shrink-0" />
         Delete
       </button>
     </div>
-  )
+    )
+  })()
 
-  const renderSeriesContextMenu = () => seriesContextMenu && (
+  const renderSeriesContextMenu = () => dialogState.menu?.kind === 'series' && (() => {
+    const menu = dialogState.menu as Extract<typeof dialogState.menu, { kind: 'series' }>
+    return (
     <div
       ref={(el) => {
         if (!el) return
         const rect = el.getBoundingClientRect()
         const vw = window.innerWidth
         const vh = window.innerHeight
-        let x = seriesContextMenu.x
-        let y = seriesContextMenu.y
-        if (x + rect.width > vw - 8) x = seriesContextMenu.x - rect.width
-        if (y + rect.height > vh - 8) y = seriesContextMenu.y - rect.height
+        let x = menu.x
+        let y = menu.y
+        if (x + rect.width > vw - 8) x = menu.x - rect.width
+        if (y + rect.height > vh - 8) y = menu.y - rect.height
         if (x < 8) x = 8
         if (y < 8) y = 8
         el.style.left = `${x}px`
@@ -892,22 +899,35 @@ export function LibraryPage({
       onClick={e => e.stopPropagation()}
     >
       <button
-        onClick={() => {
-          setRenameSeriesDialog({ seriesName: seriesContextMenu.seriesName, books: seriesContextMenu.books, newName: seriesContextMenu.seriesName })
-          setSeriesContextMenu(null)
-        }}
+        onClick={() => dispatchDialog({
+          type: 'open',
+          dialog: { kind: 'renameSeries', seriesName: menu.seriesName, books: menu.books, newName: menu.seriesName },
+        })}
         className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm text-content-primary hover:bg-surface-muted transition-colors whitespace-nowrap"
       >
         <Pencil className="size-3.5 text-content-muted shrink-0" />
         Rename Series
       </button>
     </div>
-  )
+    )
+  })()
 
-  const renderDialogs = () => (
+  const renderDialogs = () => {
+    const editTagsPayload = isOpen(dialogState, 'editTags') ? payloadOf(dialogState, 'editTags') : null
+    const setSeriesPayload = isOpen(dialogState, 'setSeries') ? payloadOf(dialogState, 'setSeries') : null
+    const coverPayload = isOpen(dialogState, 'cover') ? payloadOf(dialogState, 'cover') : null
+    const generateAllPayload = isOpen(dialogState, 'generateAll') ? payloadOf(dialogState, 'generateAll') : null
+    const overviewPayload = payloadOf(dialogState, 'overview')
+    const renamePayload = payloadOf(dialogState, 'rename')
+    const renameSeriesPayload = payloadOf(dialogState, 'renameSeries')
+    const deletePayload = payloadOf(dialogState, 'delete')
+    const resetPayload = payloadOf(dialogState, 'reset')
+    const ratePayload = payloadOf(dialogState, 'rate')
+
+    return (
     <>
       {/* Rename dialog */}
-      <Dialog open={!!renameDialog} onOpenChange={open => { if (!open) setRenameDialog(null) }}>
+      <Dialog open={isOpen(dialogState, 'rename')} onOpenChange={open => { if (!open) dispatchDialog({ type: 'close' }) }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Rename Book</DialogTitle>
@@ -916,8 +936,8 @@ export function LibraryPage({
             <div>
               <label className="text-xs font-medium text-content-muted mb-1 block">Title</label>
               <input
-                value={renameDialog?.title ?? ''}
-                onChange={e => setRenameDialog(prev => prev ? { ...prev, title: e.target.value } : null)}
+                value={renamePayload?.title ?? ''}
+                onChange={e => dispatchDialog({ type: 'edit', patch: { title: e.target.value } })}
                 onKeyDown={e => e.key === 'Enter' && handleRename()}
                 className="h-9 w-full rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
                 autoFocus
@@ -926,8 +946,8 @@ export function LibraryPage({
             <div>
               <label className="text-xs font-medium text-content-muted mb-1 block">Subtitle</label>
               <input
-                value={renameDialog?.subtitle ?? ''}
-                onChange={e => setRenameDialog(prev => prev ? { ...prev, subtitle: e.target.value } : null)}
+                value={renamePayload?.subtitle ?? ''}
+                onChange={e => dispatchDialog({ type: 'edit', patch: { subtitle: e.target.value } })}
                 onKeyDown={e => e.key === 'Enter' && handleRename()}
                 placeholder="Optional subtitle"
                 className="h-9 w-full rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
@@ -935,116 +955,104 @@ export function LibraryPage({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRenameDialog(null)}>Cancel</Button>
-            <Button onClick={handleRename} disabled={!renameDialog?.title.trim() || mutating}>OK</Button>
+            <Button variant="outline" onClick={() => dispatchDialog({ type: 'close' })}>Cancel</Button>
+            <Button onClick={handleRename} disabled={!renamePayload?.title.trim() || mutating}>OK</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Rename Series dialog */}
-      <Dialog open={!!renameSeriesDialog} onOpenChange={open => { if (!open) setRenameSeriesDialog(null) }}>
+      <Dialog open={isOpen(dialogState, 'renameSeries')} onOpenChange={open => { if (!open) dispatchDialog({ type: 'close' }) }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Rename Series</DialogTitle>
             <DialogDescription>
-              This will update the series name on {renameSeriesDialog?.books.length ?? 0} {(renameSeriesDialog?.books.length ?? 0) === 1 ? 'book' : 'books'}.
+              This will update the series name on {renameSeriesPayload?.books.length ?? 0} {(renameSeriesPayload?.books.length ?? 0) === 1 ? 'book' : 'books'}.
             </DialogDescription>
           </DialogHeader>
           <div>
             <label className="text-xs font-medium text-content-muted mb-1 block">Series Name</label>
             <input
-              value={renameSeriesDialog?.newName ?? ''}
-              onChange={e => setRenameSeriesDialog(prev => prev ? { ...prev, newName: e.target.value } : null)}
+              value={renameSeriesPayload?.newName ?? ''}
+              onChange={e => dispatchDialog({ type: 'edit', patch: { newName: e.target.value } })}
               onKeyDown={e => e.key === 'Enter' && handleRenameSeries()}
               className="h-9 w-full rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
               autoFocus
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRenameSeriesDialog(null)}>Cancel</Button>
-            <Button onClick={handleRenameSeries} disabled={!renameSeriesDialog?.newName.trim() || mutating}>OK</Button>
+            <Button variant="outline" onClick={() => dispatchDialog({ type: 'close' })}>Cancel</Button>
+            <Button onClick={handleRenameSeries} disabled={!renameSeriesPayload?.newName.trim() || mutating}>OK</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Delete confirmation dialog */}
-      <Dialog open={!!deleteDialog} onOpenChange={open => { if (!open) setDeleteDialog(null) }}>
+      <Dialog open={isOpen(dialogState, 'delete')} onOpenChange={open => { if (!open) dispatchDialog({ type: 'close' }) }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Delete Book</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete &ldquo;{deleteDialog?.book.title}&rdquo;? Type <strong>delete</strong> to confirm.
+              Are you sure you want to delete &ldquo;{deletePayload?.book.title}&rdquo;? Type <strong>delete</strong> to confirm.
             </DialogDescription>
           </DialogHeader>
           <input
-            value={deleteDialog?.input ?? ''}
-            onChange={e => setDeleteDialog(prev => prev ? { ...prev, input: e.target.value } : null)}
-            onKeyDown={e => e.key === 'Enter' && deleteDialog?.input.toLowerCase() === 'delete' && handleDelete()}
+            value={deletePayload?.input ?? ''}
+            onChange={e => dispatchDialog({ type: 'edit', patch: { input: e.target.value } })}
+            onKeyDown={e => e.key === 'Enter' && deletePayload?.input.toLowerCase() === 'delete' && handleDelete()}
             placeholder="delete"
             className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
             autoFocus
             autoCapitalize="off"
           />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialog(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleteDialog?.input.toLowerCase() !== 'delete' || mutating}>OK</Button>
+            <Button variant="outline" onClick={() => dispatchDialog({ type: 'close' })}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deletePayload?.input.toLowerCase() !== 'delete' || mutating}>OK</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!resetDialog} onOpenChange={open => { if (!open) setResetDialog(null) }}>
+      <Dialog open={isOpen(dialogState, 'reset')} onOpenChange={open => { if (!open) dispatchDialog({ type: 'close' }) }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Reset Book</DialogTitle>
             <DialogDescription>
-              Are you sure you want to reset &ldquo;{resetDialog?.book.title}&rdquo;? This permanently clears your reading progress, rating, feedback, and quiz answers. The chapters and table of contents will remain. Type <strong>reset</strong> to confirm.
+              Are you sure you want to reset &ldquo;{resetPayload?.book.title}&rdquo;? This permanently clears your reading progress, rating, feedback, and quiz answers. The chapters and table of contents will remain. Type <strong>reset</strong> to confirm.
             </DialogDescription>
           </DialogHeader>
           <input
-            value={resetDialog?.input ?? ''}
-            onChange={e => setResetDialog(prev => prev ? { ...prev, input: e.target.value } : null)}
-            onKeyDown={e => e.key === 'Enter' && resetDialog?.input.toLowerCase() === 'reset' && handleReset()}
+            value={resetPayload?.input ?? ''}
+            onChange={e => dispatchDialog({ type: 'edit', patch: { input: e.target.value } })}
+            onKeyDown={e => e.key === 'Enter' && resetPayload?.input.toLowerCase() === 'reset' && handleReset()}
             placeholder="reset"
             className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
             autoFocus
             autoCapitalize="off"
           />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setResetDialog(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleReset} disabled={resetDialog?.input.toLowerCase() !== 'reset' || mutating}>OK</Button>
+            <Button variant="outline" onClick={() => dispatchDialog({ type: 'close' })}>Cancel</Button>
+            <Button variant="destructive" onClick={handleReset} disabled={resetPayload?.input.toLowerCase() !== 'reset' || mutating}>OK</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Rate dialog */}
-      <Dialog open={!!rateDialog} onOpenChange={open => { if (!open) setRateDialog(null) }}>
+      <Dialog open={isOpen(dialogState, 'rate')} onOpenChange={open => { if (!open) dispatchDialog({ type: 'close' }) }}>
         <DialogContent className="sm:max-w-xs">
           <DialogHeader>
             <DialogTitle>Rate Book</DialogTitle>
-            <DialogDescription>{rateDialog?.book.title}</DialogDescription>
+            <DialogDescription>{ratePayload?.book.title}</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center gap-2 py-4">
             <StarRating
-              value={rateDialog?.rating ?? 0}
-              onChange={val => setRateDialog(prev => prev ? { ...prev, rating: val } : null)}
+              value={ratePayload?.rating ?? 0}
+              onChange={val => dispatchDialog({ type: 'edit', patch: { rating: val } })}
               size="lg"
             />
-            {rateDialog && rateDialog.book.rating != null && rateDialog.book.rating > 0 && (
+            {ratePayload && ratePayload.book.rating != null && ratePayload.book.rating > 0 && (
               <button
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                onClick={async () => {
-                  if (!rateDialog) return
-                  setMutating(true)
-                  try {
-                    await rateBook(rateDialog.book.id, { rating: 0 })
-                    await fetchBooks()
-                  } catch {
-                    toast.error('Failed to clear rating — server unreachable')
-                  } finally {
-                    setMutating(false)
-                  }
-                  setRateDialog(null)
-                }}
+                onClick={handleClearRating}
                 disabled={mutating}
               >
                 Clear rating
@@ -1052,49 +1060,32 @@ export function LibraryPage({
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRateDialog(null)}>Cancel</Button>
-            <Button
-              onClick={async () => {
-                if (!rateDialog) return
-                setMutating(true)
-                try {
-                  await rateBook(rateDialog.book.id, { rating: rateDialog.rating })
-                  await fetchBooks()
-                } catch {
-                  toast.error('Failed to save rating — server unreachable')
-                } finally {
-                  setMutating(false)
-                }
-                setRateDialog(null)
-              }}
-              disabled={!rateDialog?.rating || mutating}
-            >
-              Save
-            </Button>
+            <Button variant="outline" onClick={() => dispatchDialog({ type: 'close' })}>Cancel</Button>
+            <Button onClick={handleRate} disabled={!ratePayload?.rating || mutating}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Edit Tags dialog */}
-      {editTagsDialog && (
+      {editTagsPayload && (
         <EditTagsDialog
           open={true}
-          onOpenChange={(open) => { if (!open) setEditTagsDialog(null) }}
-          bookId={editTagsDialog.book.id}
-          currentTags={editTagsDialog.book.tags}
+          onOpenChange={(open) => { if (!open) dispatchDialog({ type: 'close' }) }}
+          bookId={editTagsPayload.book.id}
+          currentTags={editTagsPayload.book.tags}
           allTags={allTags}
           onSave={handleSaveTags}
         />
       )}
 
       {/* Set Series dialog */}
-      {setSeriesDialog && (
+      {setSeriesPayload && (
         <SetSeriesDialog
           open={true}
-          onOpenChange={(open) => { if (!open) setSetSeriesDialog(null) }}
-          bookId={setSeriesDialog.book.id}
-          currentSeries={setSeriesDialog.book.series}
-          currentSeriesOrder={setSeriesDialog.book.seriesOrder}
+          onOpenChange={(open) => { if (!open) dispatchDialog({ type: 'close' }) }}
+          bookId={setSeriesPayload.book.id}
+          currentSeries={setSeriesPayload.book.series}
+          currentSeriesOrder={setSeriesPayload.book.seriesOrder}
           allSeriesNames={allSeriesNames}
           onSave={handleSaveSeries}
         />
@@ -1102,38 +1093,38 @@ export function LibraryPage({
 
       {/* Book overview modal */}
       <BookOverviewModal
-        open={!!overviewBook}
-        onOpenChange={(open) => { if (!open) setOverviewBook(null) }}
-        book={overviewBook ?? { id: '', title: '', totalChapters: 0 }}
+        open={isOpen(dialogState, 'overview')}
+        onOpenChange={(open) => { if (!open) dispatchDialog({ type: 'close' }) }}
+        book={overviewPayload?.book ?? { id: '', title: '', totalChapters: 0 }}
       />
 
       {/* Cover generation modal */}
-      {coverModal && (
+      {coverPayload && (
         <CoverGenerationModal
           open={true}
-          onOpenChange={(open) => { if (!open) setCoverModal(null) }}
-          bookId={coverModal.book.id}
-          bookTitle={coverModal.book.title}
-          bookTopic={coverModal.book.prompt ?? coverModal.book.title}
-          hasCover={coverModal.book.hasCover}
-          showTitleOnCover={coverModal.book.showTitleOnCover}
+          onOpenChange={(open) => { if (!open) dispatchDialog({ type: 'close' }) }}
+          bookId={coverPayload.book.id}
+          bookTitle={coverPayload.book.title}
+          bookTopic={coverPayload.book.prompt ?? coverPayload.book.title}
+          hasCover={coverPayload.book.hasCover}
+          showTitleOnCover={coverPayload.book.showTitleOnCover}
           onCoverChanged={fetchBooks}
         />
       )}
 
       {/* Generate all modal */}
-      {generateAllModal && (
+      {generateAllPayload && (
         <GenerateAllModal
           open={true}
           onOpenChange={(open) => {
             if (!open) {
-              setGenerateAllModal(null)
+              dispatchDialog({ type: 'close' })
               fetchBooks()
             }
           }}
-          taskId={generateAllModal.taskId}
-          bookTitle={generateAllModal.book.title}
-          totalChapters={generateAllModal.book.totalChapters}
+          taskId={generateAllPayload.taskId}
+          bookTitle={generateAllPayload.book.title}
+          totalChapters={generateAllPayload.book.totalChapters}
         />
       )}
 
@@ -1169,7 +1160,8 @@ export function LibraryPage({
         />
       )}
     </>
-  )
+    )
+  }
 
   if (activeSeriesName) {
     const seriesBooks = books.filter(b => b.series === activeSeriesName)
@@ -1185,7 +1177,7 @@ export function LibraryPage({
             if (bookIds.has(book.id)) {
               e.preventDefault()
               audiobook.checkAudiobookExists(book.id)
-              setContextMenu({ book, x: e.clientX, y: e.clientY })
+              dispatchDialog({ type: 'openMenu', menu: { kind: 'book', book, x: e.clientX, y: e.clientY } })
             }
           }}
         />
@@ -1234,13 +1226,13 @@ export function LibraryPage({
             New Book
           </Button>
           <WizardModal
-            open={wizardOpen}
-            onOpenChange={setWizardOpen}
+            open={isOpen(dialogState, 'wizard')}
+            onOpenChange={(open) => dispatchDialog(open ? { type: 'open', dialog: { kind: 'wizard' } } : { type: 'close' })}
             onCreate={onCreateBook}
           />
           <SettingsMenu
-            apiKeyDialogOpen={apiKeyDialogOpen}
-            onApiKeyDialogClose={() => setApiKeyDialogOpen(false)}
+            apiKeyDialogOpen={isOpen(dialogState, 'apiKey')}
+            onApiKeyDialogClose={() => dispatchDialog({ type: 'close' })}
             onReviewProgress={onReviewProgress}
           />
         </div>
@@ -1394,12 +1386,12 @@ export function LibraryPage({
                     if (bookIds.has(book.id)) {
                       e.preventDefault()
                       audiobook.checkAudiobookExists(book.id)
-                      setContextMenu({ book, x: e.clientX, y: e.clientY })
+                      dispatchDialog({ type: 'openMenu', menu: { kind: 'book', book, x: e.clientX, y: e.clientY } })
                     }
                   }}
                   onSeriesContextMenu={(seriesName, books, e) => {
                     e.preventDefault()
-                    setSeriesContextMenu({ seriesName, books, x: e.clientX, y: e.clientY })
+                    dispatchDialog({ type: 'openMenu', menu: { kind: 'series', seriesName, books, x: e.clientX, y: e.clientY } })
                   }}
                 />
               )
@@ -1473,7 +1465,7 @@ export function LibraryPage({
 
                   const seriesCtxMenu = (e: React.MouseEvent) => {
                     e.preventDefault()
-                    setSeriesContextMenu({ seriesName: book.series!, books: seriesBooks, x: e.clientX, y: e.clientY })
+                    dispatchDialog({ type: 'openMenu', menu: { kind: 'series', seriesName: book.series!, books: seriesBooks, x: e.clientX, y: e.clientY } })
                   }
 
                   if (isManual) {
@@ -1528,7 +1520,7 @@ export function LibraryPage({
                         onContextMenu={bookIds.has(book.id) ? (e) => {
                           e.preventDefault()
                           audiobook.checkAudiobookExists(book.id)
-                          setContextMenu({ book, x: e.clientX, y: e.clientY })
+                          dispatchDialog({ type: 'openMenu', menu: { kind: 'book', book, x: e.clientX, y: e.clientY } })
                         } : undefined}
                       />
                     )
@@ -1550,7 +1542,7 @@ export function LibraryPage({
                         onContextMenu={bookIds.has(book.id) ? (e) => {
                           e.preventDefault()
                           audiobook.checkAudiobookExists(book.id)
-                          setContextMenu({ book, x: e.clientX, y: e.clientY })
+                          dispatchDialog({ type: 'openMenu', menu: { kind: 'book', book, x: e.clientX, y: e.clientY } })
                         } : undefined}
                       />
                     )
@@ -1586,18 +1578,11 @@ export function LibraryPage({
 
       {/* Import EPUB dialog */}
       <ImportPreviewDialog
-        open={importDialogOpen}
-        onOpenChange={(open) => {
-          setImportDialogOpen(open)
-          if (!open) {
-            setImportPreview(null)
-            setImportFileBase64('')
-            setImportFilename('')
-          }
-        }}
-        preview={importPreview}
-        fileBase64={importFileBase64}
-        filename={importFilename}
+        open={isOpen(dialogState, 'import')}
+        onOpenChange={(open) => { if (!open) dispatchDialog({ type: 'close' }) }}
+        preview={payloadOf(dialogState, 'import')?.preview ?? null}
+        fileBase64={payloadOf(dialogState, 'import')?.fileBase64 ?? ''}
+        filename={payloadOf(dialogState, 'import')?.filename ?? ''}
         allTags={allTags}
         allSeriesNames={allSeriesNames}
         onConfirm={handleImportConfirm}
