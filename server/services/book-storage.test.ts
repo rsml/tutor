@@ -6,18 +6,37 @@ import { writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { stringify as stringifyYaml } from 'yaml'
 import type { BookMeta, Feedback, LearningProfile, Quiz, Toc } from '@shared/domain.js'
-import * as store from './book-store.js'
+import type { BookRepository } from '../ports/book-repository.js'
+import type { ArtifactStore } from '../ports/artifact-store.js'
+import { createFsBookRepository } from '../adapters/fs-book-repository.js'
+import { createFsArtifactStore } from '../adapters/fs-artifact-store.js'
+import { createRecoverFromCrash } from './recover-from-crash.js'
 
-// book-store.js is a thin shim: every call resolves getDataDir() fresh (see
-// its own doc comment) and builds the real fs adapters over the result, so
-// pointing TUTOR_DATA_DIR at a fresh temp directory per test is enough to
-// isolate every test from the production data directory and from each
-// other. No module mock is needed for that; the real env var the real
-// getDataDir() already reads does the job.
+// Exercises the two real fs adapters together over a real temp directory,
+// plus the crash-recovery composition built on top of them
+// (recover-from-crash.ts), the way the app actually uses them in
+// combination: a book's metadata, content, and reading state through
+// BookRepository, its binary artifacts through ArtifactStore. Each helper
+// below builds a fresh instance per call, deliberately, so pointing
+// TUTOR_DATA_DIR at a fresh temp directory per test isolates every test from
+// the production data directory and from each other without any module
+// mock.
 let testDir: string
 const productionDataDir = process.env.TUTOR_DATA_DIR
 
-describe('book-store', () => {
+function books(): BookRepository {
+  return createFsBookRepository({ dataDir: testDir })
+}
+
+function artifacts(): ArtifactStore {
+  return createFsArtifactStore({ dataDir: testDir })
+}
+
+function recoverFromCrash() {
+  return createRecoverFromCrash({ bookRepository: books(), artifactStore: artifacts(), dataDir: testDir })()
+}
+
+describe('book storage (real fs adapters)', () => {
   const testMeta: BookMeta = {
     id: 'test-book-123',
     title: 'Test Book',
@@ -83,61 +102,61 @@ describe('book-store', () => {
 
   describe('learning profile', () => {
     it('reads the learning profile', async () => {
-      const profile = await store.getProfile()
+      const profile = await books().getProfile()
       expect(profile.style).toBe('mental models')
       expect(profile.preferences.codeExamples).toBe(true)
     })
 
     it('saves and reads back a profile', async () => {
       const updated = { ...testProfile, style: 'updated style' }
-      await store.saveProfile(updated)
-      const result = await store.getProfile()
+      await books().saveProfile(updated)
+      const result = await books().getProfile()
       expect(result.style).toBe('updated style')
     })
   })
 
   describe('book CRUD', () => {
     it('lists books (empty)', async () => {
-      const books = await store.listBooks()
-      expect(books).toEqual([])
+      const allBooks = await books().listBooks()
+      expect(allBooks).toEqual([])
     })
 
     it('saves and retrieves a book', async () => {
-      await store.saveBook(testMeta)
-      const book = await store.getBook('test-book-123')
+      await books().saveBook(testMeta)
+      const book = await books().getBook('test-book-123')
       expect(book.id).toBe('test-book-123')
       expect(book.title).toBe('Test Book')
       expect(book.status).toBe('reading')
     })
 
     it('lists books after saving', async () => {
-      await store.saveBook(testMeta)
-      const books = await store.listBooks()
-      expect(books).toHaveLength(1)
-      expect(books[0].id).toBe('test-book-123')
+      await books().saveBook(testMeta)
+      const allBooks = await books().listBooks()
+      expect(allBooks).toHaveLength(1)
+      expect(allBooks[0].id).toBe('test-book-123')
     })
 
     it('deletes a book', async () => {
-      await store.saveBook(testMeta)
-      await store.deleteBook('test-book-123')
-      const books = await store.listBooks()
-      expect(books).toHaveLength(0)
+      await books().saveBook(testMeta)
+      await books().deleteBook('test-book-123')
+      const allBooks = await books().listBooks()
+      expect(allBooks).toHaveLength(0)
     })
 
     it('lists multiple books sorted by createdAt descending', async () => {
-      await store.saveBook({ ...testMeta, id: 'book-a', createdAt: '2026-01-01T00:00:00Z' })
-      await store.saveBook({ ...testMeta, id: 'book-b', createdAt: '2026-03-01T00:00:00Z' })
-      const books = await store.listBooks()
-      expect(books[0].id).toBe('book-b')
-      expect(books[1].id).toBe('book-a')
+      await books().saveBook({ ...testMeta, id: 'book-a', createdAt: '2026-01-01T00:00:00Z' })
+      await books().saveBook({ ...testMeta, id: 'book-b', createdAt: '2026-03-01T00:00:00Z' })
+      const allBooks = await books().listBooks()
+      expect(allBooks[0].id).toBe('book-b')
+      expect(allBooks[1].id).toBe('book-a')
     })
   })
 
   describe('table of contents', () => {
     it('saves and retrieves TOC', async () => {
-      await store.saveBook(testMeta)
-      await store.saveToc('test-book-123', testToc)
-      const toc = await store.getToc('test-book-123')
+      await books().saveBook(testMeta)
+      await books().saveToc('test-book-123', testToc)
+      const toc = await books().getToc('test-book-123')
       expect(toc.chapters).toHaveLength(3)
       expect(toc.chapters[0].title).toBe('Chapter 1')
     })
@@ -145,50 +164,50 @@ describe('book-store', () => {
 
   describe('chapters', () => {
     it('saves and retrieves chapter content', async () => {
-      await store.saveBook(testMeta)
-      await store.saveChapter('test-book-123', 1, '# Chapter 1\n\nHello world')
-      const content = await store.getChapter('test-book-123', 1)
+      await books().saveBook(testMeta)
+      await books().saveChapter('test-book-123', 1, '# Chapter 1\n\nHello world')
+      const content = await books().getChapter('test-book-123', 1)
       expect(content).toBe('# Chapter 1\n\nHello world')
     })
 
     it('checks chapter existence', async () => {
-      await store.saveBook(testMeta)
-      expect(await store.chapterExists('test-book-123', 1)).toBe(false)
-      await store.saveChapter('test-book-123', 1, '# Ch1')
-      expect(await store.chapterExists('test-book-123', 1)).toBe(true)
+      await books().saveBook(testMeta)
+      expect(await books().chapterExists('test-book-123', 1)).toBe(false)
+      await books().saveChapter('test-book-123', 1, '# Ch1')
+      expect(await books().chapterExists('test-book-123', 1)).toBe(true)
     })
 
     it('pads chapter numbers', async () => {
-      await store.saveBook(testMeta)
-      await store.saveChapter('test-book-123', 3, '# Ch3')
-      const content = await store.getChapter('test-book-123', 3)
+      await books().saveBook(testMeta)
+      await books().saveChapter('test-book-123', 3, '# Ch3')
+      const content = await books().getChapter('test-book-123', 3)
       expect(content).toBe('# Ch3')
     })
   })
 
   describe('progress', () => {
     it('returns empty progress for new book', async () => {
-      await store.saveBook(testMeta)
-      const progress = await store.getProgress('test-book-123')
+      await books().saveBook(testMeta)
+      const progress = await books().getProgress('test-book-123')
       expect(progress.chapters).toEqual({})
     })
 
     it('saves and retrieves chapter progress', async () => {
-      await store.saveBook(testMeta)
-      await store.saveChapterProgress('test-book-123', 1, {
+      await books().saveBook(testMeta)
+      await books().saveChapterProgress('test-book-123', 1, {
         scroll: 0.75,
         completed: false,
       })
-      const progress = await store.getProgress('test-book-123')
+      const progress = await books().getProgress('test-book-123')
       expect(progress.chapters['1'].scroll).toBe(0.75)
       expect(progress.chapters['1'].completed).toBe(false)
     })
 
     it('preserves progress across chapters', async () => {
-      await store.saveBook(testMeta)
-      await store.saveChapterProgress('test-book-123', 1, { scroll: 1.0, completed: true, completedAt: '2026-03-06T12:00:00Z' })
-      await store.saveChapterProgress('test-book-123', 2, { scroll: 0.5, completed: false })
-      const progress = await store.getProgress('test-book-123')
+      await books().saveBook(testMeta)
+      await books().saveChapterProgress('test-book-123', 1, { scroll: 1.0, completed: true, completedAt: '2026-03-06T12:00:00Z' })
+      await books().saveChapterProgress('test-book-123', 2, { scroll: 0.5, completed: false })
+      const progress = await books().getProgress('test-book-123')
       expect(progress.chapters['1'].completed).toBe(true)
       expect(progress.chapters['2'].scroll).toBe(0.5)
     })
@@ -230,27 +249,27 @@ describe('book-store', () => {
     }
 
     it('saves and retrieves feedback', async () => {
-      await store.saveBook(testMeta)
-      await store.saveFeedback('test-book-123', 1, testFeedback)
-      const fb = await store.getFeedback('test-book-123', 1)
+      await books().saveBook(testMeta)
+      await books().saveFeedback('test-book-123', 1, testFeedback)
+      const fb = await books().getFeedback('test-book-123', 1)
       expect(fb.chapter).toBe(1)
       expect(fb.feedback.liked).toBe('Great analogies')
       expect(fb.quiz.score).toBe(2)
     })
 
     it('retrieves all feedback for a book', async () => {
-      await store.saveBook(testMeta)
-      await store.saveFeedback('test-book-123', 1, testFeedback)
-      await store.saveFeedback('test-book-123', 2, { ...testFeedback, chapter: 2 })
-      const all = await store.getAllFeedback('test-book-123')
+      await books().saveBook(testMeta)
+      await books().saveFeedback('test-book-123', 1, testFeedback)
+      await books().saveFeedback('test-book-123', 2, { ...testFeedback, chapter: 2 })
+      const all = await books().getAllFeedback('test-book-123')
       expect(all).toHaveLength(2)
       expect(all[0].chapter).toBe(1)
       expect(all[1].chapter).toBe(2)
     })
 
     it('returns empty array when no feedback exists', async () => {
-      await store.saveBook(testMeta)
-      const all = await store.getAllFeedback('test-book-123')
+      await books().saveBook(testMeta)
+      const all = await books().getAllFeedback('test-book-123')
       expect(all).toEqual([])
     })
   })
@@ -258,13 +277,13 @@ describe('book-store', () => {
   describe('validation', () => {
     it('rejects invalid book meta', async () => {
       const invalid = { ...testMeta, status: 'invalid_status' } as unknown as BookMeta
-      await expect(store.saveBook(invalid)).rejects.toThrow()
+      await expect(books().saveBook(invalid)).rejects.toThrow()
     })
 
     it('rejects invalid feedback', async () => {
-      await store.saveBook(testMeta)
+      await books().saveBook(testMeta)
       const invalid = { chapter: 'not-a-number' } as unknown as Feedback
-      await expect(store.saveFeedback('test-book-123', 1, invalid)).rejects.toThrow()
+      await expect(books().saveFeedback('test-book-123', 1, invalid)).rejects.toThrow()
     })
   })
 
@@ -298,34 +317,34 @@ describe('book-store', () => {
         finalQuizScore: 8,
         finalQuizTotal: 10,
       }
-      await store.saveBook(meta)
-      await store.saveToc(meta.id, testToc)
-      await store.saveChapter(meta.id, 1, '# Chapter 1\n\nBody')
-      await store.saveChapter(meta.id, 2, '# Chapter 2\n\nBody')
-      await store.saveChapterProgress(meta.id, 1, { scroll: 1, completed: true, completedAt: '2026-05-01T00:00:00Z' })
-      await store.saveChapterProgress(meta.id, 2, { scroll: 0.5, completed: false })
-      await store.saveFeedback(meta.id, 1, testFeedback)
-      await store.saveFeedback(meta.id, 2, { ...testFeedback, chapter: 2 })
-      await store.saveQuiz(meta.id, 1, testQuiz)
-      await store.saveQuiz(meta.id, 2, testQuiz)
-      await store.saveFinalQuiz(meta.id, testQuiz)
+      await books().saveBook(meta)
+      await books().saveToc(meta.id, testToc)
+      await books().saveChapter(meta.id, 1, '# Chapter 1\n\nBody')
+      await books().saveChapter(meta.id, 2, '# Chapter 2\n\nBody')
+      await books().saveChapterProgress(meta.id, 1, { scroll: 1, completed: true, completedAt: '2026-05-01T00:00:00Z' })
+      await books().saveChapterProgress(meta.id, 2, { scroll: 0.5, completed: false })
+      await books().saveFeedback(meta.id, 1, testFeedback)
+      await books().saveFeedback(meta.id, 2, { ...testFeedback, chapter: 2 })
+      await books().saveQuiz(meta.id, 1, testQuiz)
+      await books().saveQuiz(meta.id, 2, testQuiz)
+      await books().saveFinalQuiz(meta.id, testQuiz)
       return meta
     }
 
     it('clears user-interaction files', async () => {
       const meta = await seedReadBook()
-      await store.resetBook(meta.id)
+      await books().resetBook(meta.id)
 
       // progress.yml is gone
-      const progress = await store.getProgress(meta.id)
+      const progress = await books().getProgress(meta.id)
       expect(progress.chapters).toEqual({})
 
       // feedback files are gone
-      const allFeedback = await store.getAllFeedback(meta.id)
+      const allFeedback = await books().getAllFeedback(meta.id)
       expect(allFeedback).toEqual([])
 
       // per-chapter quiz files exist; userAnswer/correct stripped
-      const q1 = await store.getQuiz(meta.id, 1)
+      const q1 = await books().getQuiz(meta.id, 1)
       expect(q1.questions).toHaveLength(2)
       for (const q of q1.questions) {
         expect(q).not.toHaveProperty('userAnswer')
@@ -334,11 +353,11 @@ describe('book-store', () => {
         expect(q.options).toHaveLength(4)
         expect(typeof q.correctIndex).toBe('number')
       }
-      const q2 = await store.getQuiz(meta.id, 2)
+      const q2 = await books().getQuiz(meta.id, 2)
       expect(q2.questions).toHaveLength(2)
 
       // final quiz exists; userAnswer/correct stripped
-      const fq = await store.getFinalQuiz(meta.id)
+      const fq = await books().getFinalQuiz(meta.id)
       expect(fq.questions).toHaveLength(2)
       for (const q of fq.questions) {
         expect(q).not.toHaveProperty('userAnswer')
@@ -348,24 +367,24 @@ describe('book-store', () => {
 
     it('preserves generated content', async () => {
       const meta = await seedReadBook()
-      await store.resetBook(meta.id)
+      await books().resetBook(meta.id)
 
       // chapters stay
-      const ch1 = await store.getChapter(meta.id, 1)
+      const ch1 = await books().getChapter(meta.id, 1)
       expect(ch1).toContain('# Chapter 1')
-      const ch2 = await store.getChapter(meta.id, 2)
+      const ch2 = await books().getChapter(meta.id, 2)
       expect(ch2).toContain('# Chapter 2')
 
       // TOC stays
-      const toc = await store.getToc(meta.id)
+      const toc = await books().getToc(meta.id)
       expect(toc.chapters).toHaveLength(3)
     })
 
     it('resets meta fields', async () => {
       const meta = await seedReadBook()
       const before = meta.updatedAt
-      await store.resetBook(meta.id)
-      const after = await store.getBook(meta.id)
+      await books().resetBook(meta.id)
+      const after = await books().getBook(meta.id)
 
       expect(after.status).toBe('reading')
       expect(after.rating).toBeUndefined()
@@ -384,21 +403,21 @@ describe('book-store', () => {
 
     it('is idempotent', async () => {
       const meta = await seedReadBook()
-      await store.resetBook(meta.id)
-      const firstReset = await store.getBook(meta.id)
+      await books().resetBook(meta.id)
+      const firstReset = await books().getBook(meta.id)
       // Second reset on an already-reset book should not throw and should
       // leave the book in the same shape (modulo updatedAt).
-      await store.resetBook(meta.id)
-      const secondReset = await store.getBook(meta.id)
+      await books().resetBook(meta.id)
+      const secondReset = await books().getBook(meta.id)
 
       expect(secondReset.status).toBe('reading')
       expect(secondReset.rating).toBeUndefined()
       expect(secondReset.finalQuizScore).toBeUndefined()
       expect(secondReset.finalQuizTotal).toBeUndefined()
 
-      const progress = await store.getProgress(meta.id)
+      const progress = await books().getProgress(meta.id)
       expect(progress.chapters).toEqual({})
-      const allFeedback = await store.getAllFeedback(meta.id)
+      const allFeedback = await books().getAllFeedback(meta.id)
       expect(allFeedback).toEqual([])
 
       // updatedAt monotonically increases (or is at least not earlier)
@@ -407,131 +426,123 @@ describe('book-store', () => {
 
     it('is a no-op on a fresh book without progress/feedback/quizzes', async () => {
       const meta: BookMeta = { ...testMeta, status: 'reading' }
-      await store.saveBook(meta)
-      await store.saveToc(meta.id, testToc)
-      await store.saveChapter(meta.id, 1, '# Chapter 1')
+      await books().saveBook(meta)
+      await books().saveToc(meta.id, testToc)
+      await books().saveChapter(meta.id, 1, '# Chapter 1')
 
-      await expect(store.resetBook(meta.id)).resolves.not.toThrow()
+      await expect(books().resetBook(meta.id)).resolves.not.toThrow()
 
-      const after = await store.getBook(meta.id)
+      const after = await books().getBook(meta.id)
       expect(after.status).toBe('reading')
       expect(after.rating).toBeUndefined()
-      const ch = await store.getChapter(meta.id, 1)
+      const ch = await books().getChapter(meta.id, 1)
       expect(ch).toContain('# Chapter 1')
     })
 
     it('rejects when status is generating', async () => {
       const meta: BookMeta = { ...testMeta, status: 'generating' }
-      await store.saveBook(meta)
-      await expect(store.resetBook(meta.id)).rejects.toThrow(/generating/)
+      await books().saveBook(meta)
+      await expect(books().resetBook(meta.id)).rejects.toThrow(/generating/)
     })
 
     it('rejects when status is generating_toc', async () => {
       const meta: BookMeta = { ...testMeta, status: 'generating_toc' }
-      await store.saveBook(meta)
-      await expect(store.resetBook(meta.id)).rejects.toThrow(/generating/)
+      await books().saveBook(meta)
+      await expect(books().resetBook(meta.id)).rejects.toThrow(/generating/)
     })
   })
 
   describe('crash recovery', () => {
     it('moves generating_toc with toc.yml present to toc_review', async () => {
       const meta: BookMeta = { ...testMeta, id: 'recov-toc-ok', status: 'generating_toc' }
-      await store.saveBook(meta)
-      await store.saveToc(meta.id, testToc)
-      const report = await store.recoverFromCrash()
-      const recovered = await store.getBook(meta.id)
+      await books().saveBook(meta)
+      await books().saveToc(meta.id, testToc)
+      const report = await recoverFromCrash()
+      const recovered = await books().getBook(meta.id)
       expect(recovered.status).toBe('toc_review')
       expect(report.booksReset.some(b => b.id === meta.id && b.to === 'toc_review')).toBe(true)
     })
 
     it('moves generating_toc without toc.yml to failed', async () => {
       const meta: BookMeta = { ...testMeta, id: 'recov-toc-empty', status: 'generating_toc' }
-      await store.saveBook(meta)
+      await books().saveBook(meta)
       // intentionally no saveToc
-      await store.recoverFromCrash()
-      const recovered = await store.getBook(meta.id)
+      await recoverFromCrash()
+      const recovered = await books().getBook(meta.id)
       expect(recovered.status).toBe('failed')
     })
 
     it('moves generating with chapters to reading', async () => {
       const meta: BookMeta = { ...testMeta, id: 'recov-chap', status: 'generating', generatedUpTo: 2 }
-      await store.saveBook(meta)
-      await store.recoverFromCrash()
-      const recovered = await store.getBook(meta.id)
+      await books().saveBook(meta)
+      await recoverFromCrash()
+      const recovered = await books().getBook(meta.id)
       expect(recovered.status).toBe('reading')
     })
 
     it('moves generating with zero chapters to toc_review', async () => {
       const meta: BookMeta = { ...testMeta, id: 'recov-no-chap', status: 'generating', generatedUpTo: 0 }
-      await store.saveBook(meta)
-      await store.recoverFromCrash()
-      const recovered = await store.getBook(meta.id)
+      await books().saveBook(meta)
+      await recoverFromCrash()
+      const recovered = await books().getBook(meta.id)
       expect(recovered.status).toBe('toc_review')
     })
 
     it('wipes audio dir + audioGeneratedChapters when m4b missing', async () => {
       const meta: BookMeta = { ...testMeta, id: 'recov-audio', audioGeneratedChapters: [1, 2] }
-      await store.saveBook(meta)
+      await books().saveBook(meta)
       // Create a fake audio dir with stale per-chapter MP3s but no m4b.
-      await mkdir(store.audioDir(meta.id), { recursive: true })
-      await writeFile(store.chapterAudioPath(meta.id, 1), 'fake mp3')
-      await writeFile(store.chapterAudioPath(meta.id, 2), 'fake mp3')
-      const report = await store.recoverFromCrash()
-      const recovered = await store.getBook(meta.id)
+      await mkdir(artifacts().audioDir(meta.id), { recursive: true })
+      await writeFile(artifacts().chapterAudioPath(meta.id, 1), 'fake mp3')
+      await writeFile(artifacts().chapterAudioPath(meta.id, 2), 'fake mp3')
+      const report = await recoverFromCrash()
+      const recovered = await books().getBook(meta.id)
       expect(recovered.audioGeneratedChapters).toEqual([])
-      expect(report.artifactsRemoved).toContain(store.audioDir(meta.id))
+      expect(report.artifactsRemoved).toContain(artifacts().audioDir(meta.id))
     })
 
     it('preserves audio dir when m4b exists', async () => {
       const meta: BookMeta = { ...testMeta, id: 'recov-audio-ok', audioGeneratedChapters: [1, 2] }
-      await store.saveBook(meta)
-      await mkdir(store.audioDir(meta.id), { recursive: true })
-      await writeFile(store.chapterAudioPath(meta.id, 1), 'fake mp3')
-      await writeFile(store.audiobookPath(meta.id), 'fake m4b')
-      await store.recoverFromCrash()
-      const recovered = await store.getBook(meta.id)
+      await books().saveBook(meta)
+      await mkdir(artifacts().audioDir(meta.id), { recursive: true })
+      await writeFile(artifacts().chapterAudioPath(meta.id, 1), 'fake mp3')
+      await writeFile(artifacts().audiobookPath(meta.id), 'fake m4b')
+      await recoverFromCrash()
+      const recovered = await books().getBook(meta.id)
       expect(recovered.audioGeneratedChapters).toEqual([1, 2])
-      expect(existsSync(store.audiobookPath(meta.id))).toBe(true)
-      expect(existsSync(store.chapterAudioPath(meta.id, 1))).toBe(true)
+      expect(existsSync(artifacts().audiobookPath(meta.id))).toBe(true)
+      expect(existsSync(artifacts().chapterAudioPath(meta.id, 1))).toBe(true)
     })
 
     it('removes leftover chapter .tmp files', async () => {
       const meta: BookMeta = { ...testMeta, id: 'recov-tmp' }
-      await store.saveBook(meta)
+      await books().saveBook(meta)
       const chapTmp = join(testDir, 'books', meta.id, 'chapters', '01.md.tmp')
       await mkdir(join(testDir, 'books', meta.id, 'chapters'), { recursive: true })
       await writeFile(chapTmp, 'half-written')
-      const report = await store.recoverFromCrash()
+      const report = await recoverFromCrash()
       expect(existsSync(chapTmp)).toBe(false)
       expect(report.artifactsRemoved).toContain(chapTmp)
     })
 
     it('removes leftover epub .tmp', async () => {
       const meta: BookMeta = { ...testMeta, id: 'recov-epub-tmp' }
-      await store.saveBook(meta)
+      await books().saveBook(meta)
       const epubTmp = join(testDir, 'books', meta.id, 'book.epub.tmp')
       await writeFile(epubTmp, 'half')
-      await store.recoverFromCrash()
+      await recoverFromCrash()
       expect(existsSync(epubTmp)).toBe(false)
     })
 
     it('leaves healthy reading book untouched', async () => {
       const meta: BookMeta = { ...testMeta, id: 'recov-healthy', status: 'reading' }
-      await store.saveBook(meta)
-      const before = await store.getBook(meta.id)
-      const report = await store.recoverFromCrash()
-      const after = await store.getBook(meta.id)
+      await books().saveBook(meta)
+      const before = await books().getBook(meta.id)
+      const report = await recoverFromCrash()
+      const after = await books().getBook(meta.id)
       expect(after.status).toBe('reading')
       expect(after.updatedAt).toBe(before.updatedAt)
       expect(report.booksReset).toEqual([])
-    })
-
-    it('recoverStuckBooks alias still works', async () => {
-      const meta: BookMeta = { ...testMeta, id: 'recov-alias', status: 'generating', generatedUpTo: 1 }
-      await store.saveBook(meta)
-      await store.recoverStuckBooks()
-      const recovered = await store.getBook(meta.id)
-      expect(recovered.status).toBe('reading')
     })
   })
 })
