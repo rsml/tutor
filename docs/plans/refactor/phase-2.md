@@ -4,6 +4,18 @@ Scope: `server/` only. Assumes P1 delivered `server/ + shared/ + client/` with `
 
 Consolidation deltas that modify this plan: S1 reduces to `shared/domain/provider.ts` consolidation only (P1 owns the schemas move); the schemas re-export shim does not exist so S12's shim deletion is moot; S1+S2+S3 land as an early `phase-2-foundations` PR merged to master so P3 can rebase; service unit tests are written red before each extraction (TDD delta 9).
 
+## 0. Reconciled during execution
+
+Facts found in the code that contradict what this plan was written against. The plan below is corrected in place; this list records what moved and why, so the diff between plan and reality is never silent.
+
+1. **Test baseline.** Section 9 was written against a post-P0 count of 232. Phase 1 landed more tests, so the real baseline on `master` before this branch is 315. Stage S4 took it to 479, and the stage 2 items below took it to 481. The phase gate is measured against 481 plus the new adapter and service tests, not 232.
+2. **`books.ts` size.** Read at 2,244 lines when this plan was written. The foundations PR moved constants, HTTP helpers, and the error handler out, so it is 2,176 lines and 47 route registrations at the point S6b splits it. Every line reference in sections 2 and 3 is therefore approximate and must be re-derived from the file rather than trusted.
+3. **Sanctioned change 1 has no frozen assertion to edit.** Risk 4 assumed the eight MCP authoring routes had P0 characterization assertions locking their current 500. They do not. Those eight routes have zero test coverage of any kind, verified by grepping every `*.test.ts` under `server/` for their paths. So the 500 to 400 flip edits nothing. Instead this phase must ADD tests asserting the new 400, because an unsanctioned regression there would otherwise be invisible.
+4. **DiagramRenderer failure contract.** The port shipped in S4 said a failed chart yields `''`. The two real implementations disagreed: kroki pushed `''`, Electron pushed an escaped mermaid code block holding the chart source. The architect standardized on the Electron behaviour, so a failed chart now yields `diagramSourceFallback(source)` and never `''`. The kroki adapter adopts it, which is sanctioned change 5, visible only in dev web mode.
+5. **AudioAssembly cover embedding.** `ConcatToM4bRequest` gained an optional `coverPath`. Retrying the stitch without a cover when embedding fails stays adapter-internal resilience rather than a caller concern.
+6. **Port count.** Thirteen ports shipped in S4, not the eleven plus two extras this plan estimated: TextGeneration, KeyVault, ImageGeneration, BookRepository, ArtifactStore, SpeechSynthesis, AudioAssembly, DiagramRenderer, EpubImport, EpubExport, BackgroundTasks, Clock, OsFileManager.
+7. **`services/mermaid-renderer.ts` is confirmed dead.** Only its own test imports it. Every other `mermaid-renderer` hit in the tree is a log prefix string or a temp file name, not an import.
+
 ## 1. Port catalog
 
 Location: `server/ports/<port>.ts` — interface + fake + contract test per port. All signatures derived from actual call sites (line refs are current `server/`).
@@ -77,7 +89,7 @@ get(p: ProviderId): string|null;  set(p, key): void;  remove(p): void;  has(p): 
 status(): Record<ProviderId, boolean>
 
 // ports/diagram-renderer.ts
-render(charts: string[]): Promise<string[]>     // markup per chart; '' = failed
+render(charts: string[]): Promise<string[]>     // markup per chart; failed = diagramSourceFallback(source), never ''
 
 // ports/epub-import.ts  — MUST NOT persist (today epub-importer.ts:10 imports book-store)
 preview(bytes: Buffer): Promise<EpubPreview>
@@ -206,7 +218,7 @@ Each port ships `ports/<name>.fake.ts` (in-memory, recording) and `ports/<name>.
 1. **SSE regressions** (`reply.hijack`, `raw.writeHead`, `request.raw.on('close')`) are invisible to unit tests. Require ≥1 P0 characterization test per streaming route asserting event order; manual boot per slice.
 2. **Timeout semantics move** into the adapter. Verify `AbortSignal.any` (Node 24 ✓, Electron 40 ✓); keep manual controller-combining as fallback.
 3. **Electron packaging**: adapters change the rollup `external()` list in `vite.config.ts`; `epub-gen-memory`'s double-default and `kokoro-js`/`@huggingface/transformers` must stay external. Gate `electron:preview` after S5 and S12.
-4. **Sanctioned behavior change**: 8 MCP CRUD routes (books.ts:2065, 2089, 2106, 2123, 2145, 2171, 2194, 2237) call `.parse()` unguarded and currently return **500** on bad input; `parseBody` makes them **400**. Architect accepted: document in the PR, update those P0 assertions — the only assertion edit allowed this phase.
+4. **Sanctioned behavior change**: 8 MCP CRUD routes call `.parse()` unguarded and currently return **500** on bad input; `parseBody` makes them **400**. Architect accepted. At the current file size those unguarded parses sit at books.ts:1997, 2021, 2038, 2055, 2077, 2103, 2126, 2169. They have no test coverage at all, so nothing is edited and new tests assert the 400 instead (section 0 item 3).
 5. **Singleton→factory**: `epub-importer`, `audiobook-generator`, `mcp-server` import `* as store` at module scope. All must convert in S5 or keep a shim; a half-converted state silently writes to the production data dir.
 6. **Test-mock debt**: `vi.mock('../../lib/data-dir.js')` must be deleted when the factory lands, otherwise tests pass against the wrong directory.
 7. `electron/main.ts:385` sets `fastify.mermaidRenderer`; switching to `setDiagramRenderer` requires an `electron/` edit — coordinate with the orchestrator on that file.
@@ -214,8 +226,8 @@ Each port ships `ports/<name>.fake.ts` (in-memory, recording) and `ports/<name>.
 
 ## 9. Phase gate
 
-- `pnpm test` green, count ≥ 232 + new contract/service tests (Phase 0 corrected the inflated 384 baseline — vitest was collecting nested worktree copies; the true post-P0 count is 232); `tsc --noEmit` clean; ESLint 0 warnings including new boundary rules.
+- `pnpm test` green, count ≥ 481 + new adapter/service tests (see section 0 item 1 for how the baseline moved: 315 on master, 479 at S4, 481 after the stage 2 items); `tsc --noEmit` clean; ESLint 0 warnings including new boundary rules.
 - Grep gates: `rg "from 'ai'" server/{routes,services}` = 0 · `rg "node:fs" server/routes` = 0 · `rg "5 \* 60 \* 1000" server` = 0 · `rg "instanceof ZodError" server` = 0 · `rg "await import\(" server/routes` = 0 · no route file > 200 lines · `server/routes/books.ts` gone.
 - Contract test exists for all mandated ports; hermetic ones also run against the real adapter.
 - `electron:dev` + `electron:preview` boot; manual E2E once: create book (SSE) → read → feedback+quiz → generate next → export EPUB → audiobook range request returns 206.
-- P0 characterization assertions unchanged except the documented 400/500 item.
+- P0 characterization assertions unchanged. The 400/500 item edits none of them, because those eight routes had no coverage to edit, so it ships with new tests instead (section 0 item 3).
