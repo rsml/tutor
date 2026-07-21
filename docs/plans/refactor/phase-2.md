@@ -23,7 +23,9 @@ Facts found in the code that contradict what this plan was written against. The 
 
 ## 0b. Final shape
 
-13 ports, 15 adapters, 52 services, 8 domain modules, 16 route modules, none over 200 lines. `server/composition-root.ts` is the only module that names a concrete adapter. `createPorts(overrides)` builds all thirteen, `createSharedServices(ports)` builds the in-memory state two route modules must share, and `buildServer(overrides)` threads both into every route plugin as plugin options.
+13 ports, 15 adapters, 52 services, 8 domain modules, 16 route modules, none over 200 lines. `createPorts(overrides)` builds all thirteen, `createSharedServices(ports)` builds the in-memory state two route modules must share, and `buildServer(overrides)` threads both into every route plugin as plugin options.
+
+`server/composition-root.ts` is the only module that names a concrete adapter, with two documented exceptions. `server/services/recover-from-crash.ts` imports `cleanTmpArtifacts` from the filesystem book repository, because sweeping the stray `.tmp` files left by an interrupted write has no equivalent on the `BookRepository` port, which that function's own doc comment explains. Outside `server/`, `electron/main.ts` names the Electron diagram renderer, because Electron is its own composition point and hands the renderer to `startServer` as a port override.
 
 ## 1. Port catalog
 
