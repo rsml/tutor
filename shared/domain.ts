@@ -314,13 +314,19 @@ export const GenerationJobSchema = z.object({
   bookId: z.string(),
   bookTitle: z.string(),
   /**
-   * Deliberately a plain string, not TaskStatus, domain.ts cannot import
-   * shared/responses.ts. Whatever is written here at record time is never
-   * trusted on read anyway, JobJournal.listInterrupted() always reports
-   * 'interrupted', so this field only needs to round-trip, not to mean
-   * anything on its own.
+   * Only ever 'running' on disk, because a record is cleared the moment its
+   * job settles. JobJournal.listInterrupted() reports every surviving record
+   * as 'interrupted' regardless, since a record that outlived its process
+   * can only mean the process died before clearing it.
+   *
+   * Both values are still named here rather than collapsing the field to a
+   * bare string. A two-valued field typed as `string` tells a reader nothing
+   * and lets a typo through, and this is the domain module, where the shapes
+   * are supposed to be the documentation. Note this is a literal union, not
+   * TaskStatus, which lives in shared/responses.ts and cannot be imported
+   * here without creating a cycle.
    */
-  status: z.string(),
+  status: z.enum(['running', 'interrupted']),
   checkpoint: GenerationJobCheckpointSchema,
   params: GenerationJobParamsSchema,
   startedAt: z.string(),

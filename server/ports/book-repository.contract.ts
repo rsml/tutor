@@ -152,6 +152,12 @@ export function describeBookRepositoryContract(
         // fs-book-repository.ts, while this contract's in-memory fake
         // stores exactly what it was given, so asserting on that field here
         // would make the contract adapter-specific instead of shared.
+        //
+        // Do not helpfully add it back. The stamp is not untested, it is
+        // asserted where it is actually true, against the bytes on disk, in
+        // server/adapters/fs-book-repository.test.ts, which reads meta.yml
+        // and learning-profile.yml back as raw YAML and expects
+        // schemaVersion to be the current version in both.
         const { schemaVersion: _schemaVersion, ...rest } = book
         expect(rest).toEqual(makeBookMeta())
       })
