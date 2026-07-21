@@ -23,6 +23,7 @@ import {
   type LibrarySort,
 } from '@client/store'
 import { cn } from '@client/lib/utils'
+import { SEARCH_FOCUS_DELAY_MS } from '@client/lib/constants'
 
 interface LibraryToolbarProps {
   searchQuery: string
@@ -66,7 +67,7 @@ export function LibraryToolbar({
       if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
         e.preventDefault()
         setSearchExpanded(true)
-        setTimeout(() => searchRef.current?.focus(), 100)
+        setTimeout(() => searchRef.current?.focus(), SEARCH_FOCUS_DELAY_MS)
       }
       if (e.key === 'Escape' && searchExpanded && !searchQuery) {
         setSearchExpanded(false)
@@ -107,7 +108,7 @@ export function LibraryToolbar({
             <button
               onClick={() => {
                 setSearchExpanded(true)
-                setTimeout(() => searchRef.current?.focus(), 100)
+                setTimeout(() => searchRef.current?.focus(), SEARCH_FOCUS_DELAY_MS)
               }}
               className="flex items-center justify-center size-7 rounded-lg text-content-muted hover:text-content-primary hover:bg-surface-raised/50 transition-colors"
               title="Search (⌘F)"
