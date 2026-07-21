@@ -39,7 +39,25 @@ export function createFsJobJournal(opts: { dataDir: string }): JobJournal {
   let writeChain: Promise<void> = Promise.resolve()
 
   const enqueue = (task: () => Promise<void>): void => {
-    writeChain = writeChain.then(task, task)
+    // The trailing catch is load bearing, not defensive decoration. These
+    // writes are deliberately fire and forget, so nobody is awaiting this
+    // chain at the moment a write runs, and without the catch a failed
+    // write would leave writeChain rejected with no handler attached. That
+    // is an unhandled rejection, which is fatal here rather than merely
+    // noisy, because the espeak WASM module the narration adapter pulls in
+    // installs a process-level unhandledRejection handler that rethrows.
+    // One failed journal write would take the process down with it.
+    //
+    // Swallowing is the right response for this port specifically. A job
+    // record is throwaway state whose worst case on loss is that an
+    // interrupted job is not offered for resume, which is exactly where the
+    // user already was. Failing a running generation over it would be a
+    // strictly worse trade.
+    writeChain = writeChain
+      .then(task, task)
+      .catch((err) => {
+        console.warn('[fs-job-journal] A journal write failed and was dropped', err)
+      })
   }
 
   return {
