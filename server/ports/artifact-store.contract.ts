@@ -66,8 +66,23 @@ export function describeArtifactStoreContract(
       it('advances the mtime on a second save', async () => {
         await store.saveCover('book-1', Buffer.from('a'), 'image/png')
         const first = await store.getCoverMtime('book-1')
-        await store.saveCover('book-1', Buffer.from('b'), 'image/jpeg')
-        const second = await store.getCoverMtime('book-1')
+
+        // Saved in a short retry loop rather than exactly once. A real
+        // filesystem reports mtimes with millisecond granularity, so two
+        // saves that land inside the same tick record the identical time
+        // and a single-save assertion becomes a race against how fast the
+        // disk is rather than a test of the behaviour. Retrying until the
+        // subject's own clock moves keeps the assertion strict. The wait is
+        // deliberately not a wall clock wait, because the fake advances a
+        // synthetic counter rather than tracking real time, and the
+        // contract must not assume either.
+        let second = first
+        for (let attempt = 0; attempt < 50 && second!.getTime() <= first!.getTime(); attempt++) {
+          await new Promise(resolve => setTimeout(resolve, 2))
+          await store.saveCover('book-1', Buffer.from('b'), 'image/jpeg')
+          second = await store.getCoverMtime('book-1')
+        }
+
         expect(second!.getTime()).toBeGreaterThan(first!.getTime())
       })
 
