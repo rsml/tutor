@@ -17,6 +17,10 @@ export function cancelTask(taskId: string): Promise<void> {
  * TaskEvent in this one place, so the footer and the generate-all modal
  * cannot disagree about the events they read. Returns the unsubscribe
  * function unchanged.
+ *
+ * Calling it, typically from an effect's cleanup, is still the only way to
+ * stop the stream or its reconnect loop. See subscribeToTasks in sse.ts for
+ * reconnect and malformed-frame behavior.
  */
 export function subscribeToTaskEvents(onEvent: (event: TaskEvent) => void): () => void {
   return subscribeToTasks<TaskEvent>(onEvent)

@@ -34,6 +34,7 @@ export const BOOK_STATUSES = [
   'failed',
 ] as const
 
+/** Derived from the tuple above by indexed access rather than declared as its own union, so adding a status to BOOK_STATUSES can never leave this type out of sync with it. */
 export type BookStatus = (typeof BOOK_STATUSES)[number]
 
 /**

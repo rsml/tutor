@@ -12,8 +12,10 @@ import { z } from 'zod'
  * silently if a provider is ever added, renamed, or reordered.
  */
 
+/** The three provider strings themselves, spelled out here once. Every other export below derives from this rather than repeating them. */
 export const ProviderSchema = z.enum(['anthropic', 'openai', 'google'])
 
+/** Inferred from ProviderSchema rather than declared separately, so this type can never list a provider the schema itself would reject. */
 export type ProviderId = z.infer<typeof ProviderSchema>
 
 /** Every provider id, in schema order. */

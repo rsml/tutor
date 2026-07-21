@@ -4,6 +4,15 @@ import { useCallback, useRef, useState } from 'react'
  * Hook providing rAF-buffered streaming content state.
  * Accumulates text chunks in a ref and flushes to React state
  * at most once per animation frame for smooth 60fps rendering.
+ *
+ * Cleanup is manual. reset() cancels a pending frame and clears both the
+ * buffer and the rendered content. flushNow() also cancels a pending frame
+ * but keeps whatever was buffered instead of clearing it. Neither runs on
+ * unmount, so a caller that stops without calling either leaves an already
+ * scheduled frame to fire once more, setting state nothing further reads.
+ * Every streaming hook that owns one of these calls flushNow() on its
+ * stream's done event and reset() before starting a new one, rather than
+ * relying on this hook to do either by itself.
  */
 export function useStreamingContent() {
   const [content, setContent] = useState('')

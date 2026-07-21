@@ -46,7 +46,12 @@ export interface CreateSkeletonResponse {
   title: string
 }
 
-/** Start table of contents generation for a new book and stream each event to the callback as it arrives. */
+/**
+ * Start table of contents generation for a new book and stream each event to
+ * the callback as it arrives. Takes no AbortSignal, so once started the
+ * request runs to completion or failure on its own. The caller can only stop
+ * listening to onEvent, not cancel the connection.
+ */
 export function createBookStream(
   body: CreateBookRequest,
   onEvent: (event: CreateBookEvent) => void,
@@ -54,7 +59,11 @@ export function createBookStream(
   return streamGeneration<CreateBookEvent>('/api/books', { method: 'POST', body }, onEvent)
 }
 
-/** Generate the first chapter of an approved book and stream each event to the callback as it arrives. */
+/**
+ * Generate the first chapter of an approved book and stream each event to
+ * the callback as it arrives. Takes no AbortSignal, the same as
+ * createBookStream above, so the request cannot be cancelled once started.
+ */
 export function startFirstChapterStream(
   bookId: string,
   body: StartFirstChapterRequest,
@@ -63,7 +72,12 @@ export function startFirstChapterStream(
   return streamGeneration<StartBookEvent>(`/api/books/${bookId}/start`, { method: 'POST', body }, onEvent)
 }
 
-/** Revise a book's table of contents from reader feedback and stream each event to the callback as it arrives. */
+/**
+ * Revise a book's table of contents from reader feedback and stream each
+ * event to the callback as it arrives. Takes no AbortSignal either, so this
+ * too runs to completion or failure once called, whether or not the caller
+ * is still around to hear about it.
+ */
 export function reviseTocStream(
   bookId: string,
   body: ReviseTocRequest,

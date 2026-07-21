@@ -60,7 +60,13 @@ export function generateFinalQuiz(bookId: string, body: FinalQuizBody): Promise<
   return request<Quiz>(`/api/books/${bookId}/final-quiz`, { method: 'POST', body })
 }
 
-/** Stream the next chapter as the server generates it. */
+/**
+ * Stream the next chapter as the server generates it.
+ *
+ * Takes no AbortSignal. Once called, the request runs until the server ends
+ * it, whether that is success, failure, or the connection dropping. There is
+ * no way for a caller to cancel it early, only to stop listening to onEvent.
+ */
 export function streamNextChapter(
   bookId: string,
   body: GenerateChapterBody,
@@ -69,7 +75,13 @@ export function streamNextChapter(
   return streamGeneration<GenerateChapterEvent>(`/api/books/${bookId}/generate-next`, { method: 'POST', body }, onEvent)
 }
 
-/** Stream a chapter being regenerated in place. */
+/**
+ * Stream a chapter being regenerated in place.
+ *
+ * Takes no AbortSignal, the same as streamNextChapter above. Once called,
+ * the request runs until the server ends it, and a caller can only stop
+ * listening to onEvent, not cancel the connection itself.
+ */
 export function streamChapterRegeneration(
   bookId: string,
   num: number,

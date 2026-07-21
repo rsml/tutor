@@ -21,6 +21,16 @@ export const BookStatusSchema = z.enum(BOOK_STATUSES)
 
 // --- Learning Profile ---
 
+/**
+ * Saved to the learning profile once a reader opts to remember a voice and
+ * speed from the audiobook generation dialog. defaultSpeed's 0.5 to 2.0
+ * range mirrors the bound contracts.ts's GenerateAudiobookBodySchema enforces
+ * on the request that produced it, so a stored value is never looser than
+ * what the request path would already have accepted. workerOverride raises
+ * the in-process TTS synthesis pool's concurrency limit above whatever the
+ * narration engine would otherwise pick, for a reader trading more CPU and
+ * memory for faster narration.
+ */
 export const AudiobookPreferencesSchema = z.object({
   defaultVoiceId: z.string().min(1).max(100),
   defaultSpeed: z.number().min(0.5).max(2.0),
@@ -48,6 +58,7 @@ export const PreferencesSchema = z.object({
   audiobook: AudiobookPreferencesSchema.optional(),
 })
 
+/** level is a 1 to 10 self-assessed mastery, shown to the reader as "N/10" and read back into AI prompts the same way, not a weight or a count of anything else scored on a different scale. */
 export const SkillSchema = z.object({
   name: z.string().min(1).max(100),
   level: z.number().int().min(1).max(10),
@@ -84,6 +95,15 @@ export type LearningProfile = z.infer<typeof LearningProfileSchema>
 
 // --- Table of Contents ---
 
+/**
+ * These two weights are not the same scale, on purpose, and code that rolls
+ * them up treats them separately. TocBookSkillSchema's weight, out of 5, says
+ * how central a skill is to the whole book, and fs-book-repository.ts sums
+ * it into SkillProgress's per-book totalWeight. TocChapterSkillSchema's
+ * weight, out of 3, says how much one chapter contributes to a subskill, and
+ * the same repository sums it separately into that skill's subskill totals.
+ * Reading one as if it were the other would silently misweight the rollup.
+ */
 export const TocBookSkillSchema = z.object({
   name: z.string().min(1).max(100),
   weight: z.number().int().min(1).max(5),
@@ -143,6 +163,13 @@ export const BookMetaSchema = z.object({
   updatedAt: z.string(),
   profileOverrides: z.record(z.string(), z.unknown()).optional(),
   showTitleOnCover: z.boolean().optional(),
+  /**
+   * rating's half-star step mirrors contracts.ts's RatingBodySchema exactly,
+   * so a value read back off disk is always one this app could have written
+   * through that request. finalQuizScore and finalQuizTotal do not carry
+   * RatingBodySchema's matching upper bound of 100 here, so a persisted book
+   * cannot be assumed to satisfy a cap that only the request path enforces.
+   */
   rating: z.number().min(0).max(5).multipleOf(0.5).optional(),
   finalQuizScore: z.number().int().min(0).optional(),
   finalQuizTotal: z.number().int().min(0).optional(),
@@ -158,6 +185,13 @@ export type BookMeta = z.infer<typeof BookMetaSchema>
 
 // --- Progress ---
 
+/**
+ * completed is asserted by the caller, not derived here from scroll crossing
+ * some threshold. The reader's own scroll tracking decides when a chapter
+ * counts as read and then sends completed true alongside scroll 1, so this
+ * schema alone cannot tell a genuinely finished chapter apart from any other
+ * value the two fields happen to carry.
+ */
 export const ChapterProgressSchema = z.object({
   scroll: z.number().min(0).max(1),
   completed: z.boolean(),
@@ -173,6 +207,7 @@ export type Progress = z.infer<typeof ProgressSchema>
 
 // --- Quiz & Feedback ---
 
+/** options is fixed at exactly 4, and correctIndex and userAnswer are bounded 0 to 3 to match. The two bounds are not independently chosen, changing the option count without changing both index bounds would let a valid index point past the end of the list. */
 export const QuizQuestionSchema = z.object({
   question: z.string(),
   options: z.array(z.string()).length(4),
@@ -233,6 +268,14 @@ export const AudiobookChapterEntrySchema = z.object({
 })
 
 export const AudiobookManifestSchema = z.object({
+  /**
+   * Stamped from generate-audiobook.ts's own MANIFEST_VERSION constant, a
+   * format version for this manifest shape alone. It is independent of
+   * CURRENT_BOOK_SCHEMA_VERSION and CURRENT_PROFILE_SCHEMA_VERSION in
+   * schema-version.ts, which version meta.yml and learning-profile.yml
+   * instead, and nothing reads this field back yet to gate or migrate
+   * anything. It exists for a future manifest format change to key off.
+   */
   version: z.number().int().positive(),
   voice: z.string(),
   speed: z.number().min(0.5).max(2.0),

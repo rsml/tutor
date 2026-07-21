@@ -13,6 +13,22 @@ function getElectronAPI(): NonNullable<Window['electronAPI']> | null {
   return typeof window !== 'undefined' && window.electronAPI ? window.electronAPI : null
 }
 
+/**
+ * Discovers the server's base URL once and caches the promise, so every
+ * caller after the first awaits the same discovery rather than repeating it.
+ * In the plain browser dev server there is no `window.electronAPI`, so this
+ * resolves immediately with an empty base and every request stays relative.
+ * In Electron, it asks the main process which port the server bound, then
+ * polls `/api/health` until it answers, because the server starts at the
+ * same time as the renderer and can lose that race. That poll is capped at
+ * roughly a second and a half and is non-fatal either way, meaning a health
+ * check that never succeeds still resolves rather than rejects, since the
+ * point is to give the server a head start, not to gate the app on it.
+ * Individual requests still get their own chance to fail with an actionable
+ * diagnostic if the server genuinely never comes up. `main.tsx` awaits this
+ * once, before the first render, so `_base` is already resolved by the time
+ * any component or hook runs.
+ */
 export function initApiBase(): Promise<void> {
   if (_ready) return _ready
   const promise = (async () => {
@@ -41,14 +57,26 @@ export function initApiBase(): Promise<void> {
   return promise
 }
 
+/**
+ * Prepends whatever base initApiBase discovered. This does not itself wait
+ * for that discovery, it just reads whatever `_base` currently holds, so a
+ * call site that runs before `main.tsx`'s startup await has resolved would
+ * silently build a relative URL instead of failing loudly. Every request in
+ * this app goes through apiFetch, which awaits initApiBase first, and every
+ * other direct caller (the EventSource URL in sse.ts, the img/audio URLs in
+ * urls.ts) only ever runs from mounted React code, which starts after that
+ * same await, so the gap exists in principle but has nowhere left to bite.
+ */
 export function apiUrl(path: string): string {
   return `${_base}${path}`
 }
 
+/** Exposed so tests can assert on the discovered base without reaching into module state directly. The running app never needs to read this, since apiUrl already applies it. */
 export function getBase(): string {
   return _base
 }
 
+/** Best-effort port for surfacing in copyable text, such as the MCP command shown in the creation wizard, not for building requests. Falls back to DEFAULT_API_PORT when the base hasn't been discovered yet or doesn't parse as a URL. */
 export function getApiPort(): number {
   if (!_base) return DEFAULT_API_PORT
   try {

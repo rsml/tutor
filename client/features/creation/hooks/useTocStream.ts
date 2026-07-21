@@ -26,6 +26,11 @@ interface UseTocStreamOptions {
 /**
  * Owns the create-book and revise-toc streams, and the streaming buffer both
  * of them write table of contents markdown into as it arrives.
+ *
+ * Neither createBookStream nor reviseTocStream takes an AbortSignal, so once
+ * either is called it runs to completion or failure on its own. There is no
+ * way for this hook, or a component unmounting, to cancel one early, only to
+ * stop caring about the callback's calls into stale setters.
  */
 export function useTocStream(options: UseTocStreamOptions) {
   const {

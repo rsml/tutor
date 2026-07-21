@@ -21,7 +21,15 @@ export type StreamChatParams = z.infer<typeof ChatBodySchema> & {
   signal?: AbortSignal
 }
 
-/** Streams the tutor's reply to a chat message, one decoded chunk at a time. */
+/**
+ * Streams the tutor's reply to a chat message, one decoded chunk at a time.
+ *
+ * Abort by passing a signal in params, see StreamChatParams.signal above for
+ * who does that and why. Aborting, or the connection dropping mid-reply,
+ * rejects the returned promise. Whatever chunks already reached onChunk stay
+ * in the caller's message state either way, since streamText never buffers
+ * or retracts a chunk once it's been handed over.
+ */
 export function streamChat(params: StreamChatParams, onChunk: (chunk: string) => void): Promise<void> {
   const { signal, ...body } = params
   return streamText('/api/chat', { method: 'POST', body, signal }, onChunk)

@@ -29,6 +29,12 @@ async function openStream(path: string, init: JsonRequestInit | undefined): Prom
  * Read a stream to its end, handing each decoded chunk to the caller. The
  * decoder is kept in streaming mode so a multi-byte character split across two
  * network chunks is reassembled rather than mangled.
+ *
+ * A pending read is not caught here. If the request's AbortSignal fires or
+ * the connection drops mid-stream, reader.read() rejects and that rejection
+ * propagates out through streamText or streamNdjson to the caller's awaited
+ * promise. Every chunk already handed to onChunk before that point has
+ * already reached the caller, since nothing here buffers or replays chunks.
  */
 async function readChunks(response: Response, onChunk: (chunk: string) => void): Promise<void> {
   // Only ever called on a response from openStream, which has already
@@ -50,6 +56,17 @@ async function readChunks(response: Response, onChunk: (chunk: string) => void):
  * The event type is supplied by the caller from `@shared/events`, which names
  * one union per stream rather than one loose union for all of them, so a
  * handler cannot claim to receive an event its endpoint never sends.
+ *
+ * Abort is entirely the caller's. Pass an AbortSignal on `init.signal` and
+ * call its controller's abort() to stop reading early. Nothing here aborts
+ * on its own, so a component that unmounts without doing that leaves the
+ * request running until the server ends it. Aborting, or the connection
+ * dropping mid-stream, rejects the returned promise. Every event already
+ * parsed and handed to onEvent stays delivered, but parseSSEStream discards
+ * whatever partial `data: ` line is still sitting in its buffer when the read
+ * loop ends. That is true whether the loop ends in a clean close, a drop, or
+ * an abort, so a final event that never arrives with its trailing newline is
+ * lost either way.
  */
 export async function streamGeneration<TEvent>(
   path: string,
@@ -59,7 +76,15 @@ export async function streamGeneration<TEvent>(
   await parseSSEStream(await openStream(path, init), { onEvent })
 }
 
-/** Consume a plain text stream, reporting each chunk. Used by inline chat. */
+/**
+ * Consume a plain text stream, reporting each chunk. Used by inline chat.
+ *
+ * Abort is entirely the caller's, via an AbortSignal on `init.signal`. There
+ * is no separate cancel path, and nothing here runs on unmount by itself.
+ * Aborting, or the connection dropping mid-stream, rejects the returned
+ * promise after whatever chunks had already reached onChunk. Those stay
+ * delivered, since readChunks has nothing buffered to roll back.
+ */
 export async function streamText(
   path: string,
   init: JsonRequestInit | undefined,
@@ -72,6 +97,16 @@ export async function streamText(
  * Consume a newline delimited JSON stream, reporting each parsed value. Used
  * by the profile interview, which interleaves assistant text with the finished
  * profile.
+ *
+ * Abort is entirely the caller's, via an AbortSignal on `init.signal`.
+ * Nothing here cancels itself on unmount. Aborting, or the connection
+ * dropping mid-stream, rejects the returned promise. Every value already
+ * parsed and handed to onValue stays delivered, but the trailing
+ * `emit(buffer)` below only runs after the read loop below returns normally.
+ * A value still sitting unterminated in the buffer at the moment of an abort
+ * or a dropped connection is lost rather than emitted. That is unlike a
+ * clean end, where that same unterminated last line is exactly how the
+ * profile interview's finished-profile value normally arrives.
  */
 export async function streamNdjson<T>(
   path: string,
@@ -107,11 +142,19 @@ export async function streamNdjson<T>(
 
 /**
  * Follow the background task stream until the returned function is called.
+ * That call is the only way to stop it. This wraps EventSource rather than
+ * fetch, so there is no AbortSignal, and nothing unsubscribes automatically
+ * when a component unmounts, so a caller has to return this function, or call
+ * it, from its own effect's cleanup.
  *
  * The connection is re-opened after a drop, which happens routinely when the
  * server restarts during development. Reconnection is owned here rather than
  * by a component so the timer cannot be torn down and rebuilt by an unrelated
  * re-render.
+ *
+ * A frame that fails to parse is dropped and the stream keeps running, since
+ * every event here is independent and there is no partial buffer for a bad
+ * frame to corrupt.
  *
  * The event type is the caller's to name, because the transport neither knows
  * nor needs to know the task vocabulary.
