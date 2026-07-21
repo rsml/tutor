@@ -15,7 +15,15 @@ import { expect, type Page } from '@playwright/test'
  * Chapter" and page one section too far.
  */
 export function reader(page: Page) {
-  const nextSection = () => page.getByRole('button', { name: 'Next section', exact: true })
+  // Two controls carry the name "Next section" once a chapter has more than
+  // one, the chapter rail's mini next and the edge tap zone, and both are
+  // wired to the same `goNext` callback. That duplicate accessible name is a
+  // real accessibility defect, reported rather than patched because this
+  // phase changes no production file. `.first()` is safe here in a way it
+  // never is for a quiz option, because the two are accidental copies of one
+  // control rather than alternatives that mean different things, so either
+  // one advances the reader by exactly one section.
+  const nextSection = () => page.getByRole('button', { name: 'Next section', exact: true }).first()
   const nextChapter = () => page.getByRole('button', { name: 'Next Chapter', exact: true })
   const finishBook = () => page.getByRole('button', { name: 'Finish Book', exact: true })
 
