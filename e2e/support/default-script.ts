@@ -1,7 +1,7 @@
 import { chapterStreamChunks } from '../fixtures/chapter-stream.js'
 import { QUIZ_FIXTURE } from '../fixtures/quiz.js'
 import { SKILL_CLASSIFICATION } from '../fixtures/skills.js'
-import { TOC_STREAM_CHUNKS } from '../fixtures/toc-stream.js'
+import { TOC_REVISED_STREAM_CHUNKS, TOC_STREAM_CHUNKS } from '../fixtures/toc-stream.js'
 import {
   promptIncludes,
   systemIncludes,
@@ -78,7 +78,7 @@ export function applyDefaultScript(model: ScriptedTextGeneration): void {
   model.onStreamText({
     name: 'table of contents revision (revise-toc)',
     match: systemIncludes(REVISE_SYSTEM_PHRASE),
-    respond: { chunks: TOC_STREAM_CHUNKS },
+    respond: { chunks: TOC_REVISED_STREAM_CHUNKS },
   })
 
   model.onStreamText({
