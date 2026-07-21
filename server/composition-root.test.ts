@@ -17,6 +17,7 @@ import { createFakeTextGeneration } from './ports/text-generation.fake.js'
 const PORT_NAMES: Array<keyof Ports> = [
   'bookRepository',
   'artifactStore',
+  'libraryMigrator',
   'keyVault',
   'textGeneration',
   'imageGeneration',

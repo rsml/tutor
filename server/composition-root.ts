@@ -1,6 +1,7 @@
 import { getDataDir } from '@shared/node/data-dir.js'
 import { createFsBookRepository } from './adapters/fs-book-repository.js'
 import { createFsArtifactStore } from './adapters/fs-artifact-store.js'
+import { createFsLibraryMigrator } from './adapters/fs-library-migrator.js'
 import { createFileKeyVault } from './adapters/file-key-vault.js'
 import { createAiSdkTextGeneration } from './adapters/ai-sdk-text-generation.js'
 import { createHttpImageGeneration } from './adapters/http-image-generation.js'
@@ -17,6 +18,7 @@ import { createGenerateNextChapter } from './services/generate-next-chapter.js'
 
 import type { BookRepository } from './ports/book-repository.js'
 import type { ArtifactStore } from './ports/artifact-store.js'
+import type { LibraryMigrator } from './ports/library-migrator.js'
 import type { KeyVault } from './ports/key-vault.js'
 import type { TextGeneration } from './ports/text-generation.js'
 import type { ImageGeneration } from './ports/image-generation.js'
@@ -50,6 +52,7 @@ import type { OsFileManager } from './ports/os-file-manager.js'
 export interface Ports {
   bookRepository: BookRepository
   artifactStore: ArtifactStore
+  libraryMigrator: LibraryMigrator
   keyVault: KeyVault
   textGeneration: TextGeneration
   imageGeneration: ImageGeneration
@@ -85,6 +88,7 @@ export function createPorts(overrides: Partial<Ports> = {}): Ports {
   return {
     bookRepository: createFsBookRepository({ dataDir }),
     artifactStore: createFsArtifactStore({ dataDir }),
+    libraryMigrator: createFsLibraryMigrator({ dataDir }),
     keyVault,
     // These two read API keys through the vault, so they take whichever
     // vault won above rather than building a second one. Overriding the
