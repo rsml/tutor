@@ -1,4 +1,7 @@
+import type { GenerationJobParams } from '@shared/domain.js'
+import type { ProviderId } from '@shared/provider.js'
 import type { BackgroundTasks } from '../ports/background-tasks.js'
+import type { JobJournal } from '../ports/job-journal.js'
 import type { ChapterGenerationStream } from './chapter-generation-stream.js'
 import type { GenerateNextChapter, GenerateNextChapterOptions } from './generate-next-chapter.js'
 
@@ -17,6 +20,16 @@ export function createGenerateAllChapters(deps: {
   backgroundTasks: BackgroundTasks
   chapterStream: ChapterGenerationStream
   generateNextChapter: GenerateNextChapter
+  /**
+   * Optional so every existing caller and test that builds this without a
+   * journal keeps compiling unchanged. When present, each completed
+   * chapter's number is checkpointed against the tray task's id, purely as
+   * a progress label a UI could show if this job survives to the next
+   * boot. resume-interrupted-jobs.ts never reads this checkpoint to decide
+   * what to redo, it always recomputes the real start point from
+   * meta.generatedUpTo instead, see that module's own doc for why.
+   */
+  journal?: JobJournal
 }) {
   return function generateAllChapters(
     bookId: string,
@@ -25,7 +38,17 @@ export function createGenerateAllChapters(deps: {
   ): { taskId: string } {
     const startFrom = meta.generatedUpTo + 1
     const total = meta.totalChapters
-    const task = deps.backgroundTasks.start({ type: 'generate-all', bookId, bookTitle: meta.title, total })
+    // Carried through to the journal so an interrupted run can be resumed
+    // with the same request parameters. See GenerationJobParamsSchema for
+    // why an API key can never be among these.
+    const params: GenerationJobParams = {
+      ...(options.model !== undefined ? { model: options.model } : {}),
+      ...(options.provider !== undefined ? { provider: options.provider as ProviderId } : {}),
+      ...(options.quizModel !== undefined ? { quizModel: options.quizModel } : {}),
+      ...(options.quizProvider !== undefined ? { quizProvider: options.quizProvider as ProviderId } : {}),
+      ...(options.quizLength !== undefined ? { quizLength: options.quizLength } : {}),
+    }
+    const task = deps.backgroundTasks.start({ type: 'generate-all', bookId, bookTitle: meta.title, total, params })
 
     // Fire-and-forget
     ;(async () => {
@@ -43,6 +66,7 @@ export function createGenerateAllChapters(deps: {
           deps.backgroundTasks.report(task.id, num, `Generating chapter ${num} of ${total}`)
 
           await deps.generateNextChapter(bookId, num, options, undefined, task.signal)
+          deps.journal?.checkpoint(task.id, { kind: 'chapters', through: num })
         }
         deps.backgroundTasks.succeed(task.id)
       } catch (err) {

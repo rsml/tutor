@@ -6,6 +6,7 @@ import type { ArtifactStore } from '../ports/artifact-store.js'
 import type { SpeechSynthesis } from '../ports/speech-synthesis.js'
 import type { AudioAssembly } from '../ports/audio-assembly.js'
 import type { BackgroundTasks } from '../ports/background-tasks.js'
+import type { JobJournal } from '../ports/job-journal.js'
 import type { AudiobookManifest, AudiobookChapterEntry, BookMeta, LearningProfile } from '@shared/domain.js'
 import { M4B_BITRATE } from '../constants.js'
 
@@ -38,6 +39,16 @@ export interface GenerateAudiobookDeps {
   speechSynthesis: Pick<SpeechSynthesis, 'isInstalled' | 'listVoices' | 'startWorkerPool' | 'stopWorkerPool' | 'synthesizeChapter'>
   audioAssembly: AudioAssembly
   backgroundTasks: BackgroundTasks
+  /**
+   * Optional so every existing caller and test that builds this without a
+   * journal keeps compiling unchanged. When present, narration progress is
+   * checkpointed purely as a progress label a UI could show if this job
+   * survives to the next boot. resume-interrupted-jobs.ts never reads it
+   * to decide what to redo, it always restarts narration from the
+   * beginning, because crash recovery has already deleted any partial
+   * audio by the time resume runs. See that module's own doc for why.
+   */
+  journal?: JobJournal
 }
 
 export interface GenerateAudiobookRequest {
@@ -79,7 +90,7 @@ async function tryRm(path: string): Promise<void> {
 }
 
 export function createGenerateAudiobook(deps: GenerateAudiobookDeps) {
-  const { bookRepository, artifactStore, speechSynthesis, audioAssembly, backgroundTasks } = deps
+  const { bookRepository, artifactStore, speechSynthesis, audioAssembly, backgroundTasks, journal } = deps
 
   async function narrate(meta: BookMeta, voiceId: string, speed: number, taskId: string, signal: AbortSignal): Promise<void> {
     const bookId = meta.id
@@ -155,7 +166,15 @@ export function createGenerateAudiobook(deps: GenerateAudiobookDeps) {
         await bookRepository.saveBook(meta2)
 
         backgroundTasks.report(taskId, n, `Narrated chapter ${n} of ${totalChapters}`)
+        // Informational only, see the journal dep's own doc above: never
+        // read back to decide what to redo, only ever shown as a progress
+        // label if this job survives to the next boot.
+        journal?.checkpoint(taskId, { kind: 'chapters', through: n })
       }
+
+      // Every chapter is narrated. Same informational-only checkpoint as
+      // above, ahead of the stitch phase below.
+      journal?.checkpoint(taskId, { kind: 'narration-complete' })
 
       if (signal.aborted) throw new Error('Audiobook generation aborted')
 
@@ -282,11 +301,15 @@ export function createGenerateAudiobook(deps: GenerateAudiobookDeps) {
     }
 
     // total=N chapters; narrate() reports progress per chapter narrated.
+    // params carries the resolved voice and speed through to the journal,
+    // so an interrupted run resumes with the same request rather than
+    // falling back to profile defaults a second time.
     const handle = backgroundTasks.start({
       type: 'generate-audiobook',
       bookId,
       bookTitle: meta.title,
       total: meta.totalChapters,
+      params: { voiceId, speed },
     })
 
     ;(async () => {

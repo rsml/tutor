@@ -3,6 +3,7 @@ import type { BookMeta, GenerationJob, GenerationJobType } from '@shared/domain.
 import type { JobJournal } from '../ports/job-journal.js'
 import type { BackgroundTasks } from '../ports/background-tasks.js'
 import type { ChapterGenerationStream } from './chapter-generation-stream.js'
+import type { GenerateNextChapterOptions } from './generate-next-chapter.js'
 import { createFakeJobJournal } from '../ports/job-journal.fake.js'
 import { createFakeBookRepository } from '../ports/book-repository.fake.js'
 import { createFakeBackgroundTasks } from '../ports/background-tasks.fake.js'
@@ -42,25 +43,65 @@ function makeJob(overrides: Partial<GenerationJob> & { type: GenerationJobType; 
   }
 }
 
+type GenerateAllChaptersFn = (
+  bookId: string,
+  meta: { title: string; generatedUpTo: number; totalChapters: number },
+  options: GenerateNextChapterOptions,
+) => { taskId: string }
+
+type GenerateAudiobookFn = (req: {
+  bookId: string
+  voiceId?: string
+  speed?: number
+  confirmReplace?: boolean
+}) => Promise<{ outcome: string; taskId?: string }>
+
+/**
+ * A fully-typed vi.fn() stub for generateAllChapters. Explicitly annotating
+ * impl before handing it to vi.fn() (rather than passing an inline arrow
+ * straight in) is load bearing, not stylistic: vi.fn() infers its mock's
+ * call signature from whatever it is given, and an untyped zero-arg arrow
+ * infers a signature too loose to satisfy createResumeInterruptedJobs's
+ * deps type, which tsc (not vitest itself) then rejects.
+ */
+function stubGenerateAllChapters(result: { taskId: string } = { taskId: 'task-x' }) {
+  const impl: GenerateAllChaptersFn = () => result
+  return vi.fn(impl)
+}
+
+/** Same reasoning as stubGenerateAllChapters above, for generateAudiobook. */
+function stubGenerateAudiobook(result: { outcome: string; taskId?: string } = { outcome: 'not-complete' }) {
+  const impl: GenerateAudiobookFn = async () => result
+  return vi.fn(impl)
+}
+
+type LogFn = (msg: string, ctx?: Record<string, unknown>) => void
+
+/** Same reasoning as stubGenerateAllChapters above, for the log dependency. */
+function stubLog() {
+  const impl: LogFn = () => {}
+  return vi.fn(impl)
+}
+
 function makeDeps(overrides: {
   journal: JobJournal
   books: ReturnType<typeof createFakeBookRepository>
   backgroundTasks?: BackgroundTasks
   chapterStream?: Pick<ChapterGenerationStream, 'seedInterrupted'>
-  generateAllChapters?: ReturnType<typeof vi.fn>
-  generateAudiobook?: ReturnType<typeof vi.fn>
+  generateAllChapters?: ReturnType<typeof stubGenerateAllChapters>
+  generateAudiobook?: ReturnType<typeof stubGenerateAudiobook>
   autoResume?: boolean
-  log?: ReturnType<typeof vi.fn>
+  log?: ReturnType<typeof stubLog>
 }) {
   return {
     journal: overrides.journal,
     books: overrides.books,
     backgroundTasks: overrides.backgroundTasks ?? createFakeBackgroundTasks(),
     chapterStream: overrides.chapterStream ?? { seedInterrupted: vi.fn() },
-    generateAllChapters: overrides.generateAllChapters ?? vi.fn(() => ({ taskId: 'task-x' })),
-    generateAudiobook: overrides.generateAudiobook ?? vi.fn(async () => ({ outcome: 'not-complete' })),
+    generateAllChapters: overrides.generateAllChapters ?? stubGenerateAllChapters(),
+    generateAudiobook: overrides.generateAudiobook ?? stubGenerateAudiobook(),
     autoResume: overrides.autoResume ?? true,
-    log: overrides.log ?? vi.fn(),
+    log: overrides.log ?? stubLog(),
   }
 }
 
@@ -80,7 +121,7 @@ describe('createResumeInterruptedJobs', () => {
         params: { model: 'claude-sonnet-4-6' },
       }))
 
-      const generateAllChapters = vi.fn(() => ({ taskId: 'task-all' }))
+      const generateAllChapters = stubGenerateAllChapters({ taskId: 'task-all' })
       const resume = createResumeInterruptedJobs(makeDeps({ journal, books, generateAllChapters }))
 
       const report = await resume()
@@ -105,7 +146,7 @@ describe('createResumeInterruptedJobs', () => {
       await books.saveBook({ ...BOOK_META, generatedUpTo: 6, totalChapters: 6 })
       journal.record(makeJob({ id: 'job-complete', type: 'generate-all', bookId: BOOK_META.id }))
 
-      const generateAllChapters = vi.fn(() => ({ taskId: 'task-all' }))
+      const generateAllChapters = stubGenerateAllChapters()
       const resume = createResumeInterruptedJobs(makeDeps({ journal, books, generateAllChapters }))
 
       const report = await resume()
@@ -126,7 +167,7 @@ describe('createResumeInterruptedJobs', () => {
         params: { voiceId: 'onyx', speed: 1.2 },
       }))
 
-      const generateAudiobook = vi.fn(async () => ({ outcome: 'started', taskId: 'task-audio' }))
+      const generateAudiobook = stubGenerateAudiobook({ outcome: 'started', taskId: 'task-audio' })
       const resume = createResumeInterruptedJobs(makeDeps({ journal, books, generateAudiobook }))
 
       const report = await resume()
@@ -143,7 +184,7 @@ describe('createResumeInterruptedJobs', () => {
       await books.saveBook({ ...BOOK_META, generatedUpTo: 6, totalChapters: 6 })
       journal.record(makeJob({ id: 'job-audio-skip', type: 'generate-audiobook', bookId: BOOK_META.id }))
 
-      const generateAudiobook = vi.fn(async () => ({ outcome: 'engine-not-installed' }))
+      const generateAudiobook = stubGenerateAudiobook({ outcome: 'engine-not-installed' })
       const resume = createResumeInterruptedJobs(makeDeps({ journal, books, generateAudiobook }))
 
       const report = await resume()
@@ -161,8 +202,8 @@ describe('createResumeInterruptedJobs', () => {
       journal.record(makeJob({ id: 'job-short', type, bookId: BOOK_META.id }))
 
       const backgroundTasks = createFakeBackgroundTasks()
-      const generateAllChapters = vi.fn(() => ({ taskId: 'task-x' }))
-      const generateAudiobook = vi.fn(async () => ({ outcome: 'not-complete' }))
+      const generateAllChapters = stubGenerateAllChapters()
+      const generateAudiobook = stubGenerateAudiobook()
       const resume = createResumeInterruptedJobs(makeDeps({ journal, books, backgroundTasks, generateAllChapters, generateAudiobook }))
 
       const report = await resume()
@@ -250,8 +291,8 @@ describe('createResumeInterruptedJobs', () => {
 
       const backgroundTasks = createFakeBackgroundTasks()
       const chapterStream = { seedInterrupted: vi.fn() }
-      const generateAllChapters = vi.fn(() => ({ taskId: 'task-x' }))
-      const generateAudiobook = vi.fn(async () => ({ outcome: 'not-complete' }))
+      const generateAllChapters = stubGenerateAllChapters()
+      const generateAudiobook = stubGenerateAudiobook()
       const resume = createResumeInterruptedJobs(makeDeps({
         journal, books, backgroundTasks, chapterStream, generateAllChapters, generateAudiobook, autoResume: false,
       }))
@@ -280,7 +321,7 @@ describe('createResumeInterruptedJobs', () => {
       journal.record(makeJob({ id: 'job-missing-book', type: 'generate-all', bookId: 'book-1' }))
       journal.record(makeJob({ id: 'job-good', type: 'generate-all', bookId: 'book-2' }))
 
-      const generateAllChapters = vi.fn(() => ({ taskId: 'task-good' }))
+      const generateAllChapters = stubGenerateAllChapters({ taskId: 'task-good' })
       const resume = createResumeInterruptedJobs(makeDeps({ journal, books, generateAllChapters }))
 
       // No try/catch here on purpose: if resume let the missing-book
