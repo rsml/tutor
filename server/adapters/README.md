@@ -28,7 +28,7 @@ Adapters are the only place real I/O happens, one file per port per technology, 
 
 Some adapters carry an external constraint worth knowing up front. `fs-paths.ts` writes YAML atomically, a temp file, then a rename. `kokoro-speech-synthesis.ts` needs the Kokoro model downloaded. `ffmpeg-audio-assembly.ts` needs ffmpeg present. `file-key-vault.ts` needs the OS keychain, or falls back to a plaintext key file outside Electron. `kroki-diagram-renderer.ts` calls the kroki.io HTTP service.
 
-Every adapter is covered by its port's shared contract test, plus its own integration tests for anything the contract does not reach.
+Twelve of the seventeen adapters above run their port's shared contract test, plus their own integration tests for anything the contract does not reach. The five that do not are the ones whose real subject would spend money, download a model, or reach a remote service on every run, so `ai-sdk-text-generation.ts`, `http-image-generation.ts`, `kokoro-speech-synthesis.ts`, `kroki-diagram-renderer.ts` and `electron-diagram-renderer.ts` are covered by their own tests, and the contract runs against their fakes.
 
 Electron packaging bites adapters specifically. The native dependencies behind narration and audio (kokoro-js, onnxruntime, fluent-ffmpeg, phonemizer) stay external to the bundle rather than being rolled in, and `onnxruntime-node`, the one with a native binary, is also asarUnpacked. A dynamic import of a CJS package can come back wrapped an extra level under Node's ESM loader. `epub-gen-export.ts` and `epub2-import.ts` each unwrap whichever shape actually shows up rather than assuming one.
 

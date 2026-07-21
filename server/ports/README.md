@@ -22,7 +22,7 @@ A port is an interface owned by the server core, named for the capability it pro
 | `clock` | the current time and fresh unique ids, as one seam |
 | `os-file-manager` | revealing a file on disk in the OS's native file manager |
 
-Every port ships an in-memory fake plus a contract test, and both the fake and every real adapter for that port must pass the same contract test, so a fake cannot drift from the thing it stands in for. Nothing in this folder imports an AI SDK, `fs`, `fetch`, or an environment variable. That is adapter work.
+Every port ships an in-memory fake plus a contract test, and the fake and the real adapter run the same contract, so a fake cannot drift from the thing it stands in for. Twelve of the seventeen adapters run it today. The five that do not are the ones whose real subject would spend money against a provider, download a model, or reach a remote service on every run, so `text-generation`, `image-generation`, `speech-synthesis` and `diagram-renderer` are contract-tested against their fakes and covered separately by their own adapter tests. Nothing in this folder imports an AI SDK, `fs`, `fetch`, or an environment variable. That is adapter work.
 
 To add a port, follow the `add-feature` Agent Skill at [add-feature/SKILL.md](../../.claude/skills/add-feature/SKILL.md).
 
