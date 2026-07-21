@@ -1,5 +1,5 @@
 import type { z } from 'zod'
-import type { BookMeta } from './domain.js'
+import type { BookMeta, LearningProfile } from './domain.js'
 import type { ImportEpubPreviewResponseSchema } from './contracts.js'
 
 /**
@@ -115,6 +115,21 @@ export type VoiceInfo = {
   language: 'American English' | 'British English'
   gender: 'Male' | 'Female'
   grade: string
+}
+
+/**
+ * GET /api/profile — the learning profile as the client sees it.
+ *
+ * Deliberately NOT `LearningProfile`. The stored profile keeps `identity` and
+ * `style` as separate fields, and the handler joins them into a single
+ * `aboutMe` string before answering, so the wire shape and the stored shape
+ * are genuinely different types rather than one being an alias of the other.
+ * `skills` is always present on the wire, defaulted to an empty array.
+ */
+export type ProfileResponse = {
+  aboutMe: string
+  preferences: LearningProfile['preferences']
+  skills: LearningProfile['skills']
 }
 
 /** GET /api/audiobook/status — whether the narration engine is installed. */
