@@ -97,16 +97,28 @@ test('revises the table of contents, persists it, and generates chapter 1 on app
 
   // Persistence, checked on disk rather than on screen: the revision wrote
   // through to toc.yml, not just into the streaming buffer the page renders.
-  const toc = await bookRepository(app.dataDir).getToc(id)
-  expect(toc.chapters.map(chapter => chapter.title)).toEqual(TOC_REVISED_CHAPTERS.map(chapter => chapter.title))
+  //
+  // Polled rather than read once, because the two are not simultaneous.
+  // Titles appear on screen while `revise-toc.ts` is still streaming, and the
+  // parse and the save both happen after the stream ends, so a bare read here
+  // races a write that is strictly later. Polling waits for that write on a
+  // deadline, the same way a web-first assertion waits for the screen, and it
+  // weakens nothing because the expected value is unchanged.
+  await expect.poll(async () => (await bookRepository(app.dataDir).getToc(id)).chapters.map(chapter => chapter.title))
+    .toEqual(TOC_REVISED_CHAPTERS.map(chapter => chapter.title))
 
   await wizard(page).approveToc()
 
   await expect(page.getByText(chapterMarker(1)).first()).toBeVisible()
 
-  const book = await readBook(app.dataDir, id)
-  expect(book.generatedUpTo).toBe(1)
-  expect(book.status).toBe('reading')
+  // Same reasoning, and this is the one that actually caught it. `start-book.ts`
+  // streams the chapter, saves it, generates its quiz, and only then writes
+  // generatedUpTo and status in its finalize step. Chapter 1's prose is on
+  // screen well before that, so reading the book once at this point asks a
+  // question the server has not answered yet. It won on every local run and on
+  // the pull request, and lost on the busier post-merge runner.
+  await expect.poll(async () => (await readBook(app.dataDir, id)).generatedUpTo).toBe(1)
+  expect((await readBook(app.dataDir, id)).status).toBe('reading')
 
   // And the model path /start actually drives: a skill classification call
   // and a chapter-1 stream, not just the revise-toc stream from earlier.
