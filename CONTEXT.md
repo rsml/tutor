@@ -2,9 +2,9 @@ Up: [ARCHITECTURE.md](ARCHITECTURE.md)
 
 # Domain language
 
-The words this codebase uses, and the type or module that owns each one. Names here are the ubiquitous language. They appear unchanged in schemas, services, components, prompts, and UI copy, and a synonym for one of them is a bug in the writing rather than a stylistic choice.
+The words this codebase uses, and the type or module that owns each one. These names appear unchanged in schemas, services, components, prompts, and UI copy. Do not invent synonyms for them.
 
-Several words in this domain are overloaded, some of them badly. The later sections exist because those collisions are real and permanent, so the fix is to qualify them consistently rather than to rename around them.
+Some words carry more than one meaning. Those collisions are permanent, so the sections below say how to qualify each one instead of renaming around them.
 
 ## Core domain
 
@@ -44,21 +44,18 @@ Both keep their names. The domain type is never renamed to avoid the collision, 
 
 **Job** and **task** are not synonyms. A background task is the live, in-memory unit the tray shows. A job is its persisted record on disk, written by the `JobJournal` port so an interrupted task can be resumed after a restart. The schemas are `GenerationJobSchema` and friends in [`shared/domain.ts`](shared/domain.ts), and `GenerationJobType` covers every `TaskType` plus `generate-chapter`, which is the just-in-time single chapter path that never went through background tasks. Use "job" only when you mean the durable record.
 
-**Section** is an intra-chapter slice used for pagination and reader navigation, in `client/lib/split-sections.ts` and `client/features/reader/hooks/useSectionNavigation.ts`. It is never a synonym for Chapter.
+The rest of the overloads fit in one table.
 
-**Review** is two unrelated things. `toc_review` is the BookStatus in which a generated TOC is waiting for the reader to approve it. Smart Review is the spaced-repetition flow that re-quizzes a reader on questions they missed, in `client/features/quiz/components/SmartReviewFlow.tsx`.
-
-**Prompt** and **brief** are different lengths of the same idea. A `prompt` is the reader's short topic request stored on `BookMeta`. A `brief` is the long agentic-generation specification stored per book and consumed by the MCP authoring services.
-
-**Summary** is either a `ChapterSummary`, which is cross-chapter context fed into generation, or the book-completion summary the reader sees at the end. Qualify which.
-
-**Reference** is source material saved for agentic generation, as `ReferenceEntry` in [`shared/domain.ts`](shared/domain.ts). It is not a citation.
-
-**Narration** is chapter Markdown transformed for speech, in [`server/services/markdown-to-narration.ts`](server/services/markdown-to-narration.ts). It is a derived form of the chapter text and not the chapter text itself.
-
-**Progress** appears three ways, as reading scroll progress, as `TaskProgress` on a background task, and as skill progress on the profile. Always qualify it.
-
-**Error kind** is `AiErrorKind` in [`shared/responses.ts`](shared/responses.ts), one of `auth-failed`, `rate-limited`, `overloaded`, `timed-out`, `network-failed`, `content-refused`, or `unknown`. It classifies why an AI call failed, which is what decides whether the adapter retries. It is not a status.
+| Word | It can mean | How to tell |
+|---|---|---|
+| **Section** | An intra-chapter slice used for pagination and reader navigation | Never a synonym for Chapter. Lives in `client/lib/split-sections.ts` |
+| **Review** | `toc_review`, the BookStatus waiting for TOC approval, or Smart Review, the spaced-repetition re-quiz flow | Unrelated features. Name the one you mean |
+| **Prompt** vs **brief** | A `prompt` is the reader's short topic request on `BookMeta`. A `brief` is the long generation spec the MCP authoring services consume | Length and audience |
+| **Summary** | `ChapterSummary`, cross-chapter context fed into generation, or the completion summary the reader sees at the end | Qualify which |
+| **Reference** | Source material saved for agentic generation, `ReferenceEntry` | Not a citation |
+| **Narration** | Chapter Markdown transformed for speech | A derived form, never the chapter text itself |
+| **Progress** | Reading scroll progress, `TaskProgress` on a background task, or skill progress on the profile | Always qualify |
+| **Error kind** | `AiErrorKind`, why an AI call failed, `auth-failed` through `unknown` | Decides whether the adapter retries. Not a status |
 
 ## Numbering
 
