@@ -29,8 +29,9 @@ export function RenameBookDialog({ open, payload, dispatch, mutating, onConfirm 
         </DialogHeader>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-medium text-content-muted mb-1 block">Title</label>
+            <label htmlFor="rename-book-title" className="text-xs font-medium text-content-muted mb-1 block">Title</label>
             <input
+              id="rename-book-title"
               value={payload?.title ?? ''}
               onChange={e => dispatch({ type: 'edit', patch: { title: e.target.value } })}
               onKeyDown={e => e.key === 'Enter' && onConfirm()}
@@ -39,8 +40,9 @@ export function RenameBookDialog({ open, payload, dispatch, mutating, onConfirm 
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-content-muted mb-1 block">Subtitle</label>
+            <label htmlFor="rename-book-subtitle" className="text-xs font-medium text-content-muted mb-1 block">Subtitle</label>
             <input
+              id="rename-book-subtitle"
               value={payload?.subtitle ?? ''}
               onChange={e => dispatch({ type: 'edit', patch: { subtitle: e.target.value } })}
               onKeyDown={e => e.key === 'Enter' && onConfirm()}
