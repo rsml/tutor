@@ -117,6 +117,19 @@ Client feature slices call the server through one typed API client. Routes stay 
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full five-diagram hub, including how the pieces talk to each other, the server hexagon, the adaptive loop, and the dependency rule.
 
+What each top-level directory is, in one line each.
+
+```
+client/    React renderer, feature slices, one typed API client
+server/    Fastify core, thin routes over services over ports over adapters
+shared/    Zod domain schemas and contract types both sides import
+electron/  desktop shell, window chrome, IPC, embedded server boot
+e2e/       Playwright journeys driving the real app on fake adapters
+           (unit and contract tests are colocated with their source)
+scripts/   generators and repo checks, all wired into CI
+docs/      ADRs, the generated API reference, screenshots, phase plans
+```
+
 ## Build Standalone DMG
 
 ```bash
