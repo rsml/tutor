@@ -520,9 +520,7 @@ export function createFsBookRepository(opts: { dataDir: string }): BookRepositor
         : []
 
       const idx = manifest.findIndex((e) => e.name === name)
-      if (idx >= 0) {
-        manifest[idx] = { ...manifest[idx], name }
-      } else {
+      if (idx < 0) {
         manifest.push({ name })
       }
 
