@@ -19,7 +19,7 @@ export async function createTestServer(): Promise<FastifyInstance> {
 }
 
 /** The per-test-file temp data directory set up by setup-env.ts. */
-export function dataDir(): string {
+function dataDir(): string {
   return process.env.TUTOR_DATA_DIR!
 }
 

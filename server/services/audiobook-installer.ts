@@ -114,7 +114,7 @@ export function isInstalled(): boolean {
   return isModelPresent() && isFfmpegPresent()
 }
 
-export interface InstallProgress {
+interface InstallProgress {
   component: 'model' | 'ffmpeg' | 'overall'
   bytesDownloaded: number
   bytesTotal: number
@@ -319,14 +319,4 @@ async function downloadWithFollow(
     req.on('error', reject)
     req.end()
   })
-}
-
-// Test seam: helpers exposed for unit tests to introspect internal state
-// without mutating production behavior. Not part of the public API contract.
-export const __testing = {
-  ensureEnvConfigured,
-  isModelPresent,
-  isFfmpegPresent,
-  modelHasOnnxFile,
-  downloadWithFollow,
 }

@@ -41,7 +41,7 @@ export default defineConfig({
                 // electron-builder's `files` list and resolve from node_modules.
                 const audiobookExternals = [
                   'kokoro-js', 'onnxruntime-node', 'onnxruntime-common',
-                  'fluent-ffmpeg', 'phonemizer', '@huggingface/transformers',
+                  'phonemizer', '@huggingface/transformers',
                   '@huggingface/jinja', '@huggingface/tokenizers',
                 ]
                 if (audiobookExternals.some(p => id === p || id.startsWith(p + '/'))) return true

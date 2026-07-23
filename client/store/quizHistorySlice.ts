@@ -1,12 +1,12 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
-export interface QuizQuestion {
+interface QuizQuestion {
   question: string
   options: string[]
   correctIndex: number
 }
 
-export interface QuizAttempt {
+interface QuizAttempt {
   attemptNumber: number
   timestamp: string
   answers: Array<{ selectedAnswer: number; correct: boolean }>

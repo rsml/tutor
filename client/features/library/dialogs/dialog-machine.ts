@@ -39,7 +39,7 @@ export type LibraryMenu =
  * can be edited in place, which is why the patch names them rather than being
  * a partial of the whole union.
  */
-export interface DialogDraft {
+interface DialogDraft {
   title?: string
   subtitle?: string
   input?: string

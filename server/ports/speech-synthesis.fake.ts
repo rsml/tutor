@@ -28,7 +28,7 @@ function splitSentences(text: string): string[] {
   return text.split(/(?<=[.!?])\s+/).filter((part) => part.trim().length > 0)
 }
 
-export interface FakeSpeechSynthesisCalls {
+interface FakeSpeechSynthesisCalls {
   install: number
   readonly synthesizePreview: string[]
   readonly synthesizeChapter: SynthesizeChapterRequest[]

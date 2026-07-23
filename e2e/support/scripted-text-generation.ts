@@ -39,30 +39,30 @@ import type { FakeTextGeneration, ToolConversationStep } from '@server/ports/tex
  */
 
 /** What a matched streamText rule produces: either chunks to yield, or something to throw. */
-export type StreamOutcome =
+type StreamOutcome =
   | { chunks: string[]; chunkDelayMs?: number }
   | { throws: unknown }
 
 /** What a matched generateObject rule produces. The value is still parsed through the caller's schema. */
-export type ObjectOutcome =
+type ObjectOutcome =
   | { value: unknown }
   | { throws: unknown }
 
 /** What a matched runToolConversation rule produces. */
-export type ToolOutcome =
+type ToolOutcome =
   | { steps: ToolConversationStep[] }
   | { throws: unknown }
 
-export interface Rule<Req, Outcome> {
+interface Rule<Req, Outcome> {
   /** Named so an unmatched-call error can list what was on offer. */
   name: string
   match: (req: Req) => boolean
   respond: Outcome | ((req: Req) => Outcome)
 }
 
-export type StreamRule = Rule<StreamTextRequest, StreamOutcome>
-export type ObjectRule = Rule<GenerateObjectRequest<unknown>, ObjectOutcome>
-export type ToolRule = Rule<RunToolConversationRequest, ToolOutcome>
+type StreamRule = Rule<StreamTextRequest, StreamOutcome>
+type ObjectRule = Rule<GenerateObjectRequest<unknown>, ObjectOutcome>
+type ToolRule = Rule<RunToolConversationRequest, ToolOutcome>
 
 export interface ScriptedTextGeneration extends FakeTextGeneration {
   /** Adds a streamText rule. Later rules shadow earlier ones, so this is also the failure-injection point. */

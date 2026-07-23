@@ -29,10 +29,10 @@ export function charsPerChapterFor(totalChapters: number): number {
  * support the cross-chapter synthesis questions a longer book gets, so asking
  * the full ten would pad the quiz with restatements of the same material.
  */
-export const SINGLE_CHAPTER_QUESTION_COUNT = 5
+const SINGLE_CHAPTER_QUESTION_COUNT = 5
 
 /** Question count for every book with more than one chapter. */
-export const FINAL_QUIZ_QUESTION_COUNT = 10
+const FINAL_QUIZ_QUESTION_COUNT = 10
 
 /** Question count for the final quiz. A single-chapter book gets a shorter quiz. */
 export function questionCountFor(totalChapters: number): number {

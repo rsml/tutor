@@ -46,20 +46,20 @@ const REVISE_SYSTEM_PHRASE = 'revising an existing table of contents'
  * that number is the only thing distinguishing the two streams, so it is read
  * back out rather than tracked as call-order state.
  */
-export function chapterNumberFrom(prompt: string | undefined): number {
+function chapterNumberFrom(prompt: string | undefined): number {
   const match = (prompt ?? '').match(/This is Chapter (\d+) of/)
   return match ? Number(match[1]) : 1
 }
 
 /** Matches any chapter-generation stream, chapter 1 or chapter N. */
-export const isChapterStream = systemIncludes(CHAPTER_SYSTEM_PHRASE)
+const isChapterStream = systemIncludes(CHAPTER_SYSTEM_PHRASE)
 
 /** Matches the chapter-generation stream for one specific chapter. */
 export const isChapterStreamFor = (num: number) => (req: MatchableRequest): boolean =>
   isChapterStream(req) && chapterNumberFrom(req.prompt) === num
 
 /** Matches the table-of-contents stream that `POST /api/books` opens. */
-export const isTocStream = systemIncludes(TOC_SYSTEM_PHRASE)
+const isTocStream = systemIncludes(TOC_SYSTEM_PHRASE)
 
 /** Installs the default rule set. Journeys may add rules on top to shadow any of these. */
 export function applyDefaultScript(model: ScriptedTextGeneration): void {

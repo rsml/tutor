@@ -42,7 +42,7 @@ export interface ImportedCover {
  * chapter counts, and anything supplied by the importing user rather than
  * the file, such as tags or series. Those are the persisting service's job.
  */
-export interface ImportedBookMeta {
+interface ImportedBookMeta {
   title: string
   subtitle?: string
   showTitleOnCover?: boolean

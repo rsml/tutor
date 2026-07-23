@@ -32,7 +32,7 @@ export interface LibraryFilters {
   datePreset: 'any' | 'week' | 'month' | '3months'
 }
 
-export type LibraryView = 'grid' | 'list'
+type LibraryView = 'grid' | 'list'
 
 export const DEFAULT_LIBRARY_FILTERS: LibraryFilters = {
   status: 'all',
@@ -172,9 +172,7 @@ export const {
 } = settingsSlice.actions
 
 // Derived selectors — return active provider's key/model
-export const selectApiKey = (state: RootState) => state.settings.providers[state.settings.activeProvider]?.apiKey ?? null
 export const selectHasApiKey = (state: RootState) => !!state.settings.providers[state.settings.activeProvider]?.apiKey
-export const selectModel = (state: RootState) => state.settings.providers[state.settings.activeProvider]?.model ?? ''
 export const selectActiveProvider = (state: RootState) => state.settings.activeProvider
 export const selectProviders = (state: RootState) => state.settings.providers
 export const selectFontSize = (state: RootState) => state.settings.fontSize

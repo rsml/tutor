@@ -14,13 +14,10 @@ const chatHistorySlice = createSlice({
     setChatMessages(state, action: PayloadAction<{ bookId: string; messages: ChatMessage[] }>) {
       state.histories[action.payload.bookId] = action.payload.messages
     },
-    clearChatHistory(state, action: PayloadAction<{ bookId: string }>) {
-      delete state.histories[action.payload.bookId]
-    },
   },
 })
 
-export const { setChatMessages, clearChatHistory } = chatHistorySlice.actions
+export const { setChatMessages } = chatHistorySlice.actions
 
 const EMPTY_MESSAGES: ChatMessage[] = []
 

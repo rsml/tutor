@@ -14,12 +14,12 @@ import type { KeyVault } from '../ports/key-vault.js'
  * that never reaches the network.
  */
 
-export interface ModelOption {
+interface ModelOption {
   value: string
   label: string
 }
 
-export interface ProviderModels {
+interface ProviderModels {
   chat: ModelOption[]
   image: ModelOption[]
 }

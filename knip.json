@@ -1,0 +1,55 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  "entry": [
+    "server/index.ts",
+    "server/mcp-server.ts",
+    "electron/main.ts",
+    "electron/preload.ts",
+    "client/app/main.tsx",
+    "scripts/*.ts",
+    "**/*.test.ts",
+    "e2e/**/*.spec.ts"
+  ],
+  "ignoreDependencies": [
+    // fastify's fast-json-stringify depends on this transitively. Pinned as a
+    // direct dependency because electron-builder cannot resolve deep
+    // transitive deps of a hoisted pnpm install (see CLAUDE.md).
+    "@fastify/merge-json-schemas",
+    // Same reasoning as @fastify/merge-json-schemas above, the other
+    // transitive dependency fast-json-stringify needs.
+    "json-schema-ref-resolver",
+    // Transitive runtime dependency of @huggingface/transformers (kokoro-js's
+    // ONNX backend). Pinned directly so electron-builder's asarUnpack step
+    // can bundle it.
+    "onnxruntime-node",
+    // Git hooks manager driven entirely by lefthook.yml, never imported from
+    // source.
+    "@evilmartians/lefthook"
+  ],
+  "ignoreIssues": {
+    // Vendored shadcn/ui primitives. Each file's full generated API is kept
+    // even when today's app only wires up part of it, hand-pruning individual
+    // exports fights the generator and makes the next `shadcn add` a manual
+    // merge instead of an overwrite.
+    "client/components/ui/*.tsx": ["exports", "types"],
+    // shared/ is the domain's single source of truth for data shapes
+    // (CLAUDE.md). A schema composed only locally today, or a type inferred
+    // from one, is still part of the published vocabulary, not dead code.
+    "shared/{domain,events,responses}.ts": ["exports", "types"],
+    // FinalQuizBodySchema and SuggestCoverPromptBodySchema deliberately alias
+    // AiRequestSchema instead of redeclaring the same {model, provider}
+    // shape, so the three endpoints can never drift apart by accident.
+    "shared/contracts.ts": ["duplicates"],
+    // Each per-slice state interface here has no importer of its own, but
+    // must stay exported anyway: tsconfig's declaration:true makes the store's
+    // inferred RootState/store/useAppSelector types (built from combineReducers)
+    // fail to compile (TS4023) if any constituent slice state can't be named.
+    "client/store/{chapterData,quizHistorySlice,backgroundTasks,settings}.ts": ["types"],
+    // server/constants.ts is the documented single source of truth for this
+    // value. adapters/in-memory-background-tasks.ts, ports/background-tasks.fake.ts,
+    // and ports/background-tasks.contract.ts each hardcode their own copy with
+    // a "mirrors TASK_CLEANUP_DELAY_MS" comment rather than importing it, so
+    // deleting it would orphan those three comments.
+    "server/constants.ts": ["exports"]
+  }
+}

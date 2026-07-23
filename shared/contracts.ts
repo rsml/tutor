@@ -6,11 +6,9 @@ import { ProviderSchema, MODEL_REGEX } from './provider.js'
  * The HTTP request and response shapes the client and server agree on.
  *
  * The entities the app persists and renders live in shared/domain.ts
- * instead. ProviderSchema now lives in shared/provider.ts and is re-exported
- * here so existing imports of it from this module keep working.
+ * instead. ProviderSchema lives in shared/provider.ts; every schema below
+ * that needs it imports it from there directly.
  */
-
-export { ProviderSchema }
 
 const ModelSchema = z.string().min(1).max(100).regex(MODEL_REGEX)
 

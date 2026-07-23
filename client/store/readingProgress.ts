@@ -7,7 +7,7 @@
  */
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
-export interface ReadingPosition {
+interface ReadingPosition {
   chapter: number
   section: number
   lastReadAt: string
@@ -48,11 +48,6 @@ const readingProgressSlice = createSlice({
 })
 
 export const { setPosition } = readingProgressSlice.actions
-
-/** @deprecated Use setPosition instead */
-export function setChapterPosition(payload: { bookId: string; chapterIndex: number }) {
-  return setPosition({ bookId: payload.bookId, chapter: payload.chapterIndex, section: 0 })
-}
 
 export { migratePosition }
 

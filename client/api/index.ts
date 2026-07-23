@@ -13,8 +13,7 @@
  * endpoints.
  */
 
-export { ApiError, apiUrl, getApiPort, initApiBase } from './http'
-export type { ApiRequestInit, JsonRequestInit } from './http'
+export { ApiError, getApiPort } from './http'
 
 export { audiobookFileUrl, coverUrl, voicePreviewUrl } from './urls'
 
