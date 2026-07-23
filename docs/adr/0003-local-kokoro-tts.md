@@ -9,7 +9,11 @@ Audiobooks need narration for an entire book, chapter by chapter. Cloud text-to-
 
 ## Decision
 
-Narration runs locally through [`kokoro-speech-synthesis.ts`](../../server/adapters/kokoro-speech-synthesis.ts), which loads the `onnx-community/Kokoro-82M-v1.0-ONNX` model at `q8` quantization using `kokoro-js` and `onnxruntime-node`. [`audiobook-installer.ts`](../../server/services/audiobook-installer.ts) downloads the model and a separate ffmpeg binary on first use, and it reports progress as a background task. Together those downloads total approximately 195 MB, 115 MB for the model and 80 MB for ffmpeg. [`ffmpeg-audio-assembly.ts`](../../server/adapters/ffmpeg-audio-assembly.ts) muxes the per-chapter WAV files into a single M4B with chapter markers once [`generate-audiobook.ts`](../../server/services/generate-audiobook.ts) has narrated every chapter. The voice list orders male voices first, and within Kokoro's American-male group, `am_michael` is pinned ahead of every other voice regardless of its position in Kokoro's own catalogue.
+Narration runs locally through [`kokoro-speech-synthesis.ts`](../../server/adapters/kokoro-speech-synthesis.ts), which loads the `onnx-community/Kokoro-82M-v1.0-ONNX` model at `q8` quantization using `kokoro-js` and `onnxruntime-node`.
+
+- [`audiobook-installer.ts`](../../server/services/audiobook-installer.ts) downloads the model and a separate ffmpeg binary on first use, and reports progress as a background task. Together those downloads total approximately 195 MB, 115 MB for the model and 80 MB for ffmpeg.
+- [`ffmpeg-audio-assembly.ts`](../../server/adapters/ffmpeg-audio-assembly.ts) muxes the per-chapter WAV files into a single M4B with chapter markers once [`generate-audiobook.ts`](../../server/services/generate-audiobook.ts) has narrated every chapter.
+- The voice list orders male voices first. Within Kokoro's American-male group, `am_michael` is pinned ahead of every other voice regardless of its position in Kokoro's own catalogue.
 
 ## Consequences
 

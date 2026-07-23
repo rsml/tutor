@@ -9,12 +9,17 @@ One `package.json` used to serve the React app, the Fastify server, the Electron
 
 ## Decision
 
-The repo is split into top-level `client/`, `server/`, `shared/`, and `electron/` folders, reached through `@client/*`, `@server/*`, and `@shared/*` aliases declared in both [`tsconfig.json`](../../tsconfig.json) and [`vite.config.ts`](../../vite.config.ts). [`eslint.config.mjs`](../../eslint.config.mjs) enforces the boundary between them with the rule `@typescript-eslint/no-restricted-imports`, which forbids server code from importing client code and client code from importing server code. A second rule, `no-restricted-syntax`, forces every client-to-server call through `client/api/` rather than a raw `fetch` or `EventSource` constructed elsewhere. `shared/` may import neither zone. All of it still runs from one `package.json`, one lockfile, and one `node_modules`, with `node-linker=hoisted` set in `.npmrc`.
+The repo is split into top-level `client/`, `server/`, `shared/`, and `electron/` folders, reached through `@client/*`, `@server/*`, and `@shared/*` aliases declared in both [`tsconfig.json`](../../tsconfig.json) and [`vite.config.ts`](../../vite.config.ts).
+
+- [`eslint.config.mjs`](../../eslint.config.mjs) enforces the boundary between them with the rule `@typescript-eslint/no-restricted-imports`, which forbids server code from importing client code and client code from importing server code.
+- A second rule, `no-restricted-syntax`, forces every client-to-server call through `client/api/` rather than a raw `fetch` or `EventSource` constructed elsewhere.
+- `shared/` may import neither zone.
+- All of it still runs from one `package.json`, one lockfile, and one `node_modules`, with `node-linker=hoisted` set in `.npmrc`.
 
 ## Consequences
 
 **What this buys**
-- It enforces the same import boundaries a real workspace would give, starting today, without adding the build risk a workspace migration would bring to the Electron packaging that [ADR 0006](0006-electron-packaging-constraints.md) describes.
+- It enforces the same import boundaries a real workspace would give, without the build risk a workspace migration would add to the Electron packaging described in [ADR 0006](0006-electron-packaging-constraints.md).
 - It keeps one install and one test command, `pnpm test`, for the whole repo.
 
 **What this costs**
@@ -25,4 +30,6 @@ The repo is split into top-level `client/`, `server/`, `shared/`, and `electron/
 
 ## Revisit when
 
-A second application wants to consume `shared/`, or CI time justifies per-package caching. The folders are already package-shaped for that move. Adding `pnpm-workspace.yaml` and a `package.json` per folder is mechanical once the import boundaries above have held for a while, but `node-linker=hoisted` and the `external()` allow-list in `vite.config.ts` need re-verifying across all three Electron modes first.
+A second application wants to consume `shared/`, or CI time justifies per-package caching. The folders are already package-shaped for that move.
+
+Adding `pnpm-workspace.yaml` and a `package.json` per folder is mechanical once the import boundaries above have held for a while. But `node-linker=hoisted` and the `external()` allow-list in `vite.config.ts` need re-verifying across all three Electron modes first.
