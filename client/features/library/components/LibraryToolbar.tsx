@@ -112,6 +112,7 @@ export function LibraryToolbar({
               }}
               className="flex items-center justify-center size-7 rounded-lg text-content-muted hover:text-content-primary hover:bg-surface-raised/50 transition-colors"
               title="Search (⌘F)"
+              aria-label="Search"
             >
               <Search className="size-4" />
             </button>
@@ -232,6 +233,7 @@ export function LibraryToolbar({
                   : 'text-content-muted hover:text-content-primary hover:bg-surface-raised/50',
               )}
               title="Grid view"
+              aria-label="Grid view"
             >
               <LayoutGrid className="size-3.5" />
             </button>
@@ -244,6 +246,7 @@ export function LibraryToolbar({
                   : 'text-content-muted hover:text-content-primary hover:bg-surface-raised/50',
               )}
               title="List view"
+              aria-label="List view"
             >
               <List className="size-3.5" />
             </button>
