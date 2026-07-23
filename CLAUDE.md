@@ -1,6 +1,6 @@
 # Tutor — Adaptive Learning Library
 
-AI-generated books tailored to your learning style. Books are generated chapter-by-chapter with a feedback loop: after each chapter, quiz questions and feedback shape how subsequent chapters are generated. The book literally rewrites itself based on how you're learning.
+AI-generated books tailored to your learning style. Books are generated chapter by chapter with a feedback loop. After each chapter, quiz results and feedback shape how the next one is generated. The book literally rewrites itself based on how you're learning.
 
 ## Start here
 
@@ -15,14 +15,14 @@ AI-generated books tailored to your learning style. Books are generated chapter-
 
 ## How It Works
 
-1. **Create a book** — Enter a topic + prompt, AI generates a table of contents
-2. **Approve the TOC** — Review, edit, reorder chapters, then approve
-3. **Read chapter-by-chapter** — Quick, digestible chapters (~1,500 words, 5-10 min read) teaching specific concepts
-4. **Inline chat** — Select any text to slide out a chat panel for deeper AI explanation, then return to where you left off
-5. **Feedback** — After finishing a chapter, give feedback on what resonated/didn't
-6. **Generation triggered** — Submitting feedback triggers next chapter generation in the background
-7. **Quiz while waiting** — Optional 3-question quiz to test retention and aid memory while next chapter generates
-8. **Adaptive** — Next chapter incorporates feedback + quiz results (wrong answers trigger brief recap at start)
+1. **Create a book.** Enter a topic and a prompt, and the AI generates a table of contents.
+2. **Approve the TOC.** Review, edit, and reorder chapters, then approve.
+3. **Read chapter by chapter.** Quick, digestible chapters, roughly 1,500 words and a 5 to 10 minute read, each teaching specific concepts.
+4. **Inline chat.** Select any text to slide out a chat panel for a deeper AI explanation, then return to where you left off.
+5. **Feedback.** After finishing a chapter, say what resonated and what didn't.
+6. **Generation triggered.** Submitting feedback starts the next chapter generating in the background.
+7. **Quiz while waiting.** An optional 3-question quiz tests retention while the next chapter generates.
+8. **Adaptive.** The next chapter incorporates the feedback and quiz results, and a wrong answer triggers a brief recap at its start.
 
 ## Repo layout
 
@@ -62,18 +62,18 @@ docs/        ADRs, generated routes, plans        → docs/adr/README.md
 
 ## Key Design Decisions
 
-- **Single-user app** — No auth, no concurrency concerns
-- **Chapter length** — ~1,500 words (5-10 min), flex longer when content demands
-- **TOC approval** — Step-by-step wizard before generation begins
-- **Progress tracking** — Scroll-based auto-tracking (completed at ≥90%)
-- **Generation flow** — Just-in-time: one chapter at a time, quiz masks latency ([ADR 0002](docs/adr/0002-just-in-time-chapter-generation.md))
-- **Background work** — A `BackgroundTask` in memory, journalled to disk by the `JobJournal` port so an interrupted one can resume at the next boot ([ADR 0008](docs/adr/0008-persisted-job-journal.md))
-- **If the app restarts mid-generation** — `generate-all` and audiobook jobs resume from disk without redoing finished work; a single interrupted chapter surfaces in the reader's retry panel
-- **Inline chat** — Select any text to open a slide-out panel for AI-powered deeper explanation; dismissing returns to reading position
+- **Single-user app.** No auth and no concurrency concerns.
+- **Chapter length.** Roughly 1,500 words, a 5 to 10 minute read, flexing longer when the content demands it.
+- **TOC approval.** A step-by-step wizard runs before any generation begins.
+- **Progress tracking.** Scroll-based auto-tracking, with a chapter completed at 90 percent or more.
+- **Generation flow.** Just in time, one chapter at a time, with the quiz masking the latency ([ADR 0002](docs/adr/0002-just-in-time-chapter-generation.md)).
+- **Background work.** A `BackgroundTask` lives in memory and is journalled to disk by the `JobJournal` port, so an interrupted one can resume at the next boot ([ADR 0008](docs/adr/0008-persisted-job-journal.md)).
+- **Restart mid-generation.** `generate-all` and audiobook jobs resume from disk without redoing finished work. A single interrupted chapter surfaces in the reader's retry panel.
+- **Inline chat.** Selecting text opens a slide-out panel for a deeper AI explanation, and dismissing it returns to the reading position.
 
 ## Electron Packaging
 
-This is an Electron app using `vite-plugin-electron`. Three modes exist with different behaviors:
+This is an Electron app using `vite-plugin-electron`. Three modes exist with different behaviors.
 
 | Mode | Command | Renderer loads from | API routing | Origin header |
 |------|---------|--------------------|--------------|----|
@@ -83,11 +83,12 @@ This is an Electron app using `vite-plugin-electron`. Three modes exist with dif
 
 ### Critical conventions
 
-- **Address**: Always use `127.0.0.1` (not `localhost`) for server communication — avoids IPv6 mismatch on macOS
-- **CORS**: Server must accept `Origin: null` (file:// protocol) and any `localhost`/`127.0.0.1` origin — enforced in `server/index.ts:isAllowedOrigin()`
-- **CSP**: Both `index.html` meta tag and `electron/main.ts` header must allow `http://localhost:*` AND `http://127.0.0.1:*` in `connect-src`
-- **pnpm + electron-builder**: `.npmrc` requires `node-linker=hoisted`. The electron build bundles the unified/remark/rehype ecosystem into `dist-electron/` (via rollup) since electron-builder can't resolve their deep transitive deps. The bundle list is in `vite.config.ts` `external()`. CJS packages (fastify, etc.) stay external — if a CJS transitive dep is missing, add it to `package.json` `dependencies` (e.g., `json-schema-ref-resolver` for fastify). For CJS packages imported dynamically, handle the double-default: `mod.default?.default ?? mod.default` (see `epub-gen-memory` import in `server/adapters/epub-gen-export.ts`).
-- **Never modify `index.html` or `package.json` to match build output** — `dist/` is the build target, source files must keep source references (`/client/app/main.tsx`)
+- **Address.** Always use `127.0.0.1`, never `localhost`, for server communication. This avoids an IPv6 mismatch on macOS.
+- **CORS.** The server must accept `Origin: null` (the file protocol) and any `localhost` or `127.0.0.1` origin. Enforced in `server/index.ts:isAllowedOrigin()`.
+- **CSP.** Both the `index.html` meta tag and the `electron/main.ts` header must allow `http://localhost:*` and `http://127.0.0.1:*` in `connect-src`.
+- **pnpm + electron-builder.** `.npmrc` requires `node-linker=hoisted`. The electron build bundles the unified, remark, and rehype ecosystem into `dist-electron/` via rollup, because electron-builder cannot resolve their deep transitive deps. The bundle list is in `vite.config.ts` `external()`.
+- **CJS packages stay external.** If a CJS transitive dep is missing, add it to `package.json` `dependencies`, the way `json-schema-ref-resolver` is there for fastify. A CJS package imported dynamically needs the double-default dance, `mod.default?.default ?? mod.default`, as in `server/adapters/epub-gen-export.ts`.
+- **Never modify `index.html` or `package.json` to match build output.** `dist/` is the build target, and source files must keep source references (`/client/app/main.tsx`).
 
 ## Development
 
@@ -106,47 +107,47 @@ pnpm mcp:dev           # MCP server, needs dev:server on 3147 (see .mcp.json)
 
 ## Conventions
 
-- Zod domain schemas live in `shared/`, the single source of truth for both sides
-- YAML for all metadata, Markdown for chapter content
-- Vercel AI SDK is reached only through the `TextGeneration` port, never imported outside `server/adapters/`
-- Tests colocated with source files (`*.test.ts`)
-- **TDD** — tests land before or with implementation, visible in commit order. Contract test before adapter, service test before service, api-client test before the client function
-- Path aliases: `@client/*` → `client/*`, `@server/*` → `server/*`, `@shared/*` → `shared/*`
-- Domain names come from `CONTEXT.md`. Do not invent a synonym for a word that already has an owner
+- Zod domain schemas live in `shared/`, the single source of truth for both sides.
+- YAML for all metadata, Markdown for chapter content.
+- The Vercel AI SDK is reached only through the `TextGeneration` port and never imported outside `server/adapters/`.
+- Tests are colocated with source files (`*.test.ts`).
+- **TDD.** Tests land before or with implementation, visible in commit order. Contract test before adapter, service test before service, api-client test before the client function.
+- Path aliases: `@client/*` → `client/*`, `@server/*` → `server/*`, `@shared/*` → `shared/*`.
+- Domain names come from `CONTEXT.md`. Do not invent a synonym for a word that already has an owner.
 
 ## Domain & Architecture
 
 These are the rules new and refactored code follows. The server conforms today. The client conforms on the api boundary and is still converging elsewhere.
 
-- **Ubiquitous domain language**: `Book`, `Chapter`, `TOC`, `Feedback`, `Quiz`, `Progress`, `LearningProfile`, `Audiobook`, `BackgroundTask`. Use these names everywhere — schemas, services, components, prompts, UI copy. `CONTEXT.md` is the register
-- **Pure domain core** in `shared/` and `server/domain/` — Zod types and pure functions only. No `fs`, `fetch`, AI SDK imports, or env vars inside the domain
-- **Ports for every external dependency**: each gets a single named module the rest of the app depends on by shape, not by SDK. Every port ships an in-memory fake and a contract test
-- **Adapters do the I/O**: only the adapter touches the SDK, library, child process, or filesystem. Swappable and testable in isolation
-- **Routes are thin**: parse input → call a service → return result. No business logic, no direct `fs` or SDK calls in `server/routes/*.ts`
-- **Frontend goes through one client**: components import from `client/api/`, not raw `fetch`. A raw `fetch` or `new EventSource` outside `client/api/` is an ESLint error. New endpoints get a function in the client
-- **No new SDK sprinkling**: when adding a third-party SDK, wrap it behind a port first, then consume the port from services
+- **Ubiquitous domain language.** `Book`, `Chapter`, `TOC`, `Feedback`, `Quiz`, `Progress`, `LearningProfile`, `Audiobook`, `BackgroundTask`. Use these names everywhere, in schemas, services, components, prompts, and UI copy. `CONTEXT.md` is the register.
+- **Pure domain core** in `shared/` and `server/domain/`. Zod types and pure functions only. No `fs`, `fetch`, AI SDK imports, or env vars inside the domain.
+- **Ports for every external dependency.** Each gets a single named module the rest of the app depends on by shape, not by SDK. Every port ships an in-memory fake and a contract test.
+- **Adapters do the I/O.** Only the adapter touches the SDK, library, child process, or filesystem. Swappable and testable in isolation.
+- **Routes are thin.** Parse input, call a service, return the result. No business logic and no direct `fs` or SDK calls in `server/routes/*.ts`.
+- **The frontend goes through one client.** Components import from `client/api/`, and a raw `fetch` or `new EventSource` outside it is an ESLint error. A new endpoint gets a function in the client.
+- **No new SDK sprinkling.** When adding a third-party SDK, wrap it behind a port first, then consume the port from services.
 
 ## UI / Frontend Design
 
 ### Desktop-First Design
-- Optimize for 1280–2560px desktop resolutions — no mobile-first layouts
-- Keyboard-first navigation with shortcuts everywhere (use `lucide-react` icons + `<kbd>`)
-- Horizontal layouts: sidebars, resizable panels (shadcn `ResizablePanelGroup`), command palettes (`cmdk`)
-- Fluid typography/spacing for large screens: `text-3xl` → `text-4xl` on `lg`, `container mx-auto max-w-7xl`
-- Minimum layout target: `min-width: 1024px`
+- Optimize for 1280 to 2560px desktop resolutions, no mobile-first layouts.
+- Keyboard-first navigation with shortcuts everywhere (use `lucide-react` icons + `<kbd>`).
+- Horizontal layouts: sidebars, resizable panels (shadcn `ResizablePanelGroup`), command palettes.
+- Fluid typography and spacing for large screens: `text-3xl` → `text-4xl` on `lg`, `container mx-auto max-w-7xl`.
+- Minimum layout target: `min-width: 1024px`.
 
 ### shadcn/ui + Tailwind v4
-- Use CVA for component variants, `cn()` for class merging, CSS variables from theme
-- Respect system dark mode via `prefers-color-scheme` + manual toggle with shadcn theme provider
-- Build using composition: small shadcn-extended primitives first (e.g., `<AppSidebar />`, `<ResizablePanelGroup orientation="horizontal">`), then compose pages
-- Use CVA to add custom variants (e.g., button with `glass`, `command`)
-- Keep logic out of UI files — prefer hooks + context
+- Use CVA for component variants, `cn()` for class merging, CSS variables from theme.
+- Respect system dark mode via `prefers-color-scheme` plus a manual toggle with the shadcn theme provider.
+- Build by composition, small shadcn-extended primitives first, then compose pages.
+- Use CVA to add custom variants, such as a button with `glass` or `command`.
+- Keep logic out of UI files. Prefer hooks and context.
 
 ### Page Layout Patterns
-- **Header**: Centered title only, draggable region (`-webkit-app-region: drag`), no navigation buttons inside header
-- **Back button**: Absolute-positioned overlay on the content area below the header — `absolute left-6 top-3 z-20` on a plain `<button>` with `text-content-muted opacity-50 hover:opacity-100`. See `client/features/creation/components/CreationView.tsx` as the reference pattern.
+- **Header**: centered title only, a draggable region (`-webkit-app-region: drag`), and no navigation buttons inside it.
+- **Back button**: an absolute-positioned overlay on the content area below the header, `absolute left-6 top-3 z-20` on a plain `<button>` with `text-content-muted opacity-50 hover:opacity-100`. `client/features/creation/components/CreationView.tsx` is the reference pattern.
 
 ### Visual Aesthetic
-- Clean, minimal aesthetic inspired by Raycast, Linear, Obsidian
-- Subtle glassmorphism on floating panels: `backdrop-blur-md bg-background/80 border-border/50`
-- Custom window chrome: no default browser titlebar; implement draggable region with `-webkit-app-region: drag`
+- Clean, minimal aesthetic inspired by Raycast, Linear, and Obsidian.
+- Subtle glassmorphism on floating panels: `backdrop-blur-md bg-background/80 border-border/50`.
+- Custom window chrome, no default browser titlebar, with a draggable region via `-webkit-app-region: drag`.
