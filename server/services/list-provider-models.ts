@@ -149,7 +149,11 @@ export async function listProviderModels(
       case 'anthropic': models = await fetchAnthropicModels(apiKey, signal, fetchImpl); break
       case 'openai': models = await fetchOpenAIModels(apiKey, signal, fetchImpl); break
       case 'google': models = await fetchGoogleModels(apiKey, signal, fetchImpl); break
-      default: return { ok: false, status: STATUS_BAD_REQUEST, error: 'Invalid provider' }
+      default: {
+        // Exhaustiveness guard: a compile error here means a ProviderId was added without a case above.
+        const exhaustive: never = provider
+        return { ok: false, status: STATUS_BAD_REQUEST, error: `Invalid provider: ${String(exhaustive)}` }
+      }
     }
     return { ok: true, models }
   } catch (err) {
