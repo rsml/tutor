@@ -1,12 +1,16 @@
 # Tutor
 
+[![CI](https://img.shields.io/github/actions/workflow/status/rsml/tutor/ci.yml?branch=master&label=CI)](https://github.com/rsml/tutor/actions/workflows/ci.yml)
+[![License: GPL-3.0](https://img.shields.io/github/license/rsml/tutor)](LICENSE)
+[![Latest Release](https://img.shields.io/github/v/release/rsml/tutor)](https://github.com/rsml/tutor/releases/latest)
+
+Start here. [ARCHITECTURE.md](ARCHITECTURE.md) is the entry point for technical readers. The vocabulary is in [CONTEXT.md](CONTEXT.md) and the decisions, with what each one cost, are in [docs/adr/](docs/adr/README.md).
+
 **Read smarter — personal tutors disguised as books.**
 
 Books suggested and generated just for you based on your feedback, quiz results, and unique learning style.
 
 Talks about this project live in [rsml/talks](https://github.com/rsml/talks).
-
-Reading the code? Start at [ARCHITECTURE.md](ARCHITECTURE.md). The vocabulary is in [CONTEXT.md](CONTEXT.md) and the decisions, with what each one cost, are in [docs/adr/](docs/adr/README.md).
 
 <p align="center">
   <img src="docs/screenshots/library.png" alt="Tutor library showing AI-generated books with custom covers" width="100%">
@@ -98,6 +102,21 @@ Give feedback on each chapter. The next one adapts to your quiz results and lear
   <img src="docs/screenshots/settings.png" alt="Learning profile and settings" width="100%">
 </p>
 
+## Architecture
+
+```mermaid
+flowchart LR
+  features["client/features/<br/>feature slices"] --> api["client/api/<br/>typed API client"]
+  api -->|"HTTP and SSE"| routes["server/routes/<br/>thin routes"]
+  routes --> services["server/services/"]
+  services --> ports["server/ports/"]
+  ports --> adapters["server/adapters/"]
+```
+
+Client feature slices call the server through one typed API client. Routes stay thin and hand off to services, which depend on ports rather than concrete adapters.
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the full five-diagram hub, including how the pieces talk to each other, the server hexagon, the adaptive loop, and the dependency rule.
+
 ## Build Standalone DMG
 
 ```bash
@@ -112,6 +131,7 @@ pnpm install
 pnpm dev:server         # Keep this running one tab
 pnpm electron:dev       # Run this in a different tab
 pnpm test               # Run tests
+pnpm e2e                # Run end-to-end tests
 ```
 
 Set your Claude, ChatGPT or Gemini API key in Settings (gear icon) on first launch.
@@ -128,7 +148,7 @@ Set your Claude, ChatGPT or Gemini API key in Settings (gear icon) on first laun
 | AI | Vercel AI SDK |
 | Storage | Filesystem (Markdown + YAML) |
 | Desktop | Electron (via vite-plugin-electron) |
-| Testing | Vitest |
+| Testing | Vitest + Playwright (e2e) |
 
 ## License
 
