@@ -21,10 +21,12 @@ One folder per user-facing capability. Each owns its own components, hooks, and 
 
 ## Rules
 
-Logic lives in hooks, components render. All server access goes through `client/api`, so no feature holds a raw `fetch` call. Shared primitives live in `components/ui/`, available to every feature. Beyond that, a feature imports directly from whichever feature it needs, `reader` reaches into `audiobook`, `chat`, and `markdown`, `settings` reaches into `profile` and `audiobook`, rather than the two being merged into one folder.
+Logic lives in hooks. Components render. All server access goes through `client/api`, so no feature holds a raw `fetch` call.
 
-`library/dialogs/dialog-machine.ts` replaces the ad hoc dialog booleans the library page used to carry with a single reducer over a tagged union of the sixteen dialogs the library can show, and it is unit-tested at `dialog-machine.test.ts`.
+Shared primitives live in `components/ui/`, available to every feature. Beyond that, a feature imports directly from whichever feature it needs. For example, `reader` reaches into `audiobook`, `chat`, and `markdown`, and `settings` reaches into `profile` and `audiobook`, rather than the two being merged into one folder.
 
-Redux slices live in `client/store/`, one level up. RTK Query was not adopted, server state is fetched through `client/api` and cached in plain slices instead.
+`library/dialogs/dialog-machine.ts` replaces the ad hoc dialog booleans the library page used to carry with a single reducer over a tagged union of the sixteen dialogs the library can show. It is unit-tested at `dialog-machine.test.ts`.
+
+Redux slices live in `client/store/`, one level up. RTK Query was not adopted. Server state is fetched through `client/api` and cached in plain slices instead.
 
 Related: [CONTEXT.md](../../CONTEXT.md), [client/README.md](../README.md)
