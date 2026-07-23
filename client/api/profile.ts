@@ -5,7 +5,8 @@ import type {
   SuggestSkillsBodySchema,
   UpdateProfileBodySchema,
 } from '@shared/contracts'
-import type { LearningProfile, Preferences } from '@shared/domain'
+import type { LearningProfile } from '@shared/domain'
+import type { ProfileResponse } from '@shared/responses'
 import { request } from './http'
 import { streamNdjson } from './sse'
 
@@ -25,21 +26,7 @@ export type Skill = LearningProfile['skills'][number]
 /** The model and provider choice every AI-backed profile call sends. */
 type AiRequest = z.infer<typeof AiRequestSchema>
 
-/**
- * The learning profile as the server answers or accepts it over the wire.
- *
- * This is not LearningProfile from shared/domain.ts. That type's fields are
- * style and identity, the shape the profile is persisted as on disk. The
- * profile route folds those two fields into a single aboutMe string before
- * it answers. That aboutMe field is what every caller actually reads, so
- * this module names the wire shape on its own rather than importing a type
- * that would be misleading.
- */
-export interface ProfileResponse {
-  aboutMe: string
-  preferences: Preferences
-  skills: Skill[]
-}
+export type { ProfileResponse }
 
 /** Fetch the learning profile, meaning About Me, preferences, and prior knowledge skills. */
 export async function getProfile(): Promise<ProfileResponse> {
