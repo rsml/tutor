@@ -93,6 +93,10 @@ The one sanctioned exception is a hidden `<input type="file">`, which has no rol
 
 `retries: 0`, and that is the most load-bearing line in `playwright.config.ts`. The server is in process, the adapters are fakes, and nothing touches a network, so there is no legitimate source of nondeterminism left. A retry could only convert a real bug into a green run. A journey that flakes twice gets quarantined with `test.fixme` and an issue, never a blanket retry.
 
+Not hiding nondeterminism is only half the policy. The other half is going looking for it before CI does. Before trusting a green run on a change that touches timing, `pnpm e2e --project=web --repeat-each=4 --workers=4` oversubscribes the worker count past what the machine can actually run at once, which starves the server side of CPU the same way a busy CI runner does. Repeating a test on an idle machine only repeats the same fast timing, so it proves nothing a single run did not already prove. Oversubscription is the part that manufactures a slow, contended server and gives a timing bug the chance to appear on a laptop instead of only in CI.
+
+Some races need a wider window than contention alone reliably opens. Give a scripted stream's response a `chunkDelayMs` and the gap between the last chunk reaching the client and the server's own later write widens on purpose, turning a rare write-after-signal race into one every run reproduces. Reach for that before blaming CI infrastructure. A bug that only appears when the window is wide has not gone away when the window is narrow again. It has only gone back to being rare.
+
 Two assertions are quarantined today, and neither is flake. Both are blocked on issue 50, a real bug this suite found in chapter generation's event stream, and each `test.fixme` names it. They flip green when it is fixed.
 
 One real source of nondeterminism does exist inside the product and journeys have to respect it. `server/services/generate-quiz.ts` shuffles a quiz's options with `Math.random()` before saving, so a quiz option must be located by its text and never by its position.
