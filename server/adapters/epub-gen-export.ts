@@ -3,9 +3,7 @@ import type { EpubBuildRequest, EpubExport } from '../ports/epub-export.js'
 
 /**
  * Wraps epub-gen-memory to build EPUB bytes from already-rendered chapter
- * HTML. Lifted from the POST /api/books/:id/export-epub route handler in
- * server/routes/books.ts, which built this same options object plus a
- * dynamic import of epub-gen-memory inline.
+ * HTML.
  *
  * epub-gen-memory ships as CJS with `__esModule` set. Under Node's ESM
  * loader a dynamic import() of it yields a double-wrapped default: this

@@ -74,3 +74,6 @@ export const IMPORT_BODY_LIMIT_BYTES = 20 * 1024 * 1024 // 20MB, to accommodate 
 
 /** Audio bitrate ffmpeg encodes with when muxing the final M4B audiobook. */
 export const M4B_BITRATE = '64k'
+
+/** How often generate-all re-checks whether a conflicting single-chapter generation has cleared. */
+export const GENERATION_BATCH_POLL_MS = 1_000

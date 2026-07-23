@@ -1,3 +1,4 @@
+import { GENERATION_BATCH_POLL_MS } from '../constants.js'
 import type { GenerationJobParams } from '@shared/domain.js'
 import type { ProviderId } from '@shared/provider.js'
 import type { BackgroundTasks } from '../ports/background-tasks.js'
@@ -12,9 +13,9 @@ import type { GenerateNextChapter, GenerateNextChapterOptions } from './generate
  *
  * Waits for any single-chapter generation already active for this book
  * (started through the SSE hub) to clear before generating each chapter,
- * so the two flows never write the same chapter concurrently. Checking
- * again after a fixed delay, rather than subscribing to the hub, mirrors
- * how server/services/generation-manager.ts polled before this refactor.
+ * so the two flows never write the same chapter concurrently. A fixed-delay
+ * re-check is deliberate, subscribing to the hub would couple this task to
+ * its lifecycle for no gain at this frequency.
  */
 export function createGenerateAllChapters(deps: {
   backgroundTasks: BackgroundTasks
@@ -59,7 +60,7 @@ export function createGenerateAllChapters(deps: {
 
           // Wait if single-chapter generation is active
           while (deps.chapterStream.isGenerating(bookId)) {
-            await new Promise(r => setTimeout(r, 1000))
+            await new Promise(r => setTimeout(r, GENERATION_BATCH_POLL_MS))
             if (task.signal.aborted) return
           }
 

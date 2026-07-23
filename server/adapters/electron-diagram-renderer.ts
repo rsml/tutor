@@ -8,6 +8,9 @@ import { diagramSourceFallback, type DiagramRenderer } from '../ports/diagram-re
 /** How long a single chart gets to render before its slot falls back to the escaped source block. */
 const DEFAULT_PER_CHART_TIMEOUT_MS = 10_000
 
+/** One compositor beat between resizing the hidden window and capturing it, so the capture sees the resized page. */
+const RESIZE_SETTLE_MS = 100
+
 /**
  * The minimal surface this adapter needs from an Electron BrowserWindow
  * instance. Electron's real BrowserWindow satisfies this structurally, so
@@ -111,7 +114,7 @@ export function createElectronDiagramRenderer(deps: ElectronDiagramRendererDeps)
 
             // Resize to fit diagram and capture as PNG
             win.setContentSize(Math.max(dimensions.width, 200), Math.max(dimensions.height, 100))
-            await new Promise(r => setTimeout(r, 100))
+            await new Promise(r => setTimeout(r, RESIZE_SETTLE_MS))
             const image = await win.webContents.capturePage()
             const pngBuffer = image.toPNG()
             // Save to temp file — epub-gen-memory doesn't support data: URLs
