@@ -24,7 +24,10 @@ import { z } from 'zod'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
-import { generateQuiz, QUIZ_QUALITY_RULES } from '../server/services/generation-manager.js'
+import { createGenerateQuiz, QUIZ_QUALITY_RULES } from '../server/services/generate-quiz.js'
+import { createAiSdkTextGeneration } from '../server/adapters/ai-sdk-text-generation.js'
+import { createFileKeyVault } from '../server/adapters/file-key-vault.js'
+import { getDataDir } from '../shared/node/data-dir.js'
 import { MARKDOWN_FORMATTING_RULES } from '../server/prompts/formatting-rules.js'
 
 interface Args { provider: 'anthropic' | 'openai' | 'google'; model: string }
@@ -251,15 +254,21 @@ async function main() {
 
   // Step 6: production generateQuiz()
   {
-    // generateQuiz uses createModelClient → key-store. Make sure the key is in
-    // the env so key-store picks it up (it reads env on module load — already
-    // happened by this point, but env vars set before this script runs are
-    // fine).
+    // generateQuiz resolves its key through the TextGeneration port's
+    // KeyVault, and createFileKeyVault reads `{PROVIDER}_API_KEY` from the
+    // environment at construction time (see server/adapters/file-key-vault.ts),
+    // so the env var checked below is what it will actually pick up.
     if (!process.env[`${provider.toUpperCase()}_API_KEY`]) {
       console.log('  Step 6: SKIP (set provider API key env var to test the production path)')
     } else {
       const r = await step('Step 6: production generateQuiz()', async () => {
-        const quiz = await generateQuiz(provider, model, REAL_CHAPTER, 3)
+        const keyVault = createFileKeyVault({ dataDir: getDataDir() })
+        const ai = createAiSdkTextGeneration({ keyVault })
+        const generateQuiz = createGenerateQuiz({ ai })
+        // includeFormattingRules: true mirrors the chapter-N quiz path
+        // (generate-next-chapter.ts, get-chapter-quiz.ts), the historical
+        // behaviour this step has always exercised via REAL_CHAPTER + MARKDOWN_FORMATTING_RULES above.
+        const quiz = await generateQuiz({ provider, model, chapterContent: REAL_CHAPTER, quizLength: 3, includeFormattingRules: true })
         if (quiz.questions.length !== 3) {
           throw new Error(`Expected 3 questions, got ${quiz.questions.length}`)
         }
@@ -277,13 +286,14 @@ async function main() {
   console.log('─'.repeat(72))
   console.log('If quizzes are still missing in the app, the bug is in the route or')
   console.log('frontend flow (hypotheses 16, 17):')
-  console.log('  • h16: first-chapter path in books.ts:357 fails silently')
-  console.log('  • h17: on-demand quiz route at books.ts:520 returns 500 → client')
-  console.log('         falls through to feedback with no error toast')
+  console.log('  • h16: first-chapter path in server/services/start-book.ts (~L154) fails silently')
+  console.log('  • h17: on-demand quiz route (server/routes/assessment.ts:32) calls')
+  console.log('         get-chapter-quiz.ts, which has no catch — a failure there is an')
+  console.log('         unhandled 500, and the client falls through to feedback with no error toast')
   console.log('')
-  console.log('Next: add console.error to the two catch {} blocks in')
-  console.log('generation-manager.ts:338 and books.ts:360, regenerate one chapter,')
-  console.log('and read server stderr.')
+  console.log('Next: read the [quiz-gen] console.error already logged by start-book.ts and')
+  console.log('generate-next-chapter.ts, or, for an on-demand fetch, read the 500 response body')
+  console.log('from assessment.ts:32 after regenerating one chapter.')
 }
 
 main().catch((err) => {

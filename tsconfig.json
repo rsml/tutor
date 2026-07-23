@@ -21,6 +21,6 @@
       "@shared/*": ["./shared/*"]
     }
   },
-  "include": ["shared/**/*.ts", "server/**/*.ts", "client/**/*.ts", "client/**/*.tsx", "electron/**/*.ts", "e2e/**/*.ts", "playwright.config.ts", "scripts/build-e2e-epub-fixture.ts", "scripts/generate-routes-doc.ts"],
+  "include": ["shared/**/*.ts", "server/**/*.ts", "client/**/*.ts", "client/**/*.tsx", "electron/**/*.ts", "e2e/**/*.ts", "playwright.config.ts", "scripts/**/*.ts"],
   "exclude": ["node_modules", "dist", "dist-electron"]
 }
