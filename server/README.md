@@ -28,7 +28,7 @@ The packaged Electron app binds a free port chosen at launch, so pointing the MC
 | `http/` | Fastify glue, error handler, body parsing, route params, status codes |
 | `migrations/` | forward-only schema steps |
 | `prompts/` | shared prompt fragments as TypeScript |
-| `test/` | shared test helpers |
+| `test/` | shared test harness, the name matches `route-harness.ts` |
 | `composition-root.ts` | the one place adapters are chosen |
 | `mcp-server.ts` | the MCP entry point |
 
