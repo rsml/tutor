@@ -6,9 +6,14 @@ import { ChapterBreakdownList } from '@client/features/quiz/components/ChapterBr
 import { QuizPanel } from '@client/features/reader/components/QuizPanel'
 import { SmartReviewFlow, type ReviewQuestion } from '@client/features/quiz/components/SmartReviewFlow'
 import { getToc } from '@client/api'
-import { useAppSelector, useAppDispatch, recordQuizAttempt } from '@client/store'
-import { selectBookQuizSummary, selectSmartReviewQueue } from '@client/store/quizHistorySelectors'
-import type { ChapterQuiz } from '@client/store/quizHistorySlice'
+import {
+  useAppSelector,
+  useAppDispatch,
+  recordQuizAttempt,
+  selectBookQuizSummary,
+  selectSmartReviewQueue,
+  type ChapterQuiz,
+} from '@client/store'
 
 interface QuizReviewBook {
   id: string

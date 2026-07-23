@@ -55,18 +55,12 @@ export * from './readingProgress'
 export * from './settings'
 
 export { recordQuizAttempt } from '@client/store/quizHistorySlice'
-export type { QuizQuestion as QuizHistoryQuestion, QuizAttempt, ChapterQuiz } from '@client/store/quizHistorySlice'
+export type { ChapterQuiz } from '@client/store/quizHistorySlice'
 
-export { setChatMessages, clearChatHistory } from '@client/store/chatHistorySlice'
+export { setChatMessages } from '@client/store/chatHistorySlice'
 export { selectChatMessages } from '@client/store/chatHistorySlice'
 
 export {
-  selectChapterQuiz,
-  selectChapterAttempts,
-  selectOverallScore,
-  selectChaptersNeedingReview,
-  selectChapterSparkline,
   selectSmartReviewQueue,
   selectBookQuizSummary,
-  selectPerQuestionCorrectRate,
 } from '@client/store/quizHistorySelectors'

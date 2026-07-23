@@ -81,5 +81,3 @@ export function createImportBook(deps: ImportBookDeps) {
     },
   }
 }
-
-export type ImportBook = ReturnType<typeof createImportBook>

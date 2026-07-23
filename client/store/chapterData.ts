@@ -5,7 +5,6 @@
  * reads back when writing the next chapter.
  */
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
-import type { RootState } from './index'
 
 interface QuizResult {
   questions: Array<{
@@ -47,11 +46,5 @@ const chapterDataSlice = createSlice({
 })
 
 export const { setChapterFeedback, setChapterQuizResult } = chapterDataSlice.actions
-
-export const selectChapterFeedback = (bookId: string, chapterNum: number) =>
-  (state: RootState) => state.chapterData.feedback[bookId]?.[String(chapterNum)] ?? null
-
-export const selectChapterQuizResult = (bookId: string, chapterNum: number) =>
-  (state: RootState) => state.chapterData.quizResults[bookId]?.[String(chapterNum)] ?? null
 
 export const chapterDataReducer = chapterDataSlice.reducer

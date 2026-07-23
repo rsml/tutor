@@ -18,7 +18,7 @@ import type { GeneratedImage, ImageGeneration, ImageGenerationRequest } from './
  * exact real model id.
  */
 
-export type FakeImageFailureReason = 'auth' | 'content-policy' | 'recoverable'
+type FakeImageFailureReason = 'auth' | 'content-policy' | 'recoverable'
 
 interface ScriptedFailure {
   reason: FakeImageFailureReason

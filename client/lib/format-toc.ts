@@ -1,4 +1,4 @@
-export interface TocChapterForFormatting {
+interface TocChapterForFormatting {
   title: string
   description: string
 }

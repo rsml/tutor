@@ -37,7 +37,7 @@ import type { GenerationJobParams } from '@shared/domain.js'
 export type Task = ClientTask
 
 /** Stops a subscribe() callback from receiving further events. */
-export type Unsubscribe = () => void
+type Unsubscribe = () => void
 
 /**
  * What a caller gets back from start() or findActive(): enough to identify

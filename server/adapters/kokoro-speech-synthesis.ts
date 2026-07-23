@@ -207,7 +207,7 @@ interface RawAudioLike {
 }
 
 /** Adapter-only test seam, not part of the SpeechSynthesis port contract. Resets the one lazily-loaded TTS singleton and worker-pool queue this factory instance owns. */
-export interface KokoroTestingHooks {
+interface KokoroTestingHooks {
   reset(): void
   setTtsInstance(instance: KokoroTTS | null): void
 }

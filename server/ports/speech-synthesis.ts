@@ -50,7 +50,7 @@ export interface MissingComponents {
 }
 
 /** One progress tick reported during install. Mirrors InstallProgress in audiobook-installer.ts. */
-export interface InstallProgress {
+interface InstallProgress {
   component: 'model' | 'ffmpeg' | 'overall'
   bytesDownloaded: number
   bytesTotal: number
@@ -61,7 +61,7 @@ export interface InstallProgress {
 export type ProgressCallback = (progress: InstallProgress) => void
 
 /** Receives one call per sentence as synthesizeChapter streams audio, so a caller can show incremental progress. */
-export type SentenceCallback = (sentenceIdx: number, sentenceText: string) => void
+type SentenceCallback = (sentenceIdx: number, sentenceText: string) => void
 
 /**
  * outPath is always a WAV file in current usage, see

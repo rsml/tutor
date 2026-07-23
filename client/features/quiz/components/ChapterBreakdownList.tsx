@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { CheckCircle2, XCircle, ChevronDown, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { Button } from '@client/components/ui/button'
-import type { ChapterQuiz } from '@client/store/quizHistorySlice'
+import type { ChapterQuiz } from '@client/store'
 
 interface ChapterBreakdownListProps {
   bookId: string

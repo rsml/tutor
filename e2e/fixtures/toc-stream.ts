@@ -39,9 +39,6 @@ export const TOC_STREAM_CHUNKS: string[] = [
   ...TOC_CHAPTERS.map((chapter, index) => `${index + 1}. **${chapter.title}** — ${chapter.description}\n`),
 ]
 
-/** The whole fixture as one string, for assertions that want the parsed result rather than the stream. */
-export const TOC_MARKDOWN = TOC_STREAM_CHUNKS.join('')
-
 /**
  * A revised table of contents, with visibly different chapter titles than
  * `TOC_CHAPTERS` but the same descriptions, title, and subtitle, standing in

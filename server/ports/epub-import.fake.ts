@@ -41,7 +41,7 @@ function clonePreview(preview: EpubPreview): EpubPreview {
 }
 
 /** One call this fake received, recorded for contract-test assertions. */
-export interface FakeEpubImportCall {
+interface FakeEpubImportCall {
   method: 'preview' | 'read'
   byteLength: number
 }

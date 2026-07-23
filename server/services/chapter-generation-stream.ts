@@ -39,7 +39,7 @@ interface GenerationState {
   errorKind?: AiErrorKind
 }
 
-export interface GenerationOptions extends GenerateNextChapterOptions {
+interface GenerationOptions extends GenerateNextChapterOptions {
   /** Set for regeneration — generate this exact chapter instead of generatedUpTo + 1. */
   targetChapterNum?: number
 }

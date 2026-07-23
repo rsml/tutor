@@ -12,9 +12,6 @@ import { streamText } from './sse'
  * browser bundle.
  */
 
-/** One turn of chat history, sent to the server as context for the next reply. */
-export type ChatHistoryMessage = z.infer<typeof ChatBodySchema>['history'][number]
-
 /** Everything streamChat needs to ask the tutor about a chapter or a selection. */
 export type StreamChatParams = z.infer<typeof ChatBodySchema> & {
   /** Lets the caller abort the request in flight, since the chat panel cancels one whenever the user restarts or clears the conversation. */
