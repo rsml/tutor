@@ -22,10 +22,11 @@ export function FeedbackForm({ chapterNum, onSubmit, submitLabel }: FeedbackForm
 
       <div className="mt-8 space-y-6">
         <div>
-          <label className="block text-sm font-medium text-content-secondary">
+          <label htmlFor={`feedback-liked-${chapterNum}`} className="block text-sm font-medium text-content-secondary">
             What worked well?
           </label>
           <textarea
+            id={`feedback-liked-${chapterNum}`}
             value={liked}
             onChange={e => setLiked(e.target.value)}
             placeholder="Examples, tone, depth, analogies..."
@@ -35,10 +36,11 @@ export function FeedbackForm({ chapterNum, onSubmit, submitLabel }: FeedbackForm
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-content-secondary">
+          <label htmlFor={`feedback-disliked-${chapterNum}`} className="block text-sm font-medium text-content-secondary">
             What could be better?
           </label>
           <textarea
+            id={`feedback-disliked-${chapterNum}`}
             value={disliked}
             onChange={e => setDisliked(e.target.value)}
             placeholder="Too fast, too slow, confusing section..."
