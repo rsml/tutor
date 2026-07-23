@@ -36,6 +36,7 @@ export function DeleteBookDialog({ open, payload, dispatch, mutating, onConfirm 
           onChange={e => dispatch({ type: 'edit', patch: { input: e.target.value } })}
           onKeyDown={e => e.key === 'Enter' && payload?.input.toLowerCase() === 'delete' && onConfirm()}
           placeholder="delete"
+          aria-label="Type delete to confirm"
           className="h-9 rounded-lg border border-border-default bg-surface-raised px-3 text-sm text-content-primary placeholder:text-content-muted/50 outline-none transition-colors focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
           autoFocus
           autoCapitalize="off"
