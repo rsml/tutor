@@ -25,7 +25,11 @@ test('rename persists across reload', async ({ page, app }) => {
   await library(page).waitForReady()
 
   await library(page).card('Rename Me').click({ button: 'right' })
-  await page.getByRole('button', { name: 'Rename' }).click()
+  // exact: true, because BookCard itself is now a named role="button" (issue
+  // #51 item 1), and this fixture's title, "Rename Me", contains "Rename" as
+  // a substring, which Playwright's default non-exact name matching would
+  // otherwise also match, alongside the actual "Rename" menu item.
+  await page.getByRole('button', { name: 'Rename', exact: true }).click()
 
   const dialog = page.getByRole('dialog', { name: 'Rename Book' })
   // The Title field's <label> is plain text, not associated with its <input>
