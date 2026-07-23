@@ -41,6 +41,21 @@ jobs:
 
       - run: pnpm test
 
+      - run: pnpm knip
+
+      - run: pnpm tsx scripts/check-doc-paths.ts
+
+      # scripts/find-unnamed-buttons.mts lands via a sibling task. Guarded so
+      # this step is a no-op until that branch merges, rather than failing
+      # every run in the meantime.
+      - name: Check for unnamed accessible buttons (client)
+        run: |
+          if [ -f scripts/find-unnamed-buttons.mts ]; then
+            pnpm tsx scripts/find-unnamed-buttons.mts client
+          else
+            echo "scripts/find-unnamed-buttons.mts not present yet (lands via a sibling task) — skipping."
+          fi
+
       # docs/api-routes.md is generated from the Fastify route registry, so it
       # can only be wrong if someone changed a route and did not regenerate it.
       # This step is what makes that impossible to merge. It runs last because
