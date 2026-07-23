@@ -22,6 +22,13 @@ pre-commit:
         }
 
 pre-push:
+  parallel: true
   commands:
     test:
       run: pnpm test
+    # The dead-code and doc-path gates run on push rather than on commit so
+    # the commit loop stays fast while nothing stale can reach the remote.
+    knip:
+      run: pnpm knip
+    doc-paths:
+      run: pnpm tsx scripts/check-doc-paths.ts
