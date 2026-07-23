@@ -18,7 +18,11 @@ The React 19 renderer, built with Vite and rendered inside Electron's sandboxed 
 
 ## Rules ESLint enforces
 
-Two rules here are lint errors rather than conventions. A file outside `client/api/` may not call `fetch`. The client used to hold eighty four scattered fetch calls, and the only durable reason it now holds none is that adding one fails the build. The same rule covers `new EventSource`, because the background task stream used to be constructed in two separate components, each with its own idea of when to reconnect. Reach the server through `client/api` in both cases.
+Two rules here are lint errors rather than conventions.
+
+A file outside `client/api/` may not call `fetch`. The client used to hold eighty four scattered fetch calls, and the only durable reason it now holds none is that adding one fails the build.
+
+The same rule covers `new EventSource`, because the background task stream used to be constructed in two separate components, each with its own idea of when to reconnect. Reach the server through `client/api` in both cases.
 
 `client/` may also not import from `server/`, and it may not import `@shared/node/*`. That corner is Node-only, and importing it from the renderer would pull `process` into the client bundle.
 

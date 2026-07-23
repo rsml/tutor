@@ -2,7 +2,9 @@ Up: [ARCHITECTURE.md](../ARCHITECTURE.md)
 
 # electron/
 
-`main.ts` creates the app window, starts the Fastify server in process on a random localhost port, and owns every privileged IPC handler, meaning secure API key storage, the redux-persist file store, save and open-file dialogs, and the busy-state confirmation on quit. `preload.ts` exposes that IPC surface to the renderer as `window.electronAPI` through `contextBridge`, the sandboxed renderer's only path to Node or Electron.
+`main.ts` creates the app window, starts the Fastify server in process on a random localhost port, and owns every privileged IPC handler. That handler covers secure API key storage, the redux-persist file store, save and open-file dialogs, and the busy-state confirmation on quit.
+
+`preload.ts` exposes that IPC surface to the renderer as `window.electronAPI` through `contextBridge`, the sandboxed renderer's only path to Node or Electron.
 
 ## Three modes
 
@@ -23,6 +25,8 @@ Up: [ARCHITECTURE.md](../ARCHITECTURE.md)
 
 ## Verifying a packaging change
 
-Check all three modes, not only dev, since dev never touches `dist-electron/` at all. `scripts/bundle-fingerprint.sh` automates the part that matters most. It greps the built main-process files for every specifier that survived bundling and prints them sorted, so diffing that output from before a refactor to after one catches whatever escaped `external()` before the packaged app dies at launch instead of after.
+Check all three modes, not only dev, since dev never touches `dist-electron/` at all.
+
+`scripts/bundle-fingerprint.sh` automates the part that matters most. It greps the built main-process files for every specifier that survived bundling and prints them sorted. Diffing that output from before a refactor to after one catches whatever escaped `external()`, before the packaged app dies at launch instead of after.
 
 Related: [client/README.md](../client/README.md), [server/README.md](../server/README.md), [shared/README.md](../shared/README.md), [0006-electron-packaging-constraints.md](../docs/adr/0006-electron-packaging-constraints.md)
