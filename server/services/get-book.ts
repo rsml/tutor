@@ -23,7 +23,11 @@ export interface GetBookTocDeps {
   books: BookRepository
 }
 
-/** GET /api/books/:id/toc — the approved table of contents. */
+/**
+ * GET /api/books/:id/toc — the approved table of contents.
+ * A pure forward to the port, kept so every route goes through a service
+ * and the route-service-port layering stays uniform across the server.
+ */
 export function createGetBookToc({ books }: GetBookTocDeps) {
   return async function getBookToc(bookId: string): Promise<Toc> {
     return books.getToc(bookId)

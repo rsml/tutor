@@ -28,9 +28,8 @@ import { nextDelayMs, RETRY_TOTAL_ELAPSED_CEILING_MS } from './retry-policy.js'
  * out, get rate limited, or hit a transient provider outage, which is why
  * this adapter, not its callers, owns a hard timeout and a retry policy.
  *
- * It owns four things that were duplicated across those call sites before
- * this port existed. The first is resolving a provider + model into a
- * callable client, lifted from the pre-port `services/model-client.ts`.
+ * It owns four things so no caller has to. The first is resolving a
+ * provider + model into a callable client.
  * The second is the five-minute generation
  * timeout, composed by {@link composeAbortSignal}. The third is the
  * `experimental_repairText` logging hook used when a model's JSON output
