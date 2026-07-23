@@ -1,12 +1,9 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
   "entry": [
-    "server/index.ts",
-    "server/mcp-server.ts",
     "electron/main.ts",
     "electron/preload.ts",
-    "client/app/main.tsx",
-    "scripts/*.ts",
+    "scripts/*.{ts,mts}",
     "**/*.test.ts",
     "e2e/**/*.spec.ts"
   ],
