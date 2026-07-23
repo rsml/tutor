@@ -38,7 +38,20 @@ function BookCardInner({ title, subtitle, chaptersRead, totalChapters, status, r
   const isFailed = isFailedBook(status)
 
   return (
-    <div className={`group relative card-lift ${isGenerating ? 'cursor-default' : 'cursor-pointer'}`} onClick={isGenerating ? undefined : onClick} onContextMenu={isGenerating ? undefined : onContextMenu}>
+    <div
+      role="button"
+      tabIndex={isGenerating ? -1 : 0}
+      aria-label={title}
+      className={`group relative card-lift ${isGenerating ? 'cursor-default' : 'cursor-pointer'}`}
+      onClick={isGenerating ? undefined : onClick}
+      onContextMenu={isGenerating ? undefined : onContextMenu}
+      onKeyDown={isGenerating ? undefined : (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick?.()
+        }
+      }}
+    >
       <div className="relative">
         {/* Depth halo — fades in on hover to lift the card off the page.
             Sits behind the cover (first DOM child → painted underneath). */}
